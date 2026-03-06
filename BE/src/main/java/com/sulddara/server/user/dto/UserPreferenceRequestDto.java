@@ -2,11 +2,15 @@ package com.sulddara.server.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class UserPreferenceRequestDto {
 
   @NotBlank(message = "사적/공적 목적은 필수입니다.")
