@@ -4,8 +4,24 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'primary': '#f48c25',
+        'background-light': '#f8f7f5',
+        'background-dark': '#221910',
+      },
+      fontFamily: {
+        'display': ['Plus Jakarta Sans', 'Noto Sans KR', 'sans-serif'],
+      },
+      borderRadius: {
+        'DEFAULT': '0.5rem',
+        'lg': '1rem',
+        'xl': '1.5rem',
+        'full': '9999px',
+      },
+    },
   },
   plugins: [],
 }
