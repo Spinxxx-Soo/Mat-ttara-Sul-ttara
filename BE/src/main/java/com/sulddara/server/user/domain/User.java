@@ -30,6 +30,10 @@ public class User {
   @Column(nullable = false)
   private String name;
 
+  private String email;
+
+  private String bio;
+
   @Column(nullable = false)
   private String role; // e.g., ROLE_USER
 
@@ -40,18 +44,26 @@ public class User {
   @LastModifiedDate
   private LocalDateTime updatedAt;
 
+  private LocalDateTime lastLoginAt;
+
   @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
   private UserPreference preference;
 
-  public User(String oAuthId, String provider, String name, String role) {
+  public User(String oAuthId, String provider, String name, String email, String role) {
     this.oAuthId = oAuthId;
     this.provider = provider;
     this.name = name;
+    this.email = email;
     this.role = role;
   }
 
-  public void updateName(String name) {
+  public void updateProfile(String name, String bio) {
     this.name = name;
+    this.bio = bio;
+  }
+
+  public void updateLastLoginAt(LocalDateTime lastLoginAt) {
+    this.lastLoginAt = lastLoginAt;
   }
 
   public void setPreference(UserPreference preference) {

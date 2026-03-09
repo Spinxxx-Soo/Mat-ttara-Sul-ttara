@@ -4,6 +4,8 @@ import com.sulddara.server.user.dto.*;
 import com.sulddara.server.user.domain.User;
 import com.sulddara.server.user.domain.UserPreference;
 import com.sulddara.server.user.repository.UserRepository;
+import com.sulddara.server.user.mapper.UserMapper;
+import com.sulddara.server.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,19 +18,20 @@ public class UserServiceImpl implements UserService {
   private static final String USER_NOT_FOUND_MSG = "User not found with id: ";
 
   private final UserRepository userRepository;
+  private final UserMapper userMapper;
 
   @Override
   public UserProfileResponseDto getUserProfile(Long userId) {
     User user = getUserOrThrow(userId);
-    return mapToProfileResponseDto(user);
+    return userMapper.toProfileResponse(user);
   }
 
   @Override
   @Transactional
-  public UserProfileResponseDto updateUserName(Long userId, UserUpdateNameRequestDto requestDto) {
+  public UserProfileResponseDto updateUserProfile(Long userId, UserUpdateNameRequestDto requestDto) {
     User user = getUserOrThrow(userId);
-    user.updateName(requestDto.getName());
-    return mapToProfileResponseDto(user);
+    user.updateProfile(requestDto.getName(), requestDto.getBio());
+    return userMapper.toProfileResponse(user);
   }
 
   @Override
@@ -38,18 +41,18 @@ public class UserServiceImpl implements UserService {
 
     if (user.getPreference() == null) {
       UserPreference newPreference = new UserPreference(
-          requestDto.getPurpose(),
+          requestDto.getUsageType(),
           requestDto.getAgeGroup(),
           requestDto.getGender());
       user.setPreference(newPreference);
     } else {
       user.getPreference().updatePreferences(
-          requestDto.getPurpose(),
+          requestDto.getUsageType(),
           requestDto.getAgeGroup(),
           requestDto.getGender());
     }
 
-    return mapToPreferenceResponseDto(user.getPreference());
+    return userMapper.toPreferenceResponse(user.getPreference());
   }
 
   @Override
@@ -61,22 +64,6 @@ public class UserServiceImpl implements UserService {
 
   private User getUserOrThrow(Long userId) {
     return userRepository.findById(userId)
-        .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND_MSG + userId));
-  }
-
-  private UserProfileResponseDto mapToProfileResponseDto(User user) {
-    return UserProfileResponseDto.builder()
-        .id(user.getId())
-        .name(user.getName())
-        .role(user.getRole())
-        .build();
-  }
-
-  private UserPreferenceResponseDto mapToPreferenceResponseDto(UserPreference pref) {
-    return UserPreferenceResponseDto.builder()
-        .purpose(pref.getPurpose())
-        .ageGroup(pref.getAgeGroup())
-        .gender(pref.getGender())
-        .build();
+        .orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG + userId));
   }
 }

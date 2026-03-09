@@ -15,7 +15,7 @@ public class UserPreferenceRequestDto {
 
   @NotBlank(message = "사적/공적 목적은 필수입니다.")
   @Pattern(regexp = "^(사적|공적)$", message = "목적은 '사적' 방이나 '공적' 방만 가능합니다.")
-  private String purpose;
+  private String usageType;
 
   @NotBlank(message = "나잇대는 필수입니다.")
   private String ageGroup;

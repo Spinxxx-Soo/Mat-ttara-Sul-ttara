@@ -24,16 +24,17 @@ public class UserController {
     return ResponseEntity.ok(userService.getUserProfile(getCurrentUserId()));
   }
 
-  @PatchMapping("/name")
-  public ResponseEntity<UserProfileResponseDto> updateMyName(
+  @PatchMapping
+  public ResponseEntity<UserProfileResponseDto> updateMyProfile(
       @Valid @RequestBody UserUpdateNameRequestDto requestDto) {
-    return ResponseEntity.ok(userService.updateUserName(getCurrentUserId(), requestDto));
+    return ResponseEntity.ok(userService.updateUserProfile(getCurrentUserId(), requestDto));
   }
 
   @PostMapping("/preference")
   public ResponseEntity<UserPreferenceResponseDto> registerPreference(
       @Valid @RequestBody UserPreferenceRequestDto requestDto) {
-    return ResponseEntity.ok(userService.registerOrUpdatePreference(getCurrentUserId(), requestDto));
+    return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+        .body(userService.registerOrUpdatePreference(getCurrentUserId(), requestDto));
   }
 
   @PatchMapping("/preference")

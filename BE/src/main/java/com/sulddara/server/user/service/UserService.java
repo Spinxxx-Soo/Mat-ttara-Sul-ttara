@@ -8,7 +8,7 @@ import com.sulddara.server.user.dto.UserUpdateNameRequestDto;
 public interface UserService {
   UserProfileResponseDto getUserProfile(Long userId);
 
-  UserProfileResponseDto updateUserName(Long userId, UserUpdateNameRequestDto requestDto);
+  UserProfileResponseDto updateUserProfile(Long userId, UserUpdateNameRequestDto requestDto);
 
   UserPreferenceResponseDto registerOrUpdatePreference(Long userId, UserPreferenceRequestDto requestDto);
 

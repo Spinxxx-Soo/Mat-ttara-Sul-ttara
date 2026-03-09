@@ -26,7 +26,7 @@ public class UserPreference {
   private User user;
 
   @Column(nullable = false)
-  private String purpose; // 사적 or 공적
+  private String usageType; // 사적 or 공적
 
   @Column(nullable = false)
   private String ageGroup; // 약속 참여 나잇대
@@ -41,8 +41,8 @@ public class UserPreference {
   @LastModifiedDate
   private LocalDateTime updatedAt;
 
-  public UserPreference(String purpose, String ageGroup, String gender) {
-    this.purpose = purpose;
+  public UserPreference(String usageType, String ageGroup, String gender) {
+    this.usageType = usageType;
     this.ageGroup = ageGroup;
     this.gender = gender;
   }
@@ -51,8 +51,8 @@ public class UserPreference {
     this.user = user;
   }
 
-  public void updatePreferences(String purpose, String ageGroup, String gender) {
-    this.purpose = purpose;
+  public void updatePreferences(String usageType, String ageGroup, String gender) {
+    this.usageType = usageType;
     this.ageGroup = ageGroup;
     this.gender = gender;
   }
