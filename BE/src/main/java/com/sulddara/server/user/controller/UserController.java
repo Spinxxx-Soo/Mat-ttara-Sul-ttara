@@ -1,8 +1,6 @@
 package com.sulddara.server.user.controller;
 
-import com.sulddara.server.user.dto.UserPreferenceRequestDto;
-import com.sulddara.server.user.dto.UserResponseDto;
-import com.sulddara.server.user.dto.UserUpdateNameRequestDto;
+import com.sulddara.server.user.dto.*;
 import com.sulddara.server.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,24 +20,24 @@ public class UserController {
   }
 
   @GetMapping
-  public ResponseEntity<UserResponseDto> getMyProfile() {
+  public ResponseEntity<UserProfileResponseDto> getMyProfile() {
     return ResponseEntity.ok(userService.getUserProfile(getCurrentUserId()));
   }
 
   @PatchMapping("/name")
-  public ResponseEntity<UserResponseDto> updateMyName(
+  public ResponseEntity<UserProfileResponseDto> updateMyName(
       @Valid @RequestBody UserUpdateNameRequestDto requestDto) {
     return ResponseEntity.ok(userService.updateUserName(getCurrentUserId(), requestDto));
   }
 
   @PostMapping("/preference")
-  public ResponseEntity<UserResponseDto> registerPreference(
+  public ResponseEntity<UserPreferenceResponseDto> registerPreference(
       @Valid @RequestBody UserPreferenceRequestDto requestDto) {
     return ResponseEntity.ok(userService.registerOrUpdatePreference(getCurrentUserId(), requestDto));
   }
 
   @PatchMapping("/preference")
-  public ResponseEntity<UserResponseDto> updatePreference(
+  public ResponseEntity<UserPreferenceResponseDto> updatePreference(
       @Valid @RequestBody UserPreferenceRequestDto requestDto) {
     return ResponseEntity.ok(userService.registerOrUpdatePreference(getCurrentUserId(), requestDto));
   }

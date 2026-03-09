@@ -2,7 +2,6 @@ package com.sulddara.server.user.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
@@ -42,7 +41,6 @@ public class UserPreference {
   @LastModifiedDate
   private LocalDateTime updatedAt;
 
-  @Builder
   public UserPreference(String purpose, String ageGroup, String gender) {
     this.purpose = purpose;
     this.ageGroup = ageGroup;

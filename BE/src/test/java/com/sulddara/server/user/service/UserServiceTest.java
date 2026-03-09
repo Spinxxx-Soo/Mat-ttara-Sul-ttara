@@ -2,7 +2,8 @@ package com.sulddara.server.user.service;
 
 import com.sulddara.server.user.domain.User;
 import com.sulddara.server.user.dto.UserPreferenceRequestDto;
-import com.sulddara.server.user.dto.UserResponseDto;
+import com.sulddara.server.user.dto.UserPreferenceResponseDto;
+import com.sulddara.server.user.dto.UserProfileResponseDto;
 import com.sulddara.server.user.dto.UserUpdateNameRequestDto;
 import com.sulddara.server.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -33,34 +34,23 @@ class UserServiceTest {
   @DisplayName("사용자 프로필 조회 테스트")
   void getUserProfileTest() {
     // given
-    User user = User.builder()
-        .oAuthId("google_12345")
-        .provider("GOOGLE")
-        .name("Test User")
-        .role("ROLE_USER")
-        .build();
+    User user = new User("google_12345", "GOOGLE", "Test User", "ROLE_USER");
     ReflectionTestUtils.setField(user, "id", 1L);
 
     given(userRepository.findById(anyLong())).willReturn(Optional.of(user));
 
     // when
-    UserResponseDto response = userService.getUserProfile(1L);
+    UserProfileResponseDto response = userService.getUserProfile(1L);
 
     // then
     assertThat(response.getName()).isEqualTo("Test User");
-    assertThat(response.getOAuthId()).isEqualTo("google_12345");
   }
 
   @Test
   @DisplayName("사용자 이름 변경 테스트")
   void updateUserNameTest() {
     // given
-    User user = User.builder()
-        .oAuthId("google_12345")
-        .provider("GOOGLE")
-        .name("Old Name")
-        .role("ROLE_USER")
-        .build();
+    User user = new User("google_12345", "GOOGLE", "Old Name", "ROLE_USER");
     ReflectionTestUtils.setField(user, "id", 1L);
 
     UserUpdateNameRequestDto requestDto = new UserUpdateNameRequestDto("New Name");
@@ -68,7 +58,7 @@ class UserServiceTest {
     given(userRepository.findById(anyLong())).willReturn(Optional.of(user));
 
     // when
-    UserResponseDto response = userService.updateUserName(1L, requestDto);
+    UserProfileResponseDto response = userService.updateUserName(1L, requestDto);
 
     // then
     assertThat(response.getName()).isEqualTo("New Name");
@@ -79,21 +69,15 @@ class UserServiceTest {
   @DisplayName("온보딩 선호도 등록 테스트 (최초)")
   void registerPreferenceTest() {
     // given
-    User user = User.builder()
-        .name("Test User")
-        .build();
+    User user = new User("test_oauth", "TEST", "Test User", "ROLE_USER");
     ReflectionTestUtils.setField(user, "id", 1L);
 
-    UserPreferenceRequestDto requestDto = UserPreferenceRequestDto.builder()
-        .purpose("ALONE")
-        .ageGroup("20s")
-        .gender("MALE")
-        .build();
+    UserPreferenceRequestDto requestDto = new UserPreferenceRequestDto("ALONE", "20s", "MALE");
 
     given(userRepository.findById(anyLong())).willReturn(Optional.of(user));
 
     // when
-    UserResponseDto response = userService.registerOrUpdatePreference(1L, requestDto);
+    UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, requestDto);
 
     // then
     assertThat(response.getPurpose()).isEqualTo("ALONE");
@@ -104,7 +88,7 @@ class UserServiceTest {
   @DisplayName("사용자 탈퇴 테스트")
   void deleteUserTest() {
     // given
-    User user = User.builder().build();
+    User user = new User("test_oauth", "TEST", "Test User", "ROLE_USER");
     ReflectionTestUtils.setField(user, "id", 1L);
 
     given(userRepository.findById(anyLong())).willReturn(Optional.of(user));

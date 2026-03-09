@@ -2,7 +2,6 @@ package com.sulddara.server.user.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
@@ -44,7 +43,6 @@ public class User {
   @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
   private UserPreference preference;
 
-  @Builder
   public User(String oAuthId, String provider, String name, String role) {
     this.oAuthId = oAuthId;
     this.provider = provider;

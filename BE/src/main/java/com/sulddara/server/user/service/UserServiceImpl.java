@@ -1,8 +1,6 @@
 package com.sulddara.server.user.service;
 
-import com.sulddara.server.user.dto.UserPreferenceRequestDto;
-import com.sulddara.server.user.dto.UserResponseDto;
-import com.sulddara.server.user.dto.UserUpdateNameRequestDto;
+import com.sulddara.server.user.dto.*;
 import com.sulddara.server.user.domain.User;
 import com.sulddara.server.user.domain.UserPreference;
 import com.sulddara.server.user.repository.UserRepository;
@@ -15,33 +13,34 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
 
+  private static final String USER_NOT_FOUND_MSG = "User not found with id: ";
+
   private final UserRepository userRepository;
 
   @Override
-  public UserResponseDto getUserProfile(Long userId) {
+  public UserProfileResponseDto getUserProfile(Long userId) {
     User user = getUserOrThrow(userId);
-    return mapToResponseDto(user);
+    return mapToProfileResponseDto(user);
   }
 
   @Override
   @Transactional
-  public UserResponseDto updateUserName(Long userId, UserUpdateNameRequestDto requestDto) {
+  public UserProfileResponseDto updateUserName(Long userId, UserUpdateNameRequestDto requestDto) {
     User user = getUserOrThrow(userId);
     user.updateName(requestDto.getName());
-    return mapToResponseDto(user);
+    return mapToProfileResponseDto(user);
   }
 
   @Override
   @Transactional
-  public UserResponseDto registerOrUpdatePreference(Long userId, UserPreferenceRequestDto requestDto) {
+  public UserPreferenceResponseDto registerOrUpdatePreference(Long userId, UserPreferenceRequestDto requestDto) {
     User user = getUserOrThrow(userId);
 
     if (user.getPreference() == null) {
-      UserPreference newPreference = UserPreference.builder()
-          .purpose(requestDto.getPurpose())
-          .ageGroup(requestDto.getAgeGroup())
-          .gender(requestDto.getGender())
-          .build();
+      UserPreference newPreference = new UserPreference(
+          requestDto.getPurpose(),
+          requestDto.getAgeGroup(),
+          requestDto.getGender());
       user.setPreference(newPreference);
     } else {
       user.getPreference().updatePreferences(
@@ -50,7 +49,7 @@ public class UserServiceImpl implements UserService {
           requestDto.getGender());
     }
 
-    return mapToResponseDto(user);
+    return mapToPreferenceResponseDto(user.getPreference());
   }
 
   @Override
@@ -62,18 +61,22 @@ public class UserServiceImpl implements UserService {
 
   private User getUserOrThrow(Long userId) {
     return userRepository.findById(userId)
-        .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND_MSG + userId));
   }
 
-  private UserResponseDto mapToResponseDto(User user) {
-    UserPreference pref = user.getPreference();
-    return new UserResponseDto(
-        user.getId(),
-        user.getOAuthId(),
-        user.getName(),
-        user.getRole(),
-        pref != null ? pref.getPurpose() : null,
-        pref != null ? pref.getAgeGroup() : null,
-        pref != null ? pref.getGender() : null);
+  private UserProfileResponseDto mapToProfileResponseDto(User user) {
+    return UserProfileResponseDto.builder()
+        .id(user.getId())
+        .name(user.getName())
+        .role(user.getRole())
+        .build();
+  }
+
+  private UserPreferenceResponseDto mapToPreferenceResponseDto(UserPreference pref) {
+    return UserPreferenceResponseDto.builder()
+        .purpose(pref.getPurpose())
+        .ageGroup(pref.getAgeGroup())
+        .gender(pref.getGender())
+        .build();
   }
 }
