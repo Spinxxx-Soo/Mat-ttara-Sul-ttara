@@ -1,4 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/authStore'
+import { logout } from '@/api/authApi'
 
 interface SidebarProps {
   className?: string
@@ -7,11 +9,19 @@ interface SidebarProps {
 const Sidebar = ({ className = '' }: SidebarProps) => {
   const location = useLocation()
   const navigate = useNavigate()
+  const { logout: logoutStore } = useAuthStore()
   
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated')
-    localStorage.removeItem('hasCompletedOnboarding')
-    navigate('/login')
+  const handleLogout = async () => {
+    try {
+      // 백엔드에 로그아웃 요청 (선택사항)
+      await logout()
+    } catch (error) {
+      console.error('로그아웃 API 호출 실패:', error)
+    } finally {
+      // 상태 관리에서 로그아웃 처리
+      logoutStore()
+      navigate('/login')
+    }
   }
 
   const menuItems = [
