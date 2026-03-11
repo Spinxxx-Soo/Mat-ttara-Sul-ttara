@@ -1,6 +1,41 @@
 // API Request/Response 타입 정의
 
-// 인증 관련
+// ==========================================
+// 1. 공통 Base 타입 (응답 래퍼)
+// ==========================================
+
+export interface PageInfo {
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
+/**
+ * 페이지네이션(리스트) 형태의 공통 응답 제네릭 포맷
+ */
+export interface ApiPaginationResponse<T> {
+  content: T[];
+  pageInfo: PageInfo;
+  averageRating?: number; // 리뷰 리스트 등에서 사용될 수 있는 부가 속성
+}
+
+/**
+ * 에러 응답 포맷
+ */
+export interface ApiError {
+  message: string;
+  code?: string;
+  errors?: Record<string, string[]>;
+}
+
+
+// ==========================================
+// 2. 도메인별 타입
+// ==========================================
+
+// --- 인증 (Auth) ---
 export interface SocialLoginRequest {
   code: string;
   provider: 'google' | 'naver';
@@ -9,19 +44,18 @@ export interface SocialLoginRequest {
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  isNewUser: boolean; // true면 신규 사용자(온보딩 필요), false면 기존 사용자
+  isNewUser?: boolean; // 신규 유저 여부 (OAuth 콜백용)
 }
 
-// 사용자 관련
+// --- 사용자 (User) ---
 export interface UserInfo {
   userId: number;
   email: string;
   name: string;
+  bio?: string | null;
   createdAt: string;
   lastLoginAt: string;
-  usageType: string | null;
-  ageGroup: string | null;
-  gender: string | null;
+  updatedAt?: string;
 }
 
 export interface UpdateUserRequest {
@@ -35,106 +69,94 @@ export interface OnboardingRequest {
   gender: string;
 }
 
-// 플랜 관련
+// --- 플랜 (Plan) ---
 export interface Plan {
-  id: number;
+  planId: number;
   title: string;
-  description?: string;
-  date: string;
-  places: PlanPlace[];
+  meetingAt: string;
+  participantCount: number;
+  totalBudget: number;
+  planType: string;
+  memo?: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 export interface PlanPlace {
-  id: number;
+  detailId?: number;
   placeId: number;
-  placeName: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  order: number;
-  visitTime?: string;
+  seqNo: number;
+  place?: Place;
+  recommendReason?: string;
 }
 
 export interface CreatePlanRequest {
   title: string;
-  description?: string;
-  date: string;
-  places: Omit<PlanPlace, 'id'>[];
+  meetingAt: string;
+  participantCount: number;
+  totalBudget: number;
+  planType: string;
+  memo?: string;
+  details: { placeId: number; seqNo: number }[];
 }
 
 export interface UpdatePlanRequest {
   title?: string;
-  description?: string;
-  date?: string;
-  places?: Omit<PlanPlace, 'id'>[];
+  meetingAt?: string;
+  participantCount?: number;
+  totalBudget?: number;
+  planType?: string;
+  memo?: string;
 }
 
-// 가게 관련
+// --- 장소 (Place) ---
 export interface Place {
-  id: number;
+  placeId: number;
   name: string;
   address: string;
-  latitude: number;
-  longitude: number;
-  category: string;
+  phone?: string;
+  lat: number;
+  lng: number;
   rating?: number;
-  reviewCount?: number;
-  imageUrl?: string;
-  phoneNumber?: string;
-  openingHours?: string;
+  recommendReason?: string; // 추천 장소 조회시
+  openingHours?: Record<string, any> | string;
 }
 
-export interface PlaceSearchRequest {
-  query?: string;
-  category?: string;
-  latitude?: number;
-  longitude?: number;
-  radius?: number;
-  page?: number;
-  size?: number;
-}
-
-export interface PlaceSearchResponse {
-  places: Place[];
-  total: number;
-  page: number;
-  size: number;
-}
-
-// 리뷰 관련
+// --- 리뷰 (Review) ---
 export interface Review {
-  id: number;
-  placeId: number;
-  userId: number;
+  reviewId: number;
+  placeId?: number;
+  userId?: number;
   rating: number;
   content: string;
-  images?: string[];
   createdAt: string;
-  updatedAt: string;
-  user: {
-    id: number;
-    nickname: string;
-    profileImage?: string;
-  };
+  updatedAt?: string;
 }
 
 export interface CreateReviewRequest {
   rating: number;
   content: string;
-  images?: string[];
 }
 
 export interface UpdateReviewRequest {
   rating?: number;
   content?: string;
-  images?: string[];
 }
 
-// 에러 응답
-export interface ApiError {
-  message: string;
-  code?: string;
-  errors?: Record<string, string[]>;
+// --- AI 챗봇 (Chat) ---
+export interface ChatSession {
+  sessionId: string;
+  title: string;
+  createdAt: string;
+  lastMessageAt?: string;
 }
+
+export interface ChatMessage {
+  messageId: number;
+  sessionId?: string;
+  role: 'USER' | 'ASSISTANT' | 'SYSTEM' | string;
+  content: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+

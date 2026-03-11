@@ -26,12 +26,12 @@ const Login = () => {
       setError(null)
 
       const loginResponse = await socialLogin('google', response.code)
-      
+
       // 토큰 및 신규 유저 여부 저장
       setAuth(
         loginResponse.accessToken,
         loginResponse.refreshToken,
-        loginResponse.isNewUser
+        loginResponse.isNewUser || false
       )
 
       // 신규 유저 여부에 따라 리다이렉트
@@ -81,12 +81,12 @@ const Login = () => {
       setError(null)
 
       const loginResponse = await socialLogin('naver', code)
-      
+
       // 토큰 및 신규 유저 여부 저장
       setAuth(
         loginResponse.accessToken,
         loginResponse.refreshToken,
-        loginResponse.isNewUser
+        loginResponse.isNewUser || false
       )
 
       // URL에서 code 제거

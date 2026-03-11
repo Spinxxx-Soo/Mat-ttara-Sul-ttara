@@ -13,7 +13,6 @@ interface UseMapOptions {
 
 export const useMap = (options: UseMapOptions = {}) => {
   const {
-    apiKey = import.meta.env.VITE_MAP_API_KEY || '',
     defaultCenter = { lat: 37.5665, lng: 126.9780 },
     defaultZoom = 15,
   } = options

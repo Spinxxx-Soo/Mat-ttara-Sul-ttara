@@ -1,10 +1,10 @@
 import { useState } from 'react'
 
 const ChatWidget = () => {
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<{ id: number, type: 'ai' | 'user', content: string }[]>([
     {
       id: 1,
-      type: 'ai' as const,
+      type: 'ai',
       content: '안녕하세요! 맛집과 술집 추천을 도와드릴까요? 원하시는 장소나 스타일을 말씀해 주세요.',
     },
   ])
@@ -66,9 +66,8 @@ const ChatWidget = () => {
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex gap-3 ${
-              message.type === 'user' ? 'flex-row-reverse' : ''
-            } max-w-[85%] ${message.type === 'user' ? 'ml-auto' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300`}
+            className={`flex gap-3 ${message.type === 'user' ? 'flex-row-reverse' : ''
+              } max-w-[85%] ${message.type === 'user' ? 'ml-auto' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300`}
           >
             {message.type === 'ai' && (
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-orange-600 flex-shrink-0 flex items-center justify-center text-white shadow-lg">
@@ -78,15 +77,13 @@ const ChatWidget = () => {
               </div>
             )}
             <div
-              className={`rounded-2xl p-4 shadow-sm ${
-                message.type === 'ai'
+              className={`rounded-2xl p-4 shadow-sm ${message.type === 'ai'
                   ? 'bg-white dark:bg-slate-800 rounded-tl-none border border-slate-200 dark:border-slate-700'
                   : 'bg-gradient-to-br from-primary to-orange-600 text-white rounded-tr-none shadow-lg shadow-primary/30'
-              }`}
+                }`}
             >
-              <p className={`text-sm leading-relaxed ${
-                message.type === 'ai' ? 'text-slate-700 dark:text-slate-300' : 'text-white'
-              }`}>
+              <p className={`text-sm leading-relaxed ${message.type === 'ai' ? 'text-slate-700 dark:text-slate-300' : 'text-white'
+                }`}>
                 {message.content}
               </p>
             </div>

@@ -20,7 +20,7 @@ export default function Home() {
         { id: '1', title: 'Plan A', description: 'MVP 첫 번째 플랜', createdAt: '', updatedAt: '' },
       ];
     },
-    refetchInterval: 10000, 
+    refetchInterval: 10000,
   });
 
   return (
@@ -44,7 +44,7 @@ export default function Home() {
             <p className="text-gray-500">데이터를 불러오는 중입니다...</p>
           ) : (
             <ul className="list-disc pl-5 space-y-2">
-              {plans?.map((plan) => (
+              {plans?.map((plan: Plan) => (
                 <li key={plan.id} className="text-gray-800">
                   <span className="font-semibold">{plan.title}</span> - {plan.description}
                 </li>
