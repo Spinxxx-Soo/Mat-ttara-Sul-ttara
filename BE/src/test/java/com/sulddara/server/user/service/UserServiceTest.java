@@ -108,37 +108,52 @@ class UserServiceTest {
 
   @Test
   @DisplayName("온보딩 선호도 등록 테스트 (최초)")
-  void registerPreferenceTest() {
+  void registerOrUpdatePreference_newPreference_createsPreference() {
     // given
-    User user = new User(
-            1L,                         // id
-            "test_oauth",             // oauthId
-            "TEST",                   // provider
-            "Test User",                // name
-            "test@test.com",          // email
-            "Hello, I'm a test user",   // bio
-            "ROLE_USER",                // role
-            LocalDateTime.now(),        // createdAt
-            LocalDateTime.now(),        // updatedAt
-            LocalDateTime.now(),        // lastLoginAt
-            null                        // preference (UserPreference)
-    );
+    User user = new User(1L, "test_oauth", "TEST", "Test User", "test@test.com", "Hello, I'm a test user", "ROLE_USER", LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now(), null);
     ReflectionTestUtils.setField(user, "id", 1L);
 
-    UserPreferenceRequestDto requestDto = new UserPreferenceRequestDto("ALONE", "20s", "MALE");
+    UserPreferenceRequestDto requestDto = new UserPreferenceRequestDto("사적", "20대", "남성");
 
     UserPreferenceResponseDto expectedDto = UserPreferenceResponseDto.builder()
-        .usageType("ALONE").ageGroup("20s").gender("MALE").build();
+        .usageType("사적").ageGroup("20대").gender("남성").build();
 
-    given(userRepository.findById(anyLong())).willReturn(Optional.of(user));
+    given(userRepository.findById(1L)).willReturn(Optional.of(user));
     given(userMapper.toPreferenceResponse(any(UserPreference.class))).willReturn(expectedDto);
 
     // when
     UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, requestDto);
 
     // then
-    assertThat(response.getUsageType()).isEqualTo("ALONE");
+    assertThat(response.getUsageType()).isEqualTo("사적");
     assertThat(user.getPreference()).isNotNull();
+    assertThat(user.getPreference().getUsageType()).isEqualTo("사적");
+  }
+
+  @Test
+  @DisplayName("온보딩 선호도 수정 테스트 (기존 존재)")
+  void registerOrUpdatePreference_existingPreference_updatesPreference() {
+    // given
+    User user = new User(1L, "test_oauth", "TEST", "Test User", "test@test.com", "Hello, I'm a test user", "ROLE_USER", LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now(), null);
+    ReflectionTestUtils.setField(user, "id", 1L);
+    UserPreference oldPreference = new UserPreference("사적", "20대", "남성");
+    user.setPreference(oldPreference);
+
+    UserPreferenceRequestDto updateDto = new UserPreferenceRequestDto("공적", "30대", "여성");
+
+    UserPreferenceResponseDto expectedDto = UserPreferenceResponseDto.builder()
+        .usageType("공적").ageGroup("30대").gender("여성").build();
+
+    given(userRepository.findById(1L)).willReturn(Optional.of(user));
+    given(userMapper.toPreferenceResponse(any(UserPreference.class))).willReturn(expectedDto);
+
+    // when
+    UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, updateDto);
+
+    // then
+    assertThat(response.getUsageType()).isEqualTo("공적");
+    assertThat(user.getPreference().getUsageType()).isEqualTo("공적");
+    assertThat(user.getPreference().getAgeGroup()).isEqualTo("30대");
   }
 
   @Test
