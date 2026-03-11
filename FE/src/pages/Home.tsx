@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import CopyLinkButton from '@/components/CopyLinkButton';
 import Button from '@/components/ui/Button';
-import NaverMap from '@/components/NaverMap';
+import NaverMap from '@/components/map/NaverMap';
 import { useAuthStore } from '@/stores/authStore';
 import { Plan } from '@/types/plan';
 

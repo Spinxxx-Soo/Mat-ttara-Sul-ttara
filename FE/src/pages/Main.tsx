@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
-import ChatWidget from '../components/ChatWidget'
+import ChatWidget from '../components/chat/ChatWidget'
 
 interface RestaurantPin {
   id: string
@@ -57,7 +57,7 @@ const Main = () => {
         >
           {/* Map Overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-900/5" />
-          
+
           {/* Map Pins + Inline Cards */}
           {restaurants.map((place, index) => {
             const currentRating = ratings[place.id] || 0
@@ -66,9 +66,8 @@ const Main = () => {
             return (
               <div
                 key={place.id}
-                className={`absolute cursor-pointer transition-transform ${
-                  isSelected ? 'scale-110 z-20' : 'z-10'
-                }`}
+                className={`absolute cursor-pointer transition-transform ${isSelected ? 'scale-110 z-20' : 'z-10'
+                  }`}
                 style={{
                   left: `${25 + index * 35}%`,
                   top: `${35 + index * 25}%`,
@@ -135,9 +134,8 @@ const Main = () => {
                     className="relative flex flex-col items-center group"
                   >
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xl border-2 border-white transition-transform ${
-                        isSelected ? 'bg-primary scale-110' : 'bg-primary group-hover:scale-110'
-                      }`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xl border-2 border-white transition-transform ${isSelected ? 'bg-primary scale-110' : 'bg-primary group-hover:scale-110'
+                        }`}
                     >
                       <span className="material-symbols-outlined text-xl text-white">
                         restaurant
