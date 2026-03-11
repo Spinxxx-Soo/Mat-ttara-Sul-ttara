@@ -6,3 +6,12 @@ dist-ssr
 .env.*
 !.env.example
 .DS_Store
+
+# ENV
+.env.local
+
+# AI/Agent related
+.agent/
+.agents/
+skills-lock.json
+MR_TEMPLATE.md
