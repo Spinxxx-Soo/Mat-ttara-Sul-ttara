@@ -21,10 +21,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthController {
 
-    @Qualifier("googleSocialLoginServiceImpl")
+    @Qualifier("googleSocialLoginService")
     private final SocialLoginService googleSocialLoginService;
 
-    @Qualifier("naverSocialLoginServiceImpl")
+    @Qualifier("naverSocialLoginService")
     private final SocialLoginService naverSocialLoginService;
 
     private final AuthService authService;
