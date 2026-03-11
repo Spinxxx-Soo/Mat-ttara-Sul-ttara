@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import CopyLinkButton from '@/components/CopyLinkButton';
+import Button from '@/components/ui/Button';
 import NaverMap from '@/components/NaverMap';
 import { useAuthStore } from '@/stores/authStore';
 import { Plan } from '@/types/plan';
@@ -30,9 +31,11 @@ export default function Home() {
         <nav className="space-x-4">
           <Link to="/plan/1" className="text-blue-500 hover:underline">디테일 뷰(테스트)</Link>
           {isLoggedIn ? (
-            <button onClick={logout} className="text-red-500 font-semibold hover:underline">로그아웃</button>
+            <Button variant="danger" size="sm" onClick={logout}>로그아웃</Button>
           ) : (
-            <Link to="/login" className="text-blue-500 font-semibold hover:underline">로그인</Link>
+            <Link to="/login">
+              <Button variant="primary" size="sm">로그인</Button>
+            </Link>
           )}
         </nav>
       </header>
