@@ -22,7 +22,7 @@ public class User {
   private Long id;
 
   @Column(nullable = false, unique = true)
-  private String oAuthId;
+  private String providerId;
 
   @Column(nullable = false)
   private String provider; // e.g., KAKAO, GOOGLE
@@ -49,8 +49,8 @@ public class User {
   @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
   private UserPreference preference;
 
-  public User(String oAuthId, String provider, String name, String email, String role) {
-    this.oAuthId = oAuthId;
+  public User(String providerId, String provider, String name, String email, String role) {
+    this.providerId = providerId;
     this.provider = provider;
     this.name = name;
     this.email = email;
