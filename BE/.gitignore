@@ -36,5 +36,9 @@ out/
 ### VS Code ###
 .vscode/
 
+### Configuration ###
+application-local.yml
+application.properties
+
 ### env
 .env

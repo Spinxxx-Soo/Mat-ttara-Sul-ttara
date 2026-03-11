@@ -1,10 +1,12 @@
 package com.sulddara.server.user.controller;
 
+import com.sulddara.server.auth.oauth.CustomOAuth2User;
 import com.sulddara.server.user.dto.*;
 import com.sulddara.server.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,40 +14,48 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserController {
 
-  private final UserService userService;
+    private final UserService userService;
 
-  // TODO: Replace with Authentication Principal
-  private Long getCurrentUserId() {
-    return 1L;
-  }
+    // TODO: Replace with Authentication Principal
+    private Long getCurrentUserId() {
+        return 1L;
+    }
 
-  @GetMapping
-  public ResponseEntity<UserProfileResponseDto> getMyProfile() {
-    return ResponseEntity.ok(userService.getUserProfile(getCurrentUserId()));
-  }
+    @GetMapping
+    public ResponseEntity<UserProfileResponseDto> getMyProfile(@AuthenticationPrincipal CustomOAuth2User user) {
+        Long userId = user.getUserId();
+        return ResponseEntity.ok(userService.getUserProfile(userId));
+    }
 
-  @PatchMapping
-  public ResponseEntity<UserProfileResponseDto> updateMyProfile(
-      @Valid @RequestBody UserUpdateNameRequestDto requestDto) {
-    return ResponseEntity.ok(userService.updateUserProfile(getCurrentUserId(), requestDto));
-  }
+    @PatchMapping
+    public ResponseEntity<UserProfileResponseDto> updateMyProfile(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @Valid @RequestBody UserUpdateNameRequestDto requestDto) {
+        Long userId = user.getUserId();
+        return ResponseEntity.ok(userService.updateUserProfile(userId, requestDto));
+    }
 
-  @PostMapping("/preference")
-  public ResponseEntity<UserPreferenceResponseDto> registerPreference(
-      @Valid @RequestBody UserPreferenceRequestDto requestDto) {
-    return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
-        .body(userService.registerOrUpdatePreference(getCurrentUserId(), requestDto));
-  }
+    @PostMapping("/preference")
+    public ResponseEntity<UserPreferenceResponseDto> registerPreference(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @Valid @RequestBody UserPreferenceRequestDto requestDto) {
+        Long userId = user.getUserId();
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                .body(userService.registerOrUpdatePreference(userId, requestDto));
+    }
 
-  @PatchMapping("/preference")
-  public ResponseEntity<UserPreferenceResponseDto> updatePreference(
-      @Valid @RequestBody UserPreferenceRequestDto requestDto) {
-    return ResponseEntity.ok(userService.registerOrUpdatePreference(getCurrentUserId(), requestDto));
-  }
+    @PatchMapping("/preference")
+    public ResponseEntity<UserPreferenceResponseDto> updatePreference(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @Valid @RequestBody UserPreferenceRequestDto requestDto) {
+        Long userId = user.getUserId();
+        return ResponseEntity.ok(userService.registerOrUpdatePreference(userId, requestDto));
+    }
 
-  @DeleteMapping
-  public ResponseEntity<Void> withdrawUser() {
-    userService.deleteUser(getCurrentUserId());
-    return ResponseEntity.noContent().build();
-  }
+    @DeleteMapping
+    public ResponseEntity<Void> withdrawUser(@AuthenticationPrincipal CustomOAuth2User user) {
+        Long userId = user.getUserId();
+        userService.deleteUser(userId);
+        return ResponseEntity.noContent().build();
+    }
 }
