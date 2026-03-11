@@ -1,9 +1,10 @@
 import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 import { ApiError } from '@/types/api';
+import { envConfig } from '@/config/env';
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  baseURL: envConfig.apiBaseUrl,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
