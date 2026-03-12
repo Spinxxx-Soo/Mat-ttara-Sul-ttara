@@ -13,8 +13,72 @@ AI/
 │   ├── repositories/
 │   ├── schemas/
 │   └── services/
+├── scripts/
+│   ├── init_db.py          ← DB 초기화 (테이블 생성)
+│   ├── collect_places.py   ← 장소 수집
+│   └── save_reviews.py     ← 리뷰 수집 및 저장
+├── sql/
+│   ├── crawl_reviews.sql
+│   └── create_store_profiles.sql
+├── .env.example
+├── requirements.txt
 └── README.md
 ```
+
+---
+
+## 🚀 시작하기
+
+### 1. 패키지 설치
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. 환경 변수 설정
+
+`.env.example`을 복사하여 `.env`를 생성하고 값을 채워주세요.
+
+```bash
+cp .env.example .env
+```
+
+```env
+GOOGLE_API_KEY=your_api_key_here
+DB_HOST=localhost
+DB_USER=meal_user
+DB_PASSWORD=your_password
+DB_NAME=meal_reco
+```
+
+> Google Places API 키는 [Google Cloud Console](https://console.cloud.google.com/)에서 발급받을 수 있습니다.
+
+### 3. DB 초기화 (테이블 생성)
+
+```bash
+python3 scripts/init_db.py
+```
+
+`CRWL_REVIEWS`와 `STORE_PROFILES` 테이블이 자동으로 생성됩니다.
+
+### 4. 대전 맛집 장소 수집
+
+```bash
+python3 scripts/collect_places.py
+```
+
+- Google Places API로 대전 전역의 식당 Place ID를 수집합니다.
+- 결과는 `places_data.json`에 저장됩니다.
+- 중간에 중단되어도 체크포인트(`checkpoint_places.json`)에서 이어서 실행됩니다.
+
+### 5. 리뷰 수집 및 DB 저장
+
+```bash
+python3 scripts/save_reviews.py
+```
+
+- 수집된 Place ID 별로 리뷰를 가져와 `CRWL_REVIEWS` 테이블에 저장합니다.
+- 중간에 중단되어도 체크포인트(`checkpoint_reviews.json`)에서 이어서 실행됩니다.
 
 ---
 
@@ -131,4 +195,3 @@ API → Service → Domain → Repository → Database
 * 추천 알고리즘과 API 코드 분리
 * 테스트 및 확장 용이성 확보
 * 유지보수 가능한 AI 서비스 구조 유지
-

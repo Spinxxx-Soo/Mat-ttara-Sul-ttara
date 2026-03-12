@@ -49,6 +49,7 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
   const setCenter = (center: Coordinates) => {
     setViewport((prev) => ({ ...prev, center }));
     if (mapInstance.current && sdkLoaded) {
+      // @ts-expect-error: naver types will be added in 189
       mapInstance.current.setCenter(new window.naver.maps.LatLng(center.lat, center.lng));
     }
   };
