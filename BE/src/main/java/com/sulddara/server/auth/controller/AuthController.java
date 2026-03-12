@@ -5,6 +5,8 @@ import com.sulddara.server.auth.controller.response.LoginResponse;
 import com.sulddara.server.auth.controller.response.TokenResponse;
 import com.sulddara.server.auth.service.AuthService;
 import com.sulddara.server.auth.service.SocialLoginService;
+import com.sulddara.server.auth.service.impl.GoogleSocialLoginServiceImpl;
+import com.sulddara.server.auth.service.impl.NaverSocialLoginServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
