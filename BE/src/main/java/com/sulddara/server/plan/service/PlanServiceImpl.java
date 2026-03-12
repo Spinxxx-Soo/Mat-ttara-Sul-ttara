@@ -6,6 +6,7 @@ import com.sulddara.server.plan.domain.Plan;
 import com.sulddara.server.plan.domain.PlanDetail;
 import com.sulddara.server.plan.dto.PlanCreateRequestDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
+import com.sulddara.server.plan.dto.PlanDetailResponseDto;
 import com.sulddara.server.plan.dto.PlanListResponseDto;
 import com.sulddara.server.plan.dto.PlanSummaryDto;
 import com.sulddara.server.plan.mapper.PlanMapper;
@@ -95,5 +96,17 @@ public class PlanServiceImpl implements PlanService {
         .nextCursor(nextCursor)
         .hasNext(hasNext)
         .build();
+  }
+
+  @Override
+  public PlanDetailResponseDto getPlanDetail(Long userId, Long planId) {
+    Plan plan = planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)
+        .orElseThrow(() -> new IllegalArgumentException("플랜을 찾을 수 없습니다."));
+
+    if (!plan.getUser().getId().equals(userId)) {
+      throw new IllegalArgumentException("접근 권한이 없는 플랜입니다.");
+    }
+
+    return planMapper.toDetailResponse(plan);
   }
 }

@@ -3,6 +3,7 @@ package com.sulddara.server.plan.controller;
 import com.sulddara.server.auth.oauth.CustomOAuth2User;
 import com.sulddara.server.plan.dto.PlanCreateRequestDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
+import com.sulddara.server.plan.dto.PlanDetailResponseDto;
 import com.sulddara.server.plan.dto.PlanListResponseDto;
 import com.sulddara.server.plan.service.PlanService;
 import jakarta.validation.Valid;
@@ -35,5 +36,13 @@ public class PlanController {
       @RequestParam(defaultValue = "10") int size) {
     Long userId = user.getUserId();
     return ResponseEntity.ok(planService.getMyPlans(userId, cursor, size));
+  }
+
+  @GetMapping("/{planId}")
+  public ResponseEntity<PlanDetailResponseDto> getPlanDetail(
+      @AuthenticationPrincipal CustomOAuth2User user,
+      @PathVariable Long planId) {
+    Long userId = user.getUserId();
+    return ResponseEntity.ok(planService.getPlanDetail(userId, planId));
   }
 }

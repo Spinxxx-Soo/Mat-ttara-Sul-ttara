@@ -9,4 +9,6 @@ public interface PlanService {
   PlanCreateResponseDto createPlan(Long userId, PlanCreateRequestDto requestDto);
 
   PlanListResponseDto getMyPlans(Long userId, Long cursor, int size);
+
+  com.sulddara.server.plan.dto.PlanDetailResponseDto getPlanDetail(Long userId, Long planId);
 }

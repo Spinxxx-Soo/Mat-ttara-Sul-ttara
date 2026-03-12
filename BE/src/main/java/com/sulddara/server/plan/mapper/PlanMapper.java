@@ -30,4 +30,41 @@ public class PlanMapper {
         .createdAt(plan.getCreatedAt())
         .build();
   }
+
+  public com.sulddara.server.plan.dto.PlaceSummaryDto toPlaceSummary(com.sulddara.server.place.domain.Place place) {
+    return com.sulddara.server.plan.dto.PlaceSummaryDto.builder()
+        .placeId(place.getId())
+        .name(place.getName())
+        .category(place.getCategory())
+        .lat(place.getLat())
+        .lng(place.getLng())
+        .imageUrl(place.getImageUrl())
+        .build();
+  }
+
+  public com.sulddara.server.plan.dto.PlanDetailPlaceDto toDetailPlace(com.sulddara.server.plan.domain.PlanDetail detail) {
+    return com.sulddara.server.plan.dto.PlanDetailPlaceDto.builder()
+        .detailId(detail.getId())
+        .placeId(detail.getPlace().getId())
+        .seqNo(detail.getSeqNo())
+        .recommendReason(detail.getRecommendReason())
+        .place(toPlaceSummary(detail.getPlace()))
+        .build();
+  }
+
+  public com.sulddara.server.plan.dto.PlanDetailResponseDto toDetailResponse(Plan plan) {
+    return com.sulddara.server.plan.dto.PlanDetailResponseDto.builder()
+        .planId(plan.getId())
+        .title(plan.getTitle())
+        .meetingAt(plan.getMeetingAt())
+        .participantCount(plan.getParticipantCount())
+        .totalBudget(plan.getTotalBudget())
+        .planType(plan.getPlanType())
+        .memo(plan.getMemo())
+        .shareToken(plan.getShareToken())
+        .places(plan.getDetails().stream().map(this::toDetailPlace).toList())
+        .createdAt(plan.getCreatedAt())
+        .updatedAt(plan.getUpdatedAt())
+        .build();
+  }
 }

@@ -17,6 +17,9 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
 
   java.util.List<Plan> findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(Long userId, Long id, Pageable pageable);
 
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"details", "details.place"})
+  Optional<Plan> findWithDetailsByIdAndDeletedAtIsNull(Long planId);
+
   Optional<Plan> findByIdAndDeletedAtIsNull(Long planId);
 
   Optional<Plan> findByShareTokenAndDeletedAtIsNull(String shareToken);
