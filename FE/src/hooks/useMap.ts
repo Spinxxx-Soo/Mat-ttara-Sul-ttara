@@ -1,40 +1,73 @@
-/**
- * 지도 관련 커스텀 훅
- * 
- * 프론트엔드에서 지도 API를 사용하기 위한 훅입니다.
- * 백엔드 API와 연동하여 장소 데이터를 받아와 지도에 표시합니다.
- */
+import { useEffect, useRef, useState } from 'react';
+import { loadNaverMapScript, isNaverMapLoaded } from '@/lib/naverMap';
+import type { Coordinates, MapViewport } from '@/types/map';
+
+// ==========================================
+// S14P21B205-188: 지도 SDK 로더 연동 훅
+// ==========================================
 
 interface UseMapOptions {
-  apiKey?: string // 지도 API 키 (환경 변수에서 가져옴)
-  defaultCenter?: { lat: number; lng: number }
-  defaultZoom?: number
+  defaultCenter?: Coordinates;
+  defaultZoom?: number;
 }
 
-export const useMap = (options: UseMapOptions = {}) => {
+interface UseMapReturn {
+  mapRef: React.RefObject<HTMLDivElement>;
+  mapInstance: React.MutableRefObject<any | null>;
+  viewport: MapViewport;
+  sdkLoaded: boolean;
+  sdkError: string | null;
+  setCenter: (center: Coordinates) => void;
+  setZoom: (zoom: number) => void;
+}
+
+export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
   const {
-    defaultCenter = { lat: 37.5665, lng: 126.9780 },
+    defaultCenter = { lat: 37.5665, lng: 126.978 }, // 서울 시청 (fallback)
     defaultZoom = 15,
-  } = options
+  } = options;
 
-  // TODO: 실제 지도 API 초기화 로직
-  // 네이버 지도 또는 카카오맵 API 사용
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any | null>(null);
 
-  return {
-    mapInstance: null,
+  const [sdkLoaded, setSdkLoaded] = useState<boolean>(isNaverMapLoaded());
+  const [sdkError, setSdkError] = useState<string | null>(null);
+  const [viewport, setViewport] = useState<MapViewport>({
     center: defaultCenter,
     zoom: defaultZoom,
-    setCenter: (center: { lat: number; lng: number }) => {
-      console.log('지도 중심 이동:', center)
-    },
-    setZoom: (zoom: number) => {
-      console.log('지도 줌:', zoom)
-    },
-    addMarker: (place: any) => {
-      console.log('마커 추가:', place)
-    },
-    removeMarker: (markerId: string) => {
-      console.log('마커 제거:', markerId)
-    },
-  }
-}
+  });
+
+  // SDK 로드
+  useEffect(() => {
+    if (sdkLoaded) return;
+
+    loadNaverMapScript()
+      .then(() => setSdkLoaded(true))
+      .catch((err: Error) => setSdkError(err.message));
+  }, [sdkLoaded]);
+
+  const setCenter = (center: Coordinates) => {
+    setViewport((prev) => ({ ...prev, center }));
+    if (mapInstance.current && sdkLoaded) {
+      // @ts-expect-error: naver types will be added in 189
+      mapInstance.current.setCenter(new window.naver.maps.LatLng(center.lat, center.lng));
+    }
+  };
+
+  const setZoom = (zoom: number) => {
+    setViewport((prev) => ({ ...prev, zoom }));
+    if (mapInstance.current && sdkLoaded) {
+      mapInstance.current.setZoom(zoom);
+    }
+  };
+
+  return {
+    mapRef,
+    mapInstance,
+    viewport,
+    sdkLoaded,
+    sdkError,
+    setCenter,
+    setZoom,
+  };
+};
