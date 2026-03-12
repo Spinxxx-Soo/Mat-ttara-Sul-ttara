@@ -13,6 +13,10 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
 
   Page<Plan> findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+  java.util.List<Plan> findByUserIdAndDeletedAtIsNullOrderByIdDesc(Long userId, Pageable pageable);
+
+  java.util.List<Plan> findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(Long userId, Long id, Pageable pageable);
+
   Optional<Plan> findByIdAndDeletedAtIsNull(Long planId);
 
   Optional<Plan> findByShareTokenAndDeletedAtIsNull(String shareToken);

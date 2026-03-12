@@ -6,6 +6,8 @@ import com.sulddara.server.plan.domain.Plan;
 import com.sulddara.server.plan.domain.PlanDetail;
 import com.sulddara.server.plan.dto.PlanCreateRequestDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
+import com.sulddara.server.plan.dto.PlanListResponseDto;
+import com.sulddara.server.plan.dto.PlanSummaryDto;
 import com.sulddara.server.plan.mapper.PlanMapper;
 import com.sulddara.server.plan.repository.PlanRepository;
 import com.sulddara.server.user.domain.User;
@@ -14,7 +16,9 @@ import com.sulddara.server.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -61,5 +65,35 @@ public class PlanServiceImpl implements PlanService {
 
     Plan savedPlan = planRepository.save(plan);
     return planMapper.toCreateResponse(savedPlan);
+  }
+
+  @Override
+  public PlanListResponseDto getMyPlans(Long userId, Long cursor, int size) {
+    PageRequest pageRequest = PageRequest.of(0, size + 1);
+    List<Plan> plans;
+
+    if (cursor == null) {
+      plans = planRepository.findByUserIdAndDeletedAtIsNullOrderByIdDesc(userId, pageRequest);
+    } else {
+      plans = planRepository.findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(userId, cursor, pageRequest);
+    }
+
+    boolean hasNext = plans.size() > size;
+    List<Plan> content = hasNext ? plans.subList(0, size) : plans;
+
+    List<PlanSummaryDto> dtos = content.stream()
+        .map(planMapper::toSummary)
+        .toList();
+
+    Long nextCursor = null;
+    if (hasNext && !content.isEmpty()) {
+      nextCursor = content.get(content.size() - 1).getId();
+    }
+
+    return PlanListResponseDto.builder()
+        .content(dtos)
+        .nextCursor(nextCursor)
+        .hasNext(hasNext)
+        .build();
   }
 }

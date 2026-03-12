@@ -18,4 +18,16 @@ public class PlanMapper {
         .createdAt(plan.getCreatedAt())
         .build();
   }
+
+  public com.sulddara.server.plan.dto.PlanSummaryDto toSummary(Plan plan) {
+    return com.sulddara.server.plan.dto.PlanSummaryDto.builder()
+        .planId(plan.getId())
+        .title(plan.getTitle())
+        .meetingAt(plan.getMeetingAt())
+        .participantCount(plan.getParticipantCount())
+        .totalBudget(plan.getTotalBudget())
+        .planType(plan.getPlanType())
+        .createdAt(plan.getCreatedAt())
+        .build();
+  }
 }
