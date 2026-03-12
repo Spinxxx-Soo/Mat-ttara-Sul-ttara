@@ -48,9 +48,9 @@ public class UserController {
     }
 
     @DeleteMapping
-    public ResponseEntity<Void> withdrawUser(@AuthenticationPrincipal CustomOAuth2User user) {
+    public ResponseEntity<java.util.Map<String, Object>> withdrawUser(@AuthenticationPrincipal CustomOAuth2User user) {
         Long userId = user.getUserId();
         userService.deleteUser(userId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(java.util.Map.of("ok", true, "message", "회원 탈퇴가 완료되었습니다."));
     }
 }
