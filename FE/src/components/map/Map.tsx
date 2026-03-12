@@ -28,12 +28,11 @@ interface MapProps {
  * 2. 해당 지도 API의 스크립트를 index.html에 추가
  * 3. 이 컴포넌트를 사용하여 지도 표시
  */
-const Map = ({ 
-  places = [], 
-  onPlaceClick, 
-  selectedPlaceId,
+const Map = ({
+  places = [],
+  onPlaceClick,
   center = { lat: 37.5665, lng: 126.9780 }, // 서울시청 기본 위치
-  zoom = 15 
+  zoom = 15
 }: MapProps) => {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -67,7 +66,7 @@ const Map = ({
     if (!mapInstanceRef.current || !places.length) return
 
     // 기존 마커 제거
-    markersRef.current.forEach(marker => {
+    markersRef.current.forEach(() => {
       // marker.setMap(null) // 네이버 지도
       // marker.setMap(null) // 카카오맵
     })
@@ -86,14 +85,14 @@ const Map = ({
       // marker.addListener('click', () => {
       //   onPlaceClick?.(place)
       // })
-      
+
       console.log('마커 추가:', place.name, place.lat, place.lng)
     })
   }, [places, onPlaceClick])
 
   return (
-    <div 
-      ref={mapRef} 
+    <div
+      ref={mapRef}
       className="absolute inset-0 w-full h-full"
       style={{
         // 임시 배경 이미지 (실제 지도 API 연동 시 제거)

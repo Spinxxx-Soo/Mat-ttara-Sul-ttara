@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
-import KakaoShareButton from '@/components/KakaoShareButton';
-import NaverMap from '@/components/NaverMap';
+import CopyLinkButton from '@/components/CopyLinkButton';
+import Button from '@/components/ui/Button';
+import NaverMap from '@/components/map/NaverMap';
 import { useAuthStore } from '@/stores/authStore';
 import { Plan } from '@/types/plan';
 
@@ -20,7 +21,7 @@ export default function Home() {
         { id: '1', title: 'Plan A', description: 'MVP 첫 번째 플랜', createdAt: '', updatedAt: '' },
       ];
     },
-    refetchInterval: 10000, 
+    refetchInterval: 10000,
   });
 
   return (
@@ -30,9 +31,11 @@ export default function Home() {
         <nav className="space-x-4">
           <Link to="/plan/1" className="text-blue-500 hover:underline">디테일 뷰(테스트)</Link>
           {isLoggedIn ? (
-            <button onClick={logout} className="text-red-500 font-semibold hover:underline">로그아웃</button>
+            <Button variant="danger" size="sm" onClick={logout}>로그아웃</Button>
           ) : (
-            <Link to="/login" className="text-blue-500 font-semibold hover:underline">로그인</Link>
+            <Link to="/login">
+              <Button variant="primary" size="sm">로그인</Button>
+            </Link>
           )}
         </nav>
       </header>
@@ -44,7 +47,7 @@ export default function Home() {
             <p className="text-gray-500">데이터를 불러오는 중입니다...</p>
           ) : (
             <ul className="list-disc pl-5 space-y-2">
-              {plans?.map((plan) => (
+              {plans?.map((plan: Plan) => (
                 <li key={plan.id} className="text-gray-800">
                   <span className="font-semibold">{plan.title}</span> - {plan.description}
                 </li>
@@ -59,10 +62,8 @@ export default function Home() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-4 text-gray-700">Kakao SDK Share</h2>
-          <KakaoShareButton
-            title="FE 모노레포 구축"
-            description="모노레포 내 FE 프론트엔드 환경 기본 셋팅 확인용 메시지입니다."
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">Share Link</h2>
+          <CopyLinkButton
             linkUrl={window.location.href}
           />
         </section>

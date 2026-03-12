@@ -4,6 +4,7 @@ import { useGoogleLogin } from '@react-oauth/google'
 import { socialLogin } from '@/api/authApi'
 import { useAuthStore } from '@/stores/authStore'
 import { getNaverLoginUrl, getNaverCodeFromUrl } from '@/lib/naverLogin'
+import Button from '@/components/ui/Button'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -26,12 +27,12 @@ const Login = () => {
       setError(null)
 
       const loginResponse = await socialLogin('google', response.code)
-      
+
       // 토큰 및 신규 유저 여부 저장
       setAuth(
         loginResponse.accessToken,
         loginResponse.refreshToken,
-        loginResponse.isNewUser
+        loginResponse.isNewUser || false
       )
 
       // 신규 유저 여부에 따라 리다이렉트
@@ -81,12 +82,12 @@ const Login = () => {
       setError(null)
 
       const loginResponse = await socialLogin('naver', code)
-      
+
       // 토큰 및 신규 유저 여부 저장
       setAuth(
         loginResponse.accessToken,
         loginResponse.refreshToken,
-        loginResponse.isNewUser
+        loginResponse.isNewUser || false
       )
 
       // URL에서 code 제거
@@ -143,13 +144,16 @@ const Login = () => {
           )}
 
           <div className="flex flex-col gap-3 items-stretch">
-            <button
+            <Button
               onClick={handleGoogleLogin}
               disabled={isLoading}
-              className="flex min-w-[84px] cursor-pointer items-center justify-center gap-3 overflow-hidden rounded-xl h-14 px-5 bg-white border border-slate-200 text-slate-700 text-base font-semibold leading-normal transition-all hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              size="lg"
+              fullWidth
+              className="h-14 rounded-xl text-slate-700 bg-white border-slate-200 hover:bg-slate-50 relative flex justify-center items-center"
             >
               <div
-                className="w-5 h-5 bg-contain bg-no-repeat"
+                className="w-5 h-5 bg-contain bg-no-repeat absolute left-5"
                 style={{
                   backgroundImage:
                     "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48ZyBmaWxsPSIjRkZGIiBmaWxsLXJ1bGU9Im5vbnplcm8iPjxwYXRoIGQ9Ik0xNy42NCA5LjIwNWMwLS42MzEtLjA1Ny0xLjIzNy0uMTY0LTEuODIxSDkuMTg3djMuNDk0aDQuNzUyYy0uMjA5IDEuMTI1LS44MzQgMi4wNzctMS43NzcgMi44NDV2Mi4yMTloMi44NzJjMS42ODQtMS41NDggMi42NTgtMy44MzUgMi42NTgtNi41MTd6IiBmaWxsPSIjNDI4NUY0Ii8+PHBhdGggZD0iTTkuMTg3IDE4YzIuNDA3IDAgNC40MzItLjggNS45NjctMi4xODVsLTIuODcyLTIuMjE5Yy0uNzU3LjUyOC0xLjcyNy44MzQtMi44OTUuODM0LTIuMjI3IDAtNC4xMDctMS40NjktNC43ODctMy40ODJoLTIuOTY3djIuMjg2QzMuMzM4IDE1Ljk4MyA2LjA0NSAxOCA5LjE4NyAxOHoiIGZpbGw9IiMzNEE4NTMiLz48cGF0aCBkPSJNNC40IDEwLjc1Yy0uMTU3LS40NjktLjI0Ny0uOTctLjI0Ny0xLjQ4NXMuMDktMS4wMTYuMjQ3LTEuNDg1VjUuNDk0SDEuNDMzQy44MTggNi43NDguNDU0IDguMTI0LjQ1NCA5LjYyNXMuMzY0IDIuODc3Ljk3OSA0LjEzMWwyLjU2Ny0yLjAwNnoiIGZpbGw9IiNGQkJDMDQiLz48cGF0aCBkPSJNOS4xODcgMy44MzNjMS4yNzQgMCAyLjQxNS40MzggMy4zMzEgMS4yNzNsMi41MTctMi41MTdDMTMuNjE4IDEuMDQ1IDExLjU5NC4yNSA5LjE4Ny4yNSA2LjA0NS4yNSAzLjMzOCAyLjI2MiAxLjQzMyA0LjQ5NGwyLjk2NyAyLjI4NmMuNjgtMi4wNTIgMi40Ni0zLjQ4NyA0Ljc4Ny0zLjQ4N3oiIGZpbGw9IiNFRTM0MzgiLz48L2c+PC9nPjwvc3ZnPg==')",
@@ -158,20 +162,22 @@ const Login = () => {
               <span className="truncate">
                 {isLoading ? '로그인 중...' : '구글로 계속하기'}
               </span>
-            </button>
+            </Button>
 
-            <button
+            <Button
               onClick={handleNaverLogin}
               disabled={isLoading}
-              className="flex min-w-[84px] cursor-pointer items-center justify-center gap-3 overflow-hidden rounded-xl h-14 px-5 bg-[#03C75A] text-white text-base font-semibold leading-normal transition-all hover:bg-[#02b351] disabled:opacity-50 disabled:cursor-not-allowed"
+              size="lg"
+              fullWidth
+              className="h-14 rounded-xl text-white bg-[#03C75A] hover:bg-[#02b351] border-none shadow-none relative flex justify-center items-center"
             >
-              <div className="w-5 h-5 flex items-center justify-center font-bold text-lg text-white bg-white rounded">
+              <div className="w-5 h-5 flex items-center justify-center font-bold text-lg text-[#03C75A] bg-white rounded absolute left-5">
                 N
               </div>
               <span className="truncate">
                 {isLoading ? '로그인 중...' : '네이버로 계속하기'}
               </span>
-            </button>
+            </Button>
           </div>
 
           <div className="flex flex-col items-center gap-4 mt-6">

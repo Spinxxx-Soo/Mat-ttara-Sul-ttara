@@ -1,0 +1,100 @@
+package com.sulddara.server.auth.service.impl;
+
+import com.sulddara.server.auth.controller.response.LoginResponse;
+import com.sulddara.server.share.error.ErrorCode;
+import com.sulddara.server.share.error.exception.BaseException;
+import com.sulddara.server.share.error.exception.UnauthorizedException;
+import com.sulddara.server.user.dto.UserAuthResultDto;
+import com.sulddara.server.auth.jwt.JwtUtil;
+import com.sulddara.server.auth.jwt.NaverUserInfo;
+import com.sulddara.server.auth.jwt.OAuth2UserInfo;
+import com.sulddara.server.auth.service.SocialLoginService;
+import com.sulddara.server.user.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
+import java.util.Map;
+
+@Service("naverSocialLoginService")
+@RequiredArgsConstructor
+public class NaverSocialLoginServiceImpl implements SocialLoginService {
+    private final UserService userService;
+    private final JwtUtil jwtUtil;
+    private final RestTemplate restTemplate;
+    private final RedisTemplate<String, String> redisTemplate;
+
+    @Value("${spring.security.oauth2.client.registration.naver.client-id}")
+    private String clientId;
+
+    @Value("${spring.security.oauth2.client.registration.naver.client-secret}")
+    private String clientSecret;
+
+    @Override
+    public LoginResponse login(String provider, String code) {
+        String accessToken = getAccessToken(code);
+        Map<String, Object> attributes = getUserInfo(accessToken);
+
+        OAuth2UserInfo userInfo = new NaverUserInfo(attributes);
+
+        UserAuthResultDto user = userService.joinOrUpdate(userInfo);
+
+        String jwtAccessToken = jwtUtil.generateAccessToken(user.user().getId(), user.user().getEmail(), user.user().getRole());
+        String jwtRefreshToken = jwtUtil.generateRefreshToken(user.user().getId(), user.user().getEmail());
+
+        redisTemplate.opsForValue().set(
+                "refresh:" + user.user().getEmail(),
+                jwtRefreshToken,
+                Duration.ofDays(14)
+        );
+
+        return LoginResponse.builder()
+                .accessToken(jwtAccessToken)
+                .refreshToken(jwtRefreshToken)
+                .isNewUser(user.isNewUser())
+                .build();
+    }
+
+    @Override
+    public String getAccessToken(String code) {
+        String url = "https://nid.naver.com/oauth2.0/token?grant_type=authorization_code" +
+                "&client_id=" + clientId + "&client_secret=" + clientSecret + "&code=" + code;
+
+        try {
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response == null || response.get("access_token") == null) {
+                throw new UnauthorizedException(ErrorCode.INVALID_SOCIAL_CODE);
+            }
+            return (String) response.get("access_token");
+        } catch (Exception e) {
+            throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getUserInfo(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    "https://openapi.naver.com/v1/nid/me", HttpMethod.GET, entity, Map.class);
+
+            Map<String, Object> body = response.getBody();
+            if (body == null || body.get("response") == null) {
+                throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
+            }
+            return (Map<String, Object>) body.get("response");
+        } catch (Exception e) {
+            throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
+        }
+    }
+}
