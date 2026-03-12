@@ -135,7 +135,6 @@ class UserServiceTest {
         .provider("TEST")
         .name("Test User")
         .email("test@test.com")
-        .bio("Hello, I'm a test user")
         .role("ROLE_USER")
         .build();
     ReflectionTestUtils.setField(user, "id", 1L);
@@ -182,4 +181,3 @@ class UserServiceTest {
     Mockito.verify(userRepository).delete(user);
   }
 }
-

@@ -53,6 +53,7 @@ public class PlanServiceImpl implements PlanService {
         Place place = placeRepository.findById(detailDto.getPlaceId())
             .orElseThrow(() -> new IllegalArgumentException(PLACE_NOT_FOUND_MSG + detailDto.getPlaceId()));
 
+
         PlanDetail detail = new PlanDetail(place, detailDto.getSeqNo(), null);
         plan.addDetail(detail);
       }
