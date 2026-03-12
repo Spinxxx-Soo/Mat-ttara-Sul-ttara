@@ -12,6 +12,7 @@ import com.sulddara.server.auth.service.SocialLoginService;
 import com.sulddara.server.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -81,11 +82,13 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
         params.add("grant_type", "authorization_code");
 
         try {
-            Map<String, Object> response = restTemplate.postForObject(url, params, Map.class);
-            if (response == null || response.get("access_token") == null) {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url, HttpMethod.POST, new HttpEntity<>(params), new ParameterizedTypeReference<Map<String, Object>>() {});
+            Map<String, Object> body = response.getBody();
+            if (body == null || body.get("access_token") == null) {
                 throw new UnauthorizedException(ErrorCode.INVALID_SOCIAL_CODE);
             }
-            return (String) response.get("access_token");
+            return (String) body.get("access_token");
         }catch (Exception e) {
             throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
         }
@@ -98,8 +101,8 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    "https://www.googleapis.com/oauth2/v3/userinfo", HttpMethod.GET, entity, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    "https://www.googleapis.com/oauth2/v3/userinfo", HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {});
             return response.getBody();
         } catch (Exception e) {
             throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);

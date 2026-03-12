@@ -37,7 +37,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         if (Objects.equals(provider, "naver")){
             userInfo = new NaverUserInfo(attributes);
-            response = (Map<String, Object>) attributes.get("response");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> naverResp = (Map<String, Object>) attributes.get("response");
+            response = naverResp;
         } else if (Objects.equals(provider, "google")) {
             userInfo = new GoogleUserInfo(attributes);
             response = new HashMap<>(attributes);

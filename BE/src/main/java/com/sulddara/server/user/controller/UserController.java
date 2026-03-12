@@ -16,11 +16,6 @@ public class UserController {
 
     private final UserService userService;
 
-    // TODO: Replace with Authentication Principal
-    private Long getCurrentUserId() {
-        return 1L;
-    }
-
     @GetMapping
     public ResponseEntity<UserProfileResponseDto> getMyProfile(@AuthenticationPrincipal CustomOAuth2User user) {
         Long userId = user.getUserId();

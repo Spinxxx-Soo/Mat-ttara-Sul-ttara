@@ -1,9 +1,7 @@
 package com.sulddara.server.config;
 
 import com.sulddara.server.auth.jwt.JwtAuthenticationEntryPoint;
-import com.sulddara.server.auth.oauth.CustomOAuth2UserService;
 import com.sulddara.server.auth.jwt.JwtAuthenticationFilter;
-import com.sulddara.server.auth.oauth.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,8 +24,6 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final OAuth2SuccessHandler oAuth2SuccessHandler;
-    private final CustomOAuth2UserService customOAuth2UserService;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Bean
