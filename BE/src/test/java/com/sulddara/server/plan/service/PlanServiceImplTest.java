@@ -56,7 +56,13 @@ class PlanServiceImplTest {
   void createPlan_validRequest_returnsCreatedPlan() {
     // Given
     Long userId = 1L;
-    User user = new User("google_123", "GOOGLE", "테스트유저", "test@test.com", "ROLE_USER");
+    User user = User.builder()
+        .oauthId("google_123")
+        .provider("GOOGLE")
+        .name("테스트유저")
+        .email("test@test.com")
+        .role("ROLE_USER")
+        .build();
     ReflectionTestUtils.setField(user, "id", userId);
 
     Place place = new Place("NAVER", "ext_1", "맛집", "서울시 강남구", 37.5, 127.0);
@@ -111,7 +117,13 @@ class PlanServiceImplTest {
   void createPlan_noDetails_returnsCreatedPlan() {
     // Given
     Long userId = 1L;
-    User user = new User("google_123", "GOOGLE", "테스트유저", "test@test.com", "ROLE_USER");
+    User user = User.builder()
+        .oauthId("google_123")
+        .provider("GOOGLE")
+        .name("테스트유저")
+        .email("test@test.com")
+        .role("ROLE_USER")
+        .build();
     ReflectionTestUtils.setField(user, "id", userId);
 
     PlanCreateRequestDto requestDto = PlanCreateRequestDto.builder()
@@ -174,7 +186,13 @@ class PlanServiceImplTest {
     // Given
     Long userId = 1L;
     Long invalidPlaceId = 999L;
-    User user = new User("google_123", "GOOGLE", "테스트유저", "test@test.com", "ROLE_USER");
+    User user = User.builder()
+        .oauthId("google_123")
+        .provider("GOOGLE")
+        .name("테스트유저")
+        .email("test@test.com")
+        .role("ROLE_USER")
+        .build();
     ReflectionTestUtils.setField(user, "id", userId);
 
     PlanCreateRequestDto requestDto = PlanCreateRequestDto.builder()
