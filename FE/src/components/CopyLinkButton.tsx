@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Button from '@/components/ui/Button';
 
 interface CopyLinkButtonProps {
     linkUrl: string;
@@ -19,14 +20,11 @@ export default function CopyLinkButton({ linkUrl }: CopyLinkButtonProps) {
     };
 
     return (
-        <button
+        <Button
+            variant={copied ? 'success' : 'secondary'}
             onClick={handleCopy}
-            className={`px-4 py-2 font-semibold rounded-md shadow-sm transition-colors ${copied
-                    ? 'text-green-800 bg-green-100 hover:bg-green-200'
-                    : 'text-gray-900 bg-gray-200 hover:bg-gray-300'
-                }`}
         >
             {copied ? '링크 복사됨 ✓' : '링크 복사하기'}
-        </button>
+        </Button>
     );
 }
