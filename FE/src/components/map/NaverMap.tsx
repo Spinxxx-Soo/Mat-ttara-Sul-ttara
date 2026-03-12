@@ -1,13 +1,13 @@
+import { useEffect, useRef } from 'react';
 import { useMap } from '@/hooks/useMap';
+import { useGeolocation } from '@/hooks/useGeolocation';
 import type { Coordinates } from '@/types/map';
-import type { NaverMapInstance } from '@/types/naver.d';
+import type { NaverMapInstance, NaverMarkerInstance } from '@/types/naver.d';
 
 // ==========================================
 // S14P21B205-189: 지도 인스턴스 lifecycle 처리
+// S14P21B205-192: 현재 위치 마커 및 초기 중심 좌표 반영
 // ==========================================
-// - @ts-ignore 제거 (naver.d.ts 타입 선언으로 대체)
-// - 지도 인스턴스 생성/해제는 useMap 훅이 담당
-// - 이 컴포넌트는 표시와 에러 처리에만 집중
 
 interface NaverMapProps {
   lat?: number;
@@ -22,12 +22,41 @@ export default function NaverMap({
 }: NaverMapProps) {
   const defaultCenter: Coordinates = { lat, lng };
 
-  const { mapRef, mapInstance, sdkLoaded, sdkError } = useMap({ defaultCenter });
+  const { mapRef, mapInstance, sdkLoaded, sdkError, setCenter } = useMap({ defaultCenter });
+  const { coordinates, errorType } = useGeolocation(false);
+  const locationMarkerRef = useRef<NaverMarkerInstance | null>(null);
 
   // 지도 인스턴스가 준비되면 외부로 전달
-  if (sdkLoaded && mapInstance.current && onMapReady) {
-    onMapReady(mapInstance.current);
-  }
+  useEffect(() => {
+    if (sdkLoaded && mapInstance.current && onMapReady) {
+      onMapReady(mapInstance.current);
+    }
+  }, [sdkLoaded, mapInstance, onMapReady]);
+
+  // 현재 위치 좌표가 나오면 지도를 중심동하고 마커를 표시
+  useEffect(() => {
+    if (coordinates && sdkLoaded && mapInstance.current) {
+      setCenter(coordinates);
+
+      if (!locationMarkerRef.current) {
+        locationMarkerRef.current = new window.naver.maps.Marker({
+          position: new window.naver.maps.LatLng(coordinates.lat, coordinates.lng),
+          map: mapInstance.current,
+        });
+      } else {
+        locationMarkerRef.current.setPosition(
+          new window.naver.maps.LatLng(coordinates.lat, coordinates.lng)
+        );
+      }
+    }
+    
+    return () => {
+      // 컴포넌트 언마운트 시 마커 정리
+      if (locationMarkerRef.current) {
+        locationMarkerRef.current.setMap(null);
+      }
+    };
+  }, [coordinates, sdkLoaded, mapInstance, setCenter]);
 
   if (sdkError) {
     return (
@@ -44,6 +73,13 @@ export default function NaverMap({
           <span className="text-gray-500 text-sm">지도 로딩 중...</span>
         </div>
       )}
+      {/* 권한 거부 등 에러 상황 표시 (선택사항) */}
+      {errorType === 'denied' && (
+        <div className="absolute top-4 left-4 right-4 p-2 bg-yellow-100 text-yellow-800 text-sm rounded shadow z-10 opacity-90">
+          위치 권한이 거부되어 기본 위치를 표시합니다.
+        </div>
+      )}
+      
       <div ref={mapRef} className="w-full h-full rounded-md shadow-inner" />
     </div>
   );
