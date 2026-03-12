@@ -2,28 +2,6 @@
  * 네이버 로그인 유틸리티
  */
 
-declare global {
-  interface Window {
-    naver: {
-      LoginWithNaverId: new (options: {
-        clientId: string;
-        callbackUrl: string;
-        isPopup: boolean;
-        loginButton: { color: string; type: number; height: number };
-        callbackHandle?: boolean;
-      }) => {
-        init(): void;
-        getLoginStatus(callback: (status: { status: boolean }) => void): void;
-        getAccessToken(): string | null;
-        getAccessTokenExpiresAt(): number | null;
-        getRefreshToken(): string | null;
-        getRefreshTokenExpiresAt(): number | null;
-        logout(): void;
-      };
-    };
-  }
-}
-
 /**
  * 네이버 로그인 인스턴스 초기화
  */
@@ -36,7 +14,7 @@ export const initNaverLogin = () => {
     return null;
   }
 
-  if (!window.naver) {
+  if (!window.naver?.LoginWithNaverId) {
     console.error('Naver SDK is not loaded');
     return null;
   }
