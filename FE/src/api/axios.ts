@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 import { ApiError } from '@/types/api';
+import { isEmptyResponse } from '@/lib/apiUtils';
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
@@ -34,6 +35,10 @@ apiClient.interceptors.request.use(
 // ==========================================
 apiClient.interceptors.response.use(
   (response) => {
+    // S14P21B205-187: 잘못된(빈) 응답 감지 경고
+    if (isEmptyResponse(response.data)) {
+      console.warn(`[axios] 빈 응답 감지: ${response.config.url}`, response);
+    }
     // API 명세상 백엔드가 상태코드 200/201 등으로 데이터를 그대로 내려줌
     return response;
   },
