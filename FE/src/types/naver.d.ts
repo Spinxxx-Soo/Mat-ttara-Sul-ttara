@@ -29,6 +29,9 @@ declare global {
         Map: new (element: HTMLElement, options: NaverMapOptions) => NaverMapInstance;
         LatLng: new (lat: number, lng: number) => NaverLatLng;
         Marker: new (options: NaverMarkerOptions) => NaverMarkerInstance;
+        InfoWindow: new (options: any) => NaverInfoWindowInstance;
+        Size: new (width: number, height: number) => any;
+        Point: new (x: number, y: number) => any;
         Event: {
           addListener: (target: unknown, eventName: string, handler: (...args: unknown[]) => void) => void;
           removeListener: (listener: unknown) => void;
@@ -71,4 +74,12 @@ export interface NaverMarkerInstance {
   setMap: (map: NaverMapInstance | null) => void;
   getPosition: () => NaverLatLng;
   setPosition: (latLng: NaverLatLng) => void;
+}
+
+export interface NaverInfoWindowInstance {
+  setMap: (map: NaverMapInstance | null) => void;
+  getMap: () => NaverMapInstance | null;
+  setContent: (content: string | HTMLElement) => void;
+  open: (map: NaverMapInstance, marker: NaverMarkerInstance) => void;
+  close: () => void;
 }
