@@ -1,7 +1,13 @@
 package com.sulddara.server.plan.mapper;
 
+import com.sulddara.server.place.domain.Place;
 import com.sulddara.server.plan.domain.Plan;
+import com.sulddara.server.plan.domain.PlanDetail;
+import com.sulddara.server.plan.dto.PlaceSummaryDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
+import com.sulddara.server.plan.dto.PlanDetailPlaceDto;
+import com.sulddara.server.plan.dto.PlanDetailResponseDto;
+import com.sulddara.server.plan.dto.PlanSummaryDto;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,8 +25,8 @@ public class PlanMapper {
         .build();
   }
 
-  public com.sulddara.server.plan.dto.PlanSummaryDto toSummary(Plan plan) {
-    return com.sulddara.server.plan.dto.PlanSummaryDto.builder()
+  public PlanSummaryDto toSummary(Plan plan) {
+    return PlanSummaryDto.builder()
         .planId(plan.getId())
         .title(plan.getTitle())
         .meetingAt(plan.getMeetingAt())
@@ -31,8 +37,8 @@ public class PlanMapper {
         .build();
   }
 
-  public com.sulddara.server.plan.dto.PlaceSummaryDto toPlaceSummary(com.sulddara.server.place.domain.Place place) {
-    return com.sulddara.server.plan.dto.PlaceSummaryDto.builder()
+  public PlaceSummaryDto toPlaceSummary(Place place) {
+    return PlaceSummaryDto.builder()
         .placeId(place.getId())
         .name(place.getName())
         .category(place.getCategory())
@@ -42,8 +48,8 @@ public class PlanMapper {
         .build();
   }
 
-  public com.sulddara.server.plan.dto.PlanDetailPlaceDto toDetailPlace(com.sulddara.server.plan.domain.PlanDetail detail) {
-    return com.sulddara.server.plan.dto.PlanDetailPlaceDto.builder()
+  public PlanDetailPlaceDto toDetailPlace(PlanDetail detail) {
+    return PlanDetailPlaceDto.builder()
         .detailId(detail.getId())
         .placeId(detail.getPlace().getId())
         .seqNo(detail.getSeqNo())
@@ -52,8 +58,8 @@ public class PlanMapper {
         .build();
   }
 
-  public com.sulddara.server.plan.dto.PlanDetailResponseDto toDetailResponse(Plan plan) {
-    return com.sulddara.server.plan.dto.PlanDetailResponseDto.builder()
+  public PlanDetailResponseDto toDetailResponse(Plan plan) {
+    return PlanDetailResponseDto.builder()
         .planId(plan.getId())
         .title(plan.getTitle())
         .meetingAt(plan.getMeetingAt())
@@ -68,3 +74,4 @@ public class PlanMapper {
         .build();
   }
 }
+

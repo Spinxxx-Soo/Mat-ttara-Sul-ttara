@@ -1,5 +1,8 @@
 package com.sulddara.server.plan.service;
 
+import com.sulddara.server.share.error.ErrorCode;
+import com.sulddara.server.share.error.exception.ForbiddenException;
+
 import com.sulddara.server.place.domain.Place;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.plan.domain.Plan;
@@ -70,6 +73,10 @@ public class PlanServiceImpl implements PlanService {
 
   @Override
   public PlanListResponseDto getMyPlans(Long userId, Long cursor, int size) {
+    if (!userRepository.existsById(userId)) {
+      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+    }
+
     PageRequest pageRequest = PageRequest.of(0, size + 1);
     List<Plan> plans;
 
@@ -100,11 +107,15 @@ public class PlanServiceImpl implements PlanService {
 
   @Override
   public PlanDetailResponseDto getPlanDetail(Long userId, Long planId) {
+    if (!userRepository.existsById(userId)) {
+      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+    }
+
     Plan plan = planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)
         .orElseThrow(() -> new IllegalArgumentException("플랜을 찾을 수 없습니다."));
 
     if (!plan.getUser().getId().equals(userId)) {
-      throw new IllegalArgumentException("접근 권한이 없는 플랜입니다.");
+      throw new ForbiddenException(ErrorCode.FORBIDDEN);
     }
 
     return planMapper.toDetailResponse(plan);

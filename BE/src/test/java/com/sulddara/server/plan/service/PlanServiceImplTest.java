@@ -7,6 +7,9 @@ import com.sulddara.server.plan.dto.PlanCreateRequestDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
 import com.sulddara.server.plan.mapper.PlanMapper;
 import com.sulddara.server.plan.repository.PlanRepository;
+import com.sulddara.server.plan.dto.PlanDetailResponseDto;
+import com.sulddara.server.plan.dto.PlanSummaryDto;
+import com.sulddara.server.share.error.exception.ForbiddenException;
 import com.sulddara.server.user.domain.User;
 import com.sulddara.server.user.exception.UserNotFoundException;
 import com.sulddara.server.user.repository.UserRepository;
@@ -238,6 +241,8 @@ class PlanServiceImplTest {
 
     List<Plan> plans = List.of(plan1, plan2);
 
+    // getMyPlans 테스트
+    given(userRepository.existsById(userId)).willReturn(true);
     given(planRepository.findByUserIdAndDeletedAtIsNullOrderByIdDesc(userId, pageRequest))
         .willReturn(plans);
     given(planMapper.toSummary(any(Plan.class))).willAnswer(invocation -> {
@@ -277,11 +282,13 @@ class PlanServiceImplTest {
 
     List<Plan> plans = List.of(plan1, plan2);
 
+    // getMyPlans cursor 테스트
+    given(userRepository.existsById(userId)).willReturn(true);
     given(planRepository.findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(userId, cursor, pageRequest))
         .willReturn(plans);
     given(planMapper.toSummary(any(Plan.class))).willAnswer(invocation -> {
       Plan p = invocation.getArgument(0);
-      return com.sulddara.server.plan.dto.PlanSummaryDto.builder()
+      return PlanSummaryDto.builder()
           .planId(p.getId())
           .title(p.getTitle())
           .build();
@@ -312,18 +319,19 @@ class PlanServiceImplTest {
 
     Plan plan = new Plan(user, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
     ReflectionTestUtils.setField(plan, "id", planId);
+    given(userRepository.existsById(userId)).willReturn(true);
+    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId))
+        .willReturn(Optional.of(plan));
 
-    com.sulddara.server.plan.dto.PlanDetailResponseDto expectedDto = com.sulddara.server.plan.dto.PlanDetailResponseDto.builder()
+    PlanDetailResponseDto expectedDto = PlanDetailResponseDto.builder()
         .planId(planId)
         .title("상세 플랜")
         .build();
 
-    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId))
-        .willReturn(Optional.of(plan));
     given(planMapper.toDetailResponse(plan)).willReturn(expectedDto);
 
     // When
-    com.sulddara.server.plan.dto.PlanDetailResponseDto response = planService.getPlanDetail(userId, planId);
+    PlanDetailResponseDto response = planService.getPlanDetail(userId, planId);
 
     // Then
     assertThat(response).isNotNull();
@@ -345,12 +353,12 @@ class PlanServiceImplTest {
     Plan plan = new Plan(owner, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
     ReflectionTestUtils.setField(plan, "id", planId);
 
+    given(userRepository.existsById(requestUserId)).willReturn(true);
     given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId))
         .willReturn(Optional.of(plan));
 
     // When & Then
     assertThatThrownBy(() -> planService.getPlanDetail(requestUserId, planId))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("접근 권한이 없는 플랜입니다.");
+        .isInstanceOf(ForbiddenException.class);
   }
 }
