@@ -20,12 +20,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
+import org.springframework.core.ParameterizedTypeReference;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -65,8 +65,8 @@ class GoogleSocialLoginServiceImplTest {
                 .willReturn(tokenResponse);
 
         // 2. exchange Mock 설정
-        ResponseEntity<Map> userInfoResponse = new ResponseEntity<>(googleUserInfo, HttpStatus.OK);
-        given(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(Map.class)))
+        ResponseEntity<Map<String, Object>> userInfoResponse = new ResponseEntity<>(googleUserInfo, HttpStatus.OK);
+        given(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(new ParameterizedTypeReference<Map<String, Object>>() {})))
                 .willReturn(userInfoResponse);
 
         // 3. 서비스 로직 Mock

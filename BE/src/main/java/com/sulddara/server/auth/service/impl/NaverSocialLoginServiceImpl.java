@@ -12,6 +12,7 @@ import com.sulddara.server.auth.service.SocialLoginService;
 import com.sulddara.server.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -49,11 +50,14 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
         String jwtAccessToken = jwtUtil.generateAccessToken(user.user().getId(), user.user().getEmail(), user.user().getRole());
         String jwtRefreshToken = jwtUtil.generateRefreshToken(user.user().getId(), user.user().getEmail());
 
-        redisTemplate.opsForValue().set(
-                "refresh:" + user.user().getEmail(),
-                jwtRefreshToken,
-                Duration.ofDays(14)
-        );
+        String email = user.user().getEmail();
+        if (email != null && jwtRefreshToken != null) {
+            redisTemplate.opsForValue().set(
+                    "refresh:" + email,
+                    jwtRefreshToken,
+                    Duration.ofDays(14)
+            );
+        }
 
         return LoginResponse.builder()
                 .accessToken(jwtAccessToken)
@@ -68,11 +72,13 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
                 "&client_id=" + clientId + "&client_secret=" + clientSecret + "&code=" + code;
 
         try {
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-            if (response == null || response.get("access_token") == null) {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url, HttpMethod.GET, null, new ParameterizedTypeReference<Map<String, Object>>() {});
+            Map<String, Object> body = response.getBody();
+            if (body == null || body.get("access_token") == null) {
                 throw new UnauthorizedException(ErrorCode.INVALID_SOCIAL_CODE);
             }
-            return (String) response.get("access_token");
+            return (String) body.get("access_token");
         } catch (Exception e) {
             throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
         }
@@ -85,14 +91,16 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    "https://openapi.naver.com/v1/nid/me", HttpMethod.GET, entity, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    "https://openapi.naver.com/v1/nid/me", HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {});
 
             Map<String, Object> body = response.getBody();
             if (body == null || body.get("response") == null) {
                 throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
             }
-            return (Map<String, Object>) body.get("response");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> responseMap = (Map<String, Object>) body.get("response");
+            return responseMap;
         } catch (Exception e) {
             throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
         }

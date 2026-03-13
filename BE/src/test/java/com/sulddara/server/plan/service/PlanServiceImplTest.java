@@ -7,6 +7,9 @@ import com.sulddara.server.plan.dto.PlanCreateRequestDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
 import com.sulddara.server.plan.mapper.PlanMapper;
 import com.sulddara.server.plan.repository.PlanRepository;
+import com.sulddara.server.plan.dto.PlanDetailResponseDto;
+import com.sulddara.server.plan.dto.PlanSummaryDto;
+import com.sulddara.server.share.error.exception.ForbiddenException;
 import com.sulddara.server.user.domain.User;
 import com.sulddara.server.user.exception.UserNotFoundException;
 import com.sulddara.server.user.repository.UserRepository;
@@ -21,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,7 +60,13 @@ class PlanServiceImplTest {
   void createPlan_validRequest_returnsCreatedPlan() {
     // Given
     Long userId = 1L;
-    User user = new User("google_123", "GOOGLE", "테스트유저", "test@test.com", "ROLE_USER");
+    User user = User.builder()
+        .oauthId("google_123")
+        .provider("GOOGLE")
+        .name("테스트유저")
+        .email("test@test.com")
+        .role("ROLE_USER")
+        .build();
     ReflectionTestUtils.setField(user, "id", userId);
 
     Place place = new Place("NAVER", "ext_1", "맛집", "서울시 강남구", 37.5, 127.0);
@@ -111,7 +121,13 @@ class PlanServiceImplTest {
   void createPlan_noDetails_returnsCreatedPlan() {
     // Given
     Long userId = 1L;
-    User user = new User("google_123", "GOOGLE", "테스트유저", "test@test.com", "ROLE_USER");
+    User user = User.builder()
+        .oauthId("google_123")
+        .provider("GOOGLE")
+        .name("테스트유저")
+        .email("test@test.com")
+        .role("ROLE_USER")
+        .build();
     ReflectionTestUtils.setField(user, "id", userId);
 
     PlanCreateRequestDto requestDto = PlanCreateRequestDto.builder()
@@ -174,7 +190,13 @@ class PlanServiceImplTest {
     // Given
     Long userId = 1L;
     Long invalidPlaceId = 999L;
-    User user = new User("google_123", "GOOGLE", "테스트유저", "test@test.com", "ROLE_USER");
+    User user = User.builder()
+        .oauthId("google_123")
+        .provider("GOOGLE")
+        .name("테스트유저")
+        .email("test@test.com")
+        .role("ROLE_USER")
+        .build();
     ReflectionTestUtils.setField(user, "id", userId);
 
     PlanCreateRequestDto requestDto = PlanCreateRequestDto.builder()
@@ -197,5 +219,146 @@ class PlanServiceImplTest {
         .hasMessageContaining(String.valueOf(invalidPlaceId));
 
     verify(planRepository, never()).save(any(Plan.class));
+  }
+
+  // ========== getMyPlans 테스트 ==========
+
+  @Test
+  @DisplayName("플랜 목록 조회 - 커서가 없는 경우 첫 페이지를 조회한다")
+  void getMyPlans_noCursor_returnsFirstPage() {
+    // Given
+    Long userId = 1L;
+    int size = 10;
+    PageRequest pageRequest = PageRequest.of(0, size + 1);
+
+    User user = User.builder().build();
+    ReflectionTestUtils.setField(user, "id", userId);
+
+    Plan plan1 = new Plan(user, "플랜1", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    ReflectionTestUtils.setField(plan1, "id", 2L);
+    Plan plan2 = new Plan(user, "플랜2", 20000L, 4, LocalDateTime.now(), "타입", "메모", "token2");
+    ReflectionTestUtils.setField(plan2, "id", 1L);
+
+    List<Plan> plans = List.of(plan1, plan2);
+
+    // getMyPlans 테스트
+    given(userRepository.existsById(userId)).willReturn(true);
+    given(planRepository.findByUserIdAndDeletedAtIsNullOrderByIdDesc(userId, pageRequest))
+        .willReturn(plans);
+    given(planMapper.toSummary(any(Plan.class))).willAnswer(invocation -> {
+      Plan p = invocation.getArgument(0);
+      return com.sulddara.server.plan.dto.PlanSummaryDto.builder()
+          .planId(p.getId())
+          .title(p.getTitle())
+          .build();
+    });
+
+    // When
+    com.sulddara.server.plan.dto.PlanListResponseDto response = planService.getMyPlans(userId, null, size);
+
+    // Then
+    assertThat(response.getContent()).hasSize(2);
+    assertThat(response.isHasNext()).isFalse();
+    assertThat(response.getNextCursor()).isNull();
+    verify(planRepository).findByUserIdAndDeletedAtIsNullOrderByIdDesc(userId, pageRequest);
+  }
+
+  @Test
+  @DisplayName("플랜 목록 조회 - 커서가 있는 경우 다음 페이지를 조회한다")
+  void getMyPlans_withCursor_returnsNextPage() {
+    // Given
+    Long userId = 1L;
+    Long cursor = 10L;
+    int size = 1;
+    PageRequest pageRequest = PageRequest.of(0, size + 1);
+
+    User user = User.builder().build();
+    ReflectionTestUtils.setField(user, "id", userId);
+
+    Plan plan1 = new Plan(user, "플랜1", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    ReflectionTestUtils.setField(plan1, "id", 9L);
+    Plan plan2 = new Plan(user, "플랜2", 20000L, 4, LocalDateTime.now(), "타입", "메모", "token2");
+    ReflectionTestUtils.setField(plan2, "id", 8L);
+
+    List<Plan> plans = List.of(plan1, plan2);
+
+    // getMyPlans cursor 테스트
+    given(userRepository.existsById(userId)).willReturn(true);
+    given(planRepository.findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(userId, cursor, pageRequest))
+        .willReturn(plans);
+    given(planMapper.toSummary(any(Plan.class))).willAnswer(invocation -> {
+      Plan p = invocation.getArgument(0);
+      return PlanSummaryDto.builder()
+          .planId(p.getId())
+          .title(p.getTitle())
+          .build();
+    });
+
+    // When
+    com.sulddara.server.plan.dto.PlanListResponseDto response = planService.getMyPlans(userId, cursor, size);
+
+    // Then
+    assertThat(response.getContent()).hasSize(1);
+    assertThat(response.getContent().get(0).getPlanId()).isEqualTo(9L);
+    assertThat(response.isHasNext()).isTrue();
+    assertThat(response.getNextCursor()).isEqualTo(9L);
+    verify(planRepository).findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(userId, cursor, pageRequest);
+  }
+
+  // ========== getPlanDetail 테스트 ==========
+
+  @Test
+  @DisplayName("플랜 상세 조회 - 유효한 요청 시 상세 정보를 반환한다")
+  void getPlanDetail_validRequest_returnsDetail() {
+    // Given
+    Long userId = 1L;
+    Long planId = 100L;
+
+    User user = User.builder().build();
+    ReflectionTestUtils.setField(user, "id", userId);
+
+    Plan plan = new Plan(user, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    ReflectionTestUtils.setField(plan, "id", planId);
+    given(userRepository.existsById(userId)).willReturn(true);
+    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId))
+        .willReturn(Optional.of(plan));
+
+    PlanDetailResponseDto expectedDto = PlanDetailResponseDto.builder()
+        .planId(planId)
+        .title("상세 플랜")
+        .build();
+
+    given(planMapper.toDetailResponse(plan)).willReturn(expectedDto);
+
+    // When
+    PlanDetailResponseDto response = planService.getPlanDetail(userId, planId);
+
+    // Then
+    assertThat(response).isNotNull();
+    assertThat(response.getPlanId()).isEqualTo(planId);
+    assertThat(response.getTitle()).isEqualTo("상세 플랜");
+  }
+
+  @Test
+  @DisplayName("플랜 상세 조회 - 권한이 없는 경우 예외가 발생한다")
+  void getPlanDetail_unauthorized_throwsException() {
+    // Given
+    Long requestUserId = 2L;
+    Long ownerUserId = 1L;
+    Long planId = 100L;
+
+    User owner = User.builder().build();
+    ReflectionTestUtils.setField(owner, "id", ownerUserId);
+
+    Plan plan = new Plan(owner, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    ReflectionTestUtils.setField(plan, "id", planId);
+
+    given(userRepository.existsById(requestUserId)).willReturn(true);
+    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId))
+        .willReturn(Optional.of(plan));
+
+    // When & Then
+    assertThatThrownBy(() -> planService.getPlanDetail(requestUserId, planId))
+        .isInstanceOf(ForbiddenException.class);
   }
 }

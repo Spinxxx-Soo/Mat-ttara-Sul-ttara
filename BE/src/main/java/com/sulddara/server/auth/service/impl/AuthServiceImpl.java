@@ -31,8 +31,10 @@ public class AuthServiceImpl implements AuthService {
         if (jwt != null && jwtUtil.validateToken(jwt)) {
             remainingTime = jwtUtil.getRemainingTime(jwt);
         }
-        String key = "blacklist:" + jwt;
-        redisTemplate.opsForValue().set(key, "logout", Duration.ofMillis(remainingTime));
+        if (jwt != null) {
+            String key = "blacklist:" + jwt;
+            redisTemplate.opsForValue().set(key, "logout", Duration.ofMillis(remainingTime));
+        }
     }
 
     @Override
@@ -46,6 +48,10 @@ public class AuthServiceImpl implements AuthService {
 
         String savedToken = redisTemplate.opsForValue().get("refresh:" + email);
         if (savedToken == null || !savedToken.equals(refreshToken)) {
+            throw new UnauthorizedException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        if (userId == null) {
             throw new UnauthorizedException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 

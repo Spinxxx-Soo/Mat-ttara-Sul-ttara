@@ -43,8 +43,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/login/**",
                                 "/api/v1/auth/callback/**",
-                                "/api/v1/auth/refresh"
-                ).permitAll()
+                                "/api/v1/auth/refresh",
+                                "/api/v1/plans/share/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
 //                .oauth2Login(oauth2 -> oauth2
