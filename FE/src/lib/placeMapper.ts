@@ -7,7 +7,7 @@ import type { PlaceMarkerData } from '@/types/map';
 
 export const mapPlaceToMarkerData = (place: Place): PlaceMarkerData => {
   return {
-    id: place.placeId.toString(),
+    id: place.placeId,
     position: {
       lat: place.lat,
       lng: place.lng,
