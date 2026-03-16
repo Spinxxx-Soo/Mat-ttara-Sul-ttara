@@ -18,7 +18,6 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,19 +41,14 @@ class UserServiceTest {
   @DisplayName("사용자 프로필 조회 테스트")
   void getUserProfileTest() {
     // given
-    User user = new User(
-            1L,                         // id
-            "google_12345",             // oauthId
-            "GOOGLE",                   // provider
-            "Test User",                // name
-            "test@google.com",          // email
-            "Hello, I'm a test user",   // bio
-            "ROLE_USER",                // role
-            LocalDateTime.now(),        // createdAt
-            LocalDateTime.now(),        // updatedAt
-            LocalDateTime.now(),        // lastLoginAt
-            null                        // preference (UserPreference)
-    );
+    User user = User.builder()
+            .oauthId("google_12345")
+            .provider("GOOGLE")
+            .name("Test User")
+            .email("test@google.com")
+            .bio("Hello, I'm a test user")
+            .role("ROLE_USER")
+            .build();
     ReflectionTestUtils.setField(user, "id", 1L);
 
     UserProfileResponseDto expectedDto = UserProfileResponseDto.builder()
@@ -74,19 +68,14 @@ class UserServiceTest {
   @DisplayName("사용자 프로필 수정 테스트")
   void updateUserProfileTest() {
     // given
-    User user = new User(
-            1L,                         // id
-            "google_12345",             // oauthId
-            "GOOGLE",                   // provider
-            "Old Name",                // name
-            "test@google.com",          // email
-            "Hello, I'm a test user",   // bio
-            "ROLE_USER",                // role
-            LocalDateTime.now(),        // createdAt
-            LocalDateTime.now(),        // updatedAt
-            LocalDateTime.now(),        // lastLoginAt
-            null                        // preference (UserPreference)
-    );
+    User user = User.builder()
+            .oauthId("google_12345")
+            .provider("GOOGLE")
+            .name("Old Name")
+            .email("test@google.com")
+            .bio("Hello, I'm a test user")
+            .role("ROLE_USER")
+            .build();
     ReflectionTestUtils.setField(user, "id", 1L);
 
     UserUpdateNameRequestDto requestDto = new UserUpdateNameRequestDto("New Name", "Hello!");
@@ -108,56 +97,79 @@ class UserServiceTest {
 
   @Test
   @DisplayName("온보딩 선호도 등록 테스트 (최초)")
-  void registerPreferenceTest() {
+  void registerOrUpdatePreference_newPreference_createsPreference() {
     // given
-    User user = new User(
-            1L,                         // id
-            "test_oauth",             // oauthId
-            "TEST",                   // provider
-            "Test User",                // name
-            "test@test.com",          // email
-            "Hello, I'm a test user",   // bio
-            "ROLE_USER",                // role
-            LocalDateTime.now(),        // createdAt
-            LocalDateTime.now(),        // updatedAt
-            LocalDateTime.now(),        // lastLoginAt
-            null                        // preference (UserPreference)
-    );
+    User user = User.builder()
+        .oauthId("test_oauth")
+        .provider("TEST")
+        .name("Test User")
+        .email("test@test.com")
+        .bio("Hello, I'm a test user")
+        .role("ROLE_USER")
+        .build();
     ReflectionTestUtils.setField(user, "id", 1L);
 
-    UserPreferenceRequestDto requestDto = new UserPreferenceRequestDto("ALONE", "20s", "MALE");
+    UserPreferenceRequestDto requestDto = new UserPreferenceRequestDto("사적", "20대", "남성");
 
     UserPreferenceResponseDto expectedDto = UserPreferenceResponseDto.builder()
-        .usageType("ALONE").ageGroup("20s").gender("MALE").build();
+        .usageType("사적").ageGroup("20대").gender("남성").build();
 
-    given(userRepository.findById(anyLong())).willReturn(Optional.of(user));
+    given(userRepository.findById(1L)).willReturn(Optional.of(user));
     given(userMapper.toPreferenceResponse(any(UserPreference.class))).willReturn(expectedDto);
 
     // when
     UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, requestDto);
 
     // then
-    assertThat(response.getUsageType()).isEqualTo("ALONE");
+    assertThat(response.getUsageType()).isEqualTo("사적");
     assertThat(user.getPreference()).isNotNull();
+    assertThat(user.getPreference().getUsageType()).isEqualTo("사적");
+  }
+
+  @Test
+  @DisplayName("온보딩 선호도 수정 테스트 (기존 존재)")
+  void registerOrUpdatePreference_existingPreference_updatesPreference() {
+    // given
+    User user = User.builder()
+        .oauthId("test_oauth")
+        .provider("TEST")
+        .name("Test User")
+        .email("test@test.com")
+        .role("ROLE_USER")
+        .build();
+    ReflectionTestUtils.setField(user, "id", 1L);
+    UserPreference oldPreference = new UserPreference("사적", "20대", "남성");
+    user.setPreference(oldPreference);
+
+    UserPreferenceRequestDto updateDto = new UserPreferenceRequestDto("공적", "30대", "여성");
+
+    UserPreferenceResponseDto expectedDto = UserPreferenceResponseDto.builder()
+        .usageType("공적").ageGroup("30대").gender("여성").build();
+
+    given(userRepository.findById(1L)).willReturn(Optional.of(user));
+    given(userMapper.toPreferenceResponse(any(UserPreference.class))).willReturn(expectedDto);
+
+    // when
+    UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, updateDto);
+
+    // then
+    assertThat(response.getUsageType()).isEqualTo("공적");
+    assertThat(user.getPreference().getUsageType()).isEqualTo("공적");
+    assertThat(user.getPreference().getAgeGroup()).isEqualTo("30대");
   }
 
   @Test
   @DisplayName("사용자 탈퇴 테스트")
   void deleteUserTest() {
     // given
-    User user = new User(
-            1L,                         // id
-            "test_oauth",             // oauthId
-            "TEST",                   // provider
-            "Test User",                // name
-            "test@test.com",          // email
-            "Hello, I'm a test user",   // bio
-            "ROLE_USER",                // role
-            LocalDateTime.now(),        // createdAt
-            LocalDateTime.now(),        // updatedAt
-            LocalDateTime.now(),        // lastLoginAt
-            null                        // preference (UserPreference)
-    );
+    User user = User.builder()
+            .oauthId("test_oauth")
+            .provider("TEST")
+            .name("Test User")
+            .email("test@test.com")
+            .bio("Hello, I'm a test user")
+            .role("ROLE_USER")
+            .build();
     ReflectionTestUtils.setField(user, "id", 1L);
 
     given(userRepository.findById(anyLong())).willReturn(Optional.of(user));
@@ -169,4 +181,3 @@ class UserServiceTest {
     Mockito.verify(userRepository).delete(user);
   }
 }
-

@@ -13,12 +13,14 @@ interface NaverMapProps {
   lat?: number;
   lng?: number;
   onMapReady?: (mapInstance: NaverMapInstance) => void;
+  onIdle?: (center: Coordinates, zoom: number) => void;
 }
 
 export default function NaverMap({
   lat = 37.3595704,
   lng = 127.105399,
   onMapReady,
+  onIdle,
 }: NaverMapProps) {
   const defaultCenter: Coordinates = { lat, lng };
 
@@ -26,12 +28,25 @@ export default function NaverMap({
   const { coordinates, errorType } = useGeolocation(false);
   const locationMarkerRef = useRef<NaverMarkerInstance | null>(null);
 
-  // 지도 인스턴스가 준비되면 외부로 전달
+  // 지도 인스턴스가 준비되면 외부로 전달 및 이벤트 등록
   useEffect(() => {
-    if (sdkLoaded && mapInstance.current && onMapReady) {
-      onMapReady(mapInstance.current);
+    if (sdkLoaded && mapInstance.current) {
+      if (onMapReady) {
+        onMapReady(mapInstance.current);
+      }
+
+      if (onIdle) {
+        const listener = window.naver.maps.Event.addListener(mapInstance.current, 'idle', () => {
+          const center = mapInstance.current.getCenter();
+          const zoom = mapInstance.current.getZoom();
+          onIdle({ lat: center.lat(), lng: center.lng() }, zoom);
+        });
+        return () => {
+          window.naver.maps.Event.removeListener(listener);
+        };
+      }
     }
-  }, [sdkLoaded, mapInstance, onMapReady]);
+  }, [sdkLoaded, mapInstance, onMapReady, onIdle]);
 
   // 현재 위치 좌표가 나오면 지도를 중심동하고 마커를 표시
   useEffect(() => {
