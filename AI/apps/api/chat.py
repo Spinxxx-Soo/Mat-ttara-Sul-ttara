@@ -7,6 +7,8 @@ from apps.schemas.chat import (
     ChatMessageResponse,
     PlaceCandidatesRequest,
     PlaceCandidatesResponse,
+    ChatResponseType,
+    MemoryStatus,
 )
 
 from apps.services.chat_service import ChatService
@@ -19,10 +21,6 @@ chat_service = ChatService()
 async def process_chat_message(request: ChatMessageRequest):
     """
     대화 처리 API
-    
-    사용자 메시지를 받아 AI가 처리하고 응답을 반환합니다.
-    조건부 필드(contextInjection, sessionState, preferenceSummary)는
-    특정 상황에서만 포함됩니다.
     """
     try:
         response = await chat_service.process_message(request)
@@ -34,16 +32,18 @@ async def process_chat_message(request: ChatMessageRequest):
 @router.post("/api/v1/internal/ai/place-candidates", response_model=PlaceCandidatesResponse)
 async def get_place_candidates(request: PlaceCandidatesRequest):
     """
-    후보 장소 조회 API
-    
-    필터 조건에 맞는 장소 후보를 조회합니다.
-    INTERNAL API로 AI 서버에서 백엔드 서버를 호출할 때 사용됩니다.
+    후보 장소 조회 API -> 추후 redis 변경
     """
     try:
         # TODO: Service 레이어 호출하여 실제 로직 구현
+        # TODO: userId를 threadId에서 추출하거나 별도로 받아야 함
         response: PlaceCandidatesResponse = ChatMessageResponse(
             threadId=request.threadId,
+            userId="0",  # TODO: 실제 userId로 변경 필요
             chatResponse="장소 후보를 조회했습니다.",
+            type=ChatResponseType.RECOMMENDATION,
+            memoryStatus=MemoryStatus.OK,
+            parsedState=None
         )
         
         return response

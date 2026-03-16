@@ -37,9 +37,9 @@ class ChatService:
         # 기본 응답 생성 (현재는 임시 반환)
         return ChatMessageResponse(
             threadId=request.threadId,
-            type= ChatResponseType.FOLLOW_UP,
-            memoryStatus=MemoryStatus.OK,
-            needFollowUp=False,
+            userId=str(request.userId),
             chatResponse=chat_response_text,
-            places=[]   
+            type=ChatResponseType.FOLLOW_UP,
+            memoryStatus=MemoryStatus.OK,
+            parsedState=None
         )

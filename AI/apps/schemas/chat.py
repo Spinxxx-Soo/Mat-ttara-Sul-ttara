@@ -70,7 +70,8 @@ class SessionState(BaseState):
 
 class ParsedState(BaseState):
     """LLM 또는 파서가 추출한 상태 정보."""
-    pass
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 #사용자 장기 메모리
 class PreferenceSummary(APIModel):
@@ -149,13 +150,11 @@ class PlaceCandidatesRequest(APIModel):
 
 class ChatMessageResponse(APIModel):
     threadId: str
+    userId: str
+    chatResponse: str = Field(min_length=1)
     type: ChatResponseType
     memoryStatus: MemoryStatus
-    needFollowUp: bool
-    chatResponse: str = Field(min_length=1)
     parsedState: Optional[ParsedState] = None
-    # 추천일 경우만 채워짐
-    places: List[PlaceInfo] = Field(default_factory=list)
 
 
 # 현재 구조상 동일 응답 재사용
