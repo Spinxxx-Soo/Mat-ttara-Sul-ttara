@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 
 interface Restaurant {
-  id: string
+  id: number
   name: string
   rating: number
   isOpen: boolean
@@ -14,12 +14,12 @@ interface Restaurant {
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedRestaurant, setSelectedRestaurant] = useState<string | null>(null)
+  const [selectedRestaurant, setSelectedRestaurant] = useState<number | null>(null)
 
   // TODO: 실제 검색 API 연동
   const restaurants: Restaurant[] = [
     {
-      id: '1',
+      id: 1,
       name: '만선호프',
       rating: 4.5,
       isOpen: true,
@@ -29,7 +29,7 @@ const Search = () => {
       lng: 126.9928,
     },
     {
-      id: '2',
+      id: 2,
       name: '정통집 홍대점',
       rating: 4.3,
       isOpen: true,
@@ -39,7 +39,7 @@ const Search = () => {
       lng: 126.9236,
     },
     {
-      id: '3',
+      id: 3,
       name: '시선 이자카야',
       rating: 4.8,
       isOpen: true,
