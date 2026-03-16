@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 
 interface Place {
-  id: string
+  id: number
   name: string
   lat: number
   lng: number
@@ -17,7 +17,7 @@ const MyPlanCreate = () => {
   // 임시 추천 장소 (나중에 백엔드/지도 API 연동)
   const places: Place[] = [
     {
-      id: '1',
+      id: 1,
       name: '정통집 강남역점',
       lat: 37.498,
       lng: 127.0276,
@@ -25,7 +25,7 @@ const MyPlanCreate = () => {
       hours: '오늘 17:00 - 01:00',
     },
     {
-      id: '2',
+      id: 2,
       name: '을지로 골뱅이포차',
       lat: 37.5665,
       lng: 126.9928,
@@ -34,7 +34,7 @@ const MyPlanCreate = () => {
     },
   ]
 
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null)
+  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
   const [planName, setPlanName] = useState('') // 플랜명
   const [date, setDate] = useState('') // 약속 날짜
   const [time, setTime] = useState('') // 약속 시간
@@ -42,11 +42,11 @@ const MyPlanCreate = () => {
   const [budget, setBudget] = useState('') // 1인당 예산 (문자열로 관리)
   const [type, setType] = useState<'' | 'date' | 'hangout' | 'business'>('') // 모임 유형
   const [memo, setMemo] = useState('') // 메모
-  const [ratings, setRatings] = useState<Record<string, number>>({})
+  const [ratings, setRatings] = useState<Record<number, number>>({})
 
   const selectedPlace = places.find((p) => p.id === selectedPlaceId) || null
 
-  const handleRatingChange = (id: string, value: number) => {
+  const handleRatingChange = (id: number, value: number) => {
     setRatings((prev) => ({ ...prev, [id]: value }))
   }
 
@@ -73,7 +73,7 @@ const MyPlanCreate = () => {
     navigate('/my-plan')
   }
 
-  const handlePlaceClick = (placeId: string) => {
+  const handlePlaceClick = (placeId: number) => {
     setSelectedPlaceId(placeId)
   }
 
