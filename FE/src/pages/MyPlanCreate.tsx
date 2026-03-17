@@ -42,12 +42,16 @@ const MyPlanCreate = () => {
   const [budget, setBudget] = useState('') // 1인당 예산 (문자열로 관리)
   const [type, setType] = useState<'' | 'date' | 'hangout' | 'business'>('') // 모임 유형
   const [memo, setMemo] = useState('') // 메모
-  const [ratings, setRatings] = useState<Record<number, number>>({})
+  const [ratings, setRatings] = useState<Map<number, number>>(new Map())
 
   const selectedPlace = places.find((p) => p.id === selectedPlaceId) || null
 
   const handleRatingChange = (id: number, value: number) => {
-    setRatings((prev) => ({ ...prev, [id]: value }))
+    setRatings((prev) => {
+      const next = new Map(prev)
+      next.set(id, value)
+      return next
+    })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -273,7 +277,7 @@ const MyPlanCreate = () => {
 
           {/* 핀 + 카드 */}
           {places.map((place, index) => {
-            const currentRating = ratings[place.id] || 0
+            const currentRating = ratings.get(place.id) || 0
             const isSelected = selectedPlaceId === place.id
 
             return (
