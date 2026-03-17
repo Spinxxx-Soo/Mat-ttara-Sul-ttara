@@ -52,9 +52,9 @@ export const useCreateSession = () => {
   return useMutation({
     mutationFn: (params: { title: string }) => chatApi.createSession(params),
     onSuccess: () => {
-      // 대화리스트 캐시 무효화
+      // 챗봇 관련 모든 쿼리 캐시 무효화 (세션 목록 등)
       queryClient.invalidateQueries({
-        queryKey: queryKeys.chat.sessions(),
+        queryKey: queryKeys.chat.all,
       });
     },
     meta: {
@@ -71,14 +71,10 @@ export const useSendMessage = () => {
 
   return useMutation({
     mutationFn: (params: SendMessageRequest) => chatApi.sendMessage(params),
-    onSuccess: (_data, variables) => {
-      // 해당 세션의 메시지 캐시 무효화
+    onSuccess: () => {
+      // 챗봇 관련 모든 쿼리 캐시 무효화 (메시지 목록 + 세션 목록)
       queryClient.invalidateQueries({
-        queryKey: queryKeys.chat.messages({ sessionId: variables.sessionId }),
-      });
-      // 대화리스트도 업데이트 (lastMessageAt 변경)
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.chat.sessions(),
+        queryKey: queryKeys.chat.all,
       });
     },
     meta: {
@@ -96,10 +92,10 @@ export const useUpdateMessage = () => {
   return useMutation({
     mutationFn: ({ messageId, sessionId, ...params }: { messageId: number; sessionId: string } & UpdateMessageRequest) =>
       chatApi.updateMessage(messageId, params),
-    onSuccess: (_data, variables) => {
-      // variables에서 sessionId 가져오기
+    onSuccess: () => {
+      // 챗봇 관련 모든 쿼리 캐시 무효화
       queryClient.invalidateQueries({
-        queryKey: queryKeys.chat.messages({ sessionId: variables.sessionId }),
+        queryKey: queryKeys.chat.all,
       });
     },
     meta: {
@@ -117,9 +113,9 @@ export const useDeleteSession = () => {
   return useMutation({
     mutationFn: (sessionId: string) => chatApi.deleteSession(sessionId),
     onSuccess: () => {
-      // 대화리스트 캐시 무효화
+      // 챗봇 관련 모든 쿼리 캐시 무효화
       queryClient.invalidateQueries({
-        queryKey: queryKeys.chat.sessions(),
+        queryKey: queryKeys.chat.all,
       });
     },
     meta: {
