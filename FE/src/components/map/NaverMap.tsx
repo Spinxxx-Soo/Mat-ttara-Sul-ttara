@@ -32,33 +32,35 @@ export default function NaverMap({
 
   // 지도 인스턴스가 준비되면 외부로 전달 및 이벤트 등록
   useEffect(() => {
-    if (sdkLoaded && mapInstance.current) {
-      if (onMapReady) {
-        onMapReady(mapInstance.current);
-      }
+    if (!sdkLoaded || !mapInstance.current) return;
 
-      const listeners: any[] = [];
+    const currentMap = mapInstance.current;
 
-      if (onIdle) {
-        const listener = window.naver.maps.Event.addListener(mapInstance.current, 'idle', () => {
-          const center = mapInstance.current.getCenter();
-          const zoom = mapInstance.current.getZoom();
-          onIdle({ lat: center.lat(), lng: center.lng() }, zoom);
-        });
-        listeners.push(listener);
-      }
-
-      if (onClick) {
-        const listener = window.naver.maps.Event.addListener(mapInstance.current, 'click', (e: any) => {
-          onClick({ lat: e.coord.lat(), lng: e.coord.lng() });
-        });
-        listeners.push(listener);
-      }
-
-      return () => {
-        listeners.forEach(window.naver.maps.Event.removeListener);
-      };
+    if (onMapReady) {
+      onMapReady(currentMap);
     }
+
+    const listeners: any[] = [];
+
+    if (onIdle) {
+      const listener = window.naver.maps.Event.addListener(currentMap, 'idle', () => {
+        const center = currentMap.getCenter();
+        const zoom = currentMap.getZoom();
+        onIdle({ lat: center.lat(), lng: center.lng() }, zoom);
+      });
+      listeners.push(listener);
+    }
+
+    if (onClick) {
+      const listener = window.naver.maps.Event.addListener(currentMap, 'click', (e: any) => {
+        onClick({ lat: e.coord.lat(), lng: e.coord.lng() });
+      });
+      listeners.push(listener);
+    }
+
+    return () => {
+      listeners.forEach(window.naver.maps.Event.removeListener);
+    };
   }, [sdkLoaded, mapInstance, onMapReady, onIdle, onClick]);
 
   // 현재 위치 좌표가 나오면 지도를 중심동하고 마커를 표시

@@ -22,6 +22,5 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
 
   Optional<Plan> findByIdAndDeletedAtIsNull(Long planId);
 
-  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"details", "details.place"})
-  Optional<Plan> findWithDetailsByShareTokenAndDeletedAtIsNull(String shareToken);
+  Optional<Plan> findByShareTokenAndDeletedAtIsNull(String shareToken);
 }
