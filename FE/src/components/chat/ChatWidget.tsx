@@ -9,6 +9,7 @@ const ChatWidget = () => {
   const [input, setInput] = useState('')
   const [isSessionListOpen, setIsSessionListOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const hasInitializedSessionRef = useRef(false)
 
   // 세션 목록 조회 (상단 드롭다운용)
   const { data: sessionsData } = useChatSessions({ size: 20 })
@@ -18,8 +19,9 @@ const ChatWidget = () => {
   const createSessionMutation = useCreateSession()
 
   useEffect(() => {
-    // 세션이 없고 로그인된 상태이면 새 대화 세션 생성
-    if (!sessionId && user && !createSessionMutation.isPending) {
+    // 세션이 없고 로그인된 상태이면 새 대화 세션 생성 (StrictMode에서도 1회만 실행)
+    if (!sessionId && user && !createSessionMutation.isPending && !hasInitializedSessionRef.current) {
+      hasInitializedSessionRef.current = true
       createSessionMutation.mutate(
         { title: '새 대화' },
         {
