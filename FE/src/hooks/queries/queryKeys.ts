@@ -5,6 +5,7 @@
 // 도메인별로 구조화된 팩토리 함수를 사용하세요.
 
 import type { NearbyPlacesParams } from '@/types/map';
+import type { GetSessionsRequest, GetMessagesRequest } from '@/types/api';
 import type { PlaceSearchRequest } from '@/types/api';
 
 export const queryKeys = {
@@ -36,8 +37,9 @@ export const queryKeys = {
     // --- 챗봇 (Chat) ---
     chat: {
         all: ['chat'] as const,
-        sessions: () => [...queryKeys.chat.all, 'sessions'] as const,
-        messages: (sessionId: string) =>
-            [...queryKeys.chat.all, 'messages', sessionId] as const,
+        sessions: (params?: GetSessionsRequest) =>
+            [...queryKeys.chat.all, 'sessions', params] as const,
+        messages: (params: GetMessagesRequest) =>
+            [...queryKeys.chat.all, 'messages', params] as const,
     },
 } as const;
