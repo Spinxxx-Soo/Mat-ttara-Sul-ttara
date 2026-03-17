@@ -2,6 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthStore } from './stores/authStore'
 import { getUserInfo } from './api/authApi'
+import { Toaster } from 'react-hot-toast'
+import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import { PublicRoute } from './components/auth/PublicRoute'
 import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import Main from './pages/Main'
@@ -14,7 +17,6 @@ import Settings from './pages/Settings'
 function App() {
   const { isLoggedIn, user, needsOnboarding, setUser } = useAuthStore()
   
-  // 로그인 상태인데 유저 상세 정보가 없다면 가져오기
   useEffect(() => {
     if (isLoggedIn && !user) {
       const fetchUserInfo = async () => {
@@ -23,94 +25,48 @@ function App() {
           setUser(userInfo)
         } catch (error) {
           console.error('유저 정보 조회 실패:', error)
-          // 에러 처리는 axios interceptor(401 시 로그아웃)에 맡김
+          // Ticket 280/287: API 실패 시 익명/게스트 정보 주입 (Graceful Degradation)
+          setUser({
+            userId: -1,
+            email: 'guest@matsul.com',
+            name: '게스트',
+            bio: '로그인이 필요합니다.',
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+          })
         }
       }
       fetchUserInfo()
     }
   }, [isLoggedIn, user, setUser])
 
-  // 개발 모드 감지 (Vite)
-  const isDev = import.meta.env?.MODE === 'development'
-  
-  // 개발 중: 인증 체크 우회 (개발 편의성)
-  // 프로덕션: 인증 체크 활성화
-  const ENABLE_AUTH_CHECK = false // 개발 중: false, 프로덕션: true
-  
-  const isAuthenticated = !ENABLE_AUTH_CHECK || isLoggedIn
-
   return (
     <BrowserRouter>
+      <Toaster position="top-center" reverseOrder={false} />
       <Routes>
-        {/* 로그인 페이지 */}
-        <Route 
-          path="/login" 
-          element={
-            ENABLE_AUTH_CHECK && isAuthenticated 
-              ? <Navigate to="/" replace />
-              : <Login />
-          } 
-        />
-        <Route 
-          path="/onboarding" 
-          element={
-            // 개발 중: 항상 접근 가능, 프로덕션: 조건부 접근
-            isDev || !ENABLE_AUTH_CHECK
-              ? <Onboarding /> 
-              : (isAuthenticated && needsOnboarding 
-                  ? <Onboarding /> 
-                  : <Navigate to={isAuthenticated ? "/" : "/login"} replace />)
-          } 
-        />
-        {/* 루트 경로: 개발 중에는 자유 접근, 프로덕션에서는 인증 체크 */}
-        <Route 
-          path="/" 
-          element={
-            !ENABLE_AUTH_CHECK || isAuthenticated
-              ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <Main />)
-              : <Navigate to="/login" replace />
-          } 
-        />
-        <Route 
-          path="/search" 
-          element={
-            !ENABLE_AUTH_CHECK || isAuthenticated
-              ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <Search />)
-              : <Navigate to="/login" replace />
-          } 
-        />
-        <Route 
-          path="/my-plan" 
-          element={
-            !ENABLE_AUTH_CHECK || isAuthenticated
-              ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <MyPlan />)
-              : <Navigate to="/login" replace />
-          } 
-        />
-        <Route 
-          path="/my-plan/new" 
-          element={
-            !ENABLE_AUTH_CHECK || isAuthenticated
-              ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <MyPlanCreate />)
-              : <Navigate to="/login" replace />
-          } 
-        />
-        <Route 
-          path="/my-plan/:id" 
-          element={
-            !ENABLE_AUTH_CHECK || isAuthenticated
-              ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <MyPlanDetail />)
-              : <Navigate to="/login" replace />
-          } 
-        />
-        <Route 
-          path="/settings" 
-          element={
-            !ENABLE_AUTH_CHECK || isAuthenticated
-              ? (needsOnboarding ? <Navigate to="/onboarding" replace /> : <Settings />)
-              : <Navigate to="/login" replace />
-          } 
-        />
+        {/* 공개 경로 (로그인한 사람은 못 들어감) */}
+        <Route element={<PublicRoute />}>
+          <Route path="/login" element={<Login />} />
+        </Route>
+
+        {/* 온보딩 전용 (로그인 필요하지만 온보딩 단계인 사람만) */}
+        <Route element={<ProtectedRoute />}>
+           <Route path="/onboarding" element={<Onboarding />} />
+        </Route>
+
+        {/* 보호된 경로 (로그인 및 온보딩 완료 사용자용) */}
+        <Route element={<ProtectedRoute />}>
+           {/* 메인 및 주요 기능 */}
+           <Route path="/" element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Main />} />
+           <Route path="/search" element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Search />} />
+           <Route path="/my-plan" element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <MyPlan />} />
+           <Route path="/my-plan/new" element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <MyPlanCreate />} />
+           <Route path="/my-plan/:id" element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <MyPlanDetail />} />
+           <Route path="/settings" element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Settings />} />
+        </Route>
+
+        {/* 404 처리 (필요시 추가) */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )

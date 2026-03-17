@@ -6,6 +6,7 @@
 
 import type { NearbyPlacesParams } from '@/types/map';
 import type { GetSessionsRequest, GetMessagesRequest } from '@/types/api';
+import type { PlaceSearchRequest } from '@/types/api';
 
 export const queryKeys = {
     // --- 장소 (Place) ---
@@ -15,6 +16,8 @@ export const queryKeys = {
             [...queryKeys.place.all, 'nearby', params] as const,
         detail: (placeId: number) =>
             [...queryKeys.place.all, 'detail', placeId] as const,
+        search: (params: PlaceSearchRequest) =>
+            [...queryKeys.place.all, 'search', params] as const,
     },
 
     // --- 플랜 (Plan) ---
