@@ -175,3 +175,57 @@ export interface ChatMessage {
   updatedAt?: string;
 }
 
+// Request 타입들
+export interface CreateSessionRequest {
+  title: string;
+}
+
+export interface CreateSessionResponse {
+  sessionId: string;
+  createdAt: string;
+}
+
+export interface GetSessionsRequest {
+  cursor?: string | number;
+  size?: number;
+}
+
+export interface SessionListResponse {
+  content: ChatSession[];
+  nextCursor?: string | number;
+  hasNext: boolean;
+}
+
+export interface SendMessageRequest {
+  sessionId: string;
+  content: string;
+}
+
+export interface SendMessageResponse {
+  messageId: number;
+  sessionId: string;
+  role: 'USER' | 'ASSISTANT' | 'SYSTEM' | string;
+  content: string;
+  createdAt: string;
+}
+
+export interface GetMessagesRequest {
+  sessionId: string;
+  page?: number;
+  size?: number;
+}
+
+export interface MessageListResponse {
+  content: ChatMessage[];
+  pageInfo: PageInfo;
+}
+
+export interface UpdateMessageRequest {
+  content: string;
+}
+
+export interface UpdateMessageResponse {
+  messageId: number;
+  content: string;
+  updatedAt: string;
+}
