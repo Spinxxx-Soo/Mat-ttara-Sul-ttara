@@ -363,6 +363,56 @@ class PlanServiceImplTest {
         .isInstanceOf(ForbiddenException.class);
   }
 
+  // ========== getSharedPlanDetail 테스트 ==========
+
+  @Test
+  @DisplayName("공유 플랜 상세 조회 - 유효한 토큰 시 상세 정보를 반환한다")
+  void getSharedPlanDetail_validToken_returnsDetail() {
+    // Given
+    String shareToken = "token123";
+    Long planId = 100L;
+
+    User owner = User.builder().build();
+    ReflectionTestUtils.setField(owner, "id", 1L);
+
+    Plan plan = new Plan(owner, "공유 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", shareToken);
+    ReflectionTestUtils.setField(plan, "id", planId);
+
+    given(planRepository.findWithDetailsByShareTokenAndDeletedAtIsNull(shareToken))
+        .willReturn(Optional.of(plan));
+
+    PlanDetailResponseDto expectedDto = PlanDetailResponseDto.builder()
+        .planId(planId)
+        .title("공유 플랜")
+        .shareToken(shareToken)
+        .build();
+
+    given(planMapper.toDetailResponse(plan)).willReturn(expectedDto);
+
+    // When
+    PlanDetailResponseDto response = planService.getSharedPlanDetail(shareToken);
+
+    // Then
+    assertThat(response).isNotNull();
+    assertThat(response.getPlanId()).isEqualTo(planId);
+    assertThat(response.getTitle()).isEqualTo("공유 플랜");
+    assertThat(response.getShareToken()).isEqualTo(shareToken);
+  }
+
+  @Test
+  @DisplayName("공유 플랜 상세 조회 - 유효하지 않은 토큰 시 예외가 발생한다")
+  void getSharedPlanDetail_invalidToken_throwsException() {
+    // Given
+    String invalidToken = "invalid";
+
+    given(planRepository.findWithDetailsByShareTokenAndDeletedAtIsNull(invalidToken))
+        .willReturn(Optional.empty());
+
+    // When & Then
+    assertThatThrownBy(() -> planService.getSharedPlanDetail(invalidToken))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
   // ========== updatePlan 테스트 ==========
 
   @Test

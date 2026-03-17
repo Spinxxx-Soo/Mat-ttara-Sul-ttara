@@ -11,7 +11,7 @@ import type { NaverMapInstance, NaverMarkerInstance } from '@/types/naver.d';
 interface UseMarkersProps {
   mapInstance: NaverMapInstance | null;
   places: PlaceMarkerData[];
-  selectedPlaceId?: number | null;
+  selectedPlaceId?: string | null;
   onMarkerClick?: (place: PlaceMarkerData, marker: NaverMarkerInstance) => void;
 }
 

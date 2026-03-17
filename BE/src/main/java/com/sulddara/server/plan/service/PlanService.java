@@ -14,6 +14,8 @@ public interface PlanService {
 
   PlanDetailResponseDto getPlanDetail(Long userId, Long planId);
 
+  PlanDetailResponseDto getSharedPlanDetail(String shareToken);
+
   PlanDetailResponseDto updatePlan(Long userId, Long planId, PlanUpdateRequestDto requestDto);
 
   void deletePlan(Long userId, Long planId);

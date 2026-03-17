@@ -47,6 +47,11 @@ public class PlanController {
     return ResponseEntity.ok(planService.getPlanDetail(userId, planId));
   }
 
+  @GetMapping("/share/{shareToken}")
+  public ResponseEntity<PlanDetailResponseDto> getSharedPlanDetail(@PathVariable String shareToken) {
+    return ResponseEntity.ok(planService.getSharedPlanDetail(shareToken));
+  }
+
   @PatchMapping("/{planId}")
   public ResponseEntity<PlanDetailResponseDto> updatePlan(
       @AuthenticationPrincipal CustomOAuth2User user,

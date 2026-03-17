@@ -44,12 +44,12 @@ export default function Home() {
     return mapPlacesToMarkerDataList(places || []);
   }, [places]);
 
-  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
 
   const { openInfoWindow, closeInfoWindow } = useInfoWindow(mapInst);
 
   const handleMarkerClick = useCallback((place: PlaceMarkerData, marker: any) => {
-    setSelectedPlaceId(place.id);
+    setSelectedPlaceId(place.id as string);
 
     const content = `
       <div style="padding:12px; min-width:150px; font-family:sans-serif;">

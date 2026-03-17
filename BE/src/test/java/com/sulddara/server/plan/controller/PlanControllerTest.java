@@ -104,6 +104,25 @@ class PlanControllerTest {
   }
 
   @Test
+  @DisplayName("공유 플랜 상세 조회 성공")
+  void getSharedPlanDetail_success() throws Exception {
+    PlanDetailResponseDto responseDto = PlanDetailResponseDto.builder()
+        .planId(11L)
+        .title("공유 플랜")
+        .meetingAt(LocalDateTime.of(2026, 3, 16, 12, 0))
+        .shareToken("tokentest")
+        .build();
+
+    given(planService.getSharedPlanDetail("tokentest")).willReturn(responseDto);
+
+    mockMvc.perform(get("/api/v1/plans/share/tokentest"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.planId").value(11L))
+        .andExpect(jsonPath("$.title").value("공유 플랜"))
+        .andExpect(jsonPath("$.shareToken").value("tokentest"));
+  }
+
+  @Test
   @DisplayName("플랜 수정 성공")
   void updatePlan_success() throws Exception {
     PlanDetailResponseDto responseDto = PlanDetailResponseDto.builder()
