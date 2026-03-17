@@ -5,6 +5,7 @@
 // 도메인별로 구조화된 팩토리 함수를 사용하세요.
 
 import type { NearbyPlacesParams } from '@/types/map';
+import type { PlaceSearchRequest } from '@/types/api';
 
 export const queryKeys = {
     // --- 장소 (Place) ---
@@ -14,6 +15,8 @@ export const queryKeys = {
             [...queryKeys.place.all, 'nearby', params] as const,
         detail: (placeId: number) =>
             [...queryKeys.place.all, 'detail', placeId] as const,
+        search: (params: PlaceSearchRequest) =>
+            [...queryKeys.place.all, 'search', params] as const,
     },
 
     // --- 플랜 (Plan) ---

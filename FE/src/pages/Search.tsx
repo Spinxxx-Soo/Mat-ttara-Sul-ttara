@@ -1,58 +1,28 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
-
-interface Restaurant {
-  id: string
-  name: string
-  rating: number
-  isOpen: boolean
-  address: string
-  description: string
-  lat: number
-  lng: number
-}
+import { useSearchPlaces } from '@/hooks/queries/place/usePlaces'
+import type { Place } from '@/types/api'
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedRestaurant, setSelectedRestaurant] = useState<string | null>(null)
+  const [selectedPlace, setSelectedPlace] = useState<number | null>(null)
+  const [page, setPage] = useState(1)
+  const pageSize = 10
 
-  // TODO: 실제 검색 API 연동
-  const restaurants: Restaurant[] = [
-    {
-      id: '1',
-      name: '만선호프',
-      rating: 4.5,
-      isOpen: true,
-      address: '서울특별시 중구 을지로13길 19',
-      description: '을지로 대표 노가리 골목의 성지',
-      lat: 37.5665,
-      lng: 126.9928,
-    },
-    {
-      id: '2',
-      name: '정통집 홍대점',
-      rating: 4.3,
-      isOpen: true,
-      address: '서울특별시 마포구 어울마당로 123',
-      description: '맛있는 돼지김치구이와 볶음밥',
-      lat: 37.5563,
-      lng: 126.9236,
-    },
-    {
-      id: '3',
-      name: '시선 이자카야',
-      rating: 4.8,
-      isOpen: true,
-      address: '서울특별시 강남구 테헤란로 222',
-      description: '분위기 좋은 레트로 감성 이자카야',
-      lat: 37.4979,
-      lng: 127.0276,
-    },
-  ]
+  // 검색어가 변경되면 페이지를 1로 리셋
+  useEffect(() => {
+    setPage(1)
+  }, [searchQuery])
 
-  const filteredRestaurants = restaurants.filter((restaurant) =>
-    restaurant.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // React Query 훅 사용
+  const { data, isLoading, error } = useSearchPlaces({
+    keyword: searchQuery || '', // 필수 파라미터 (빈 문자열이라도 전달)
+    page,
+    size: pageSize,
+  }, !!searchQuery) // 검색어가 있을 때만 활성화
+
+  const places = data?.content || []
+  const pageInfo = data?.pageInfo
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
@@ -77,6 +47,8 @@ const Search = () => {
               placeholder="가게 이름, 메뉴 또는 지역 검색"
             />
           </div>
+          {/* 필터 버튼 (MVP 제외) */}
+          {/*
           <div className="flex gap-2 mt-4 overflow-x-auto hide-scrollbar">
             <button className="shrink-0 px-4 py-1.5 rounded-full bg-primary text-white text-xs font-medium">
               전체
@@ -91,53 +63,106 @@ const Search = () => {
               주차 가능
             </button>
           </div>
+          */}
         </div>
 
         {/* Search Results */}
         <div className="flex-1 overflow-y-auto hide-scrollbar">
-          {filteredRestaurants.map((restaurant) => (
+          {isLoading && (
+            <div className="p-4 text-center text-slate-500">
+              검색 중...
+            </div>
+          )}
+          {error && (
+            <div className="p-4 text-center text-red-500">
+              검색 중 오류가 발생했습니다.
+            </div>
+          )}
+          {!isLoading && !error && places.length === 0 && searchQuery && (
+            <div className="p-4 text-center text-slate-500">
+              검색 결과가 없습니다.
+            </div>
+          )}
+          {!isLoading && !error && !searchQuery && (
+            <div className="p-4 text-center text-slate-500">
+              검색어를 입력해주세요.
+            </div>
+          )}
+          {places.map((place: Place) => (
             <div
-              key={restaurant.id}
-              onClick={() => setSelectedRestaurant(restaurant.id)}
+              key={place.placeId}
+              onClick={() => setSelectedPlace(place.placeId)}
               className={`p-4 border-b border-primary/5 hover:bg-primary/5 cursor-pointer transition-colors group ${
-                selectedRestaurant === restaurant.id ? 'bg-primary/10' : ''
+                selectedPlace === place.placeId ? 'bg-primary/10' : ''
               }`}
             >
               <div className="flex gap-4">
-                <div className="w-20 h-20 rounded-lg bg-slate-200 dark:bg-slate-700 shrink-0 shadow-sm flex items-center justify-center">
-                  <span className="material-symbols-outlined text-slate-400">
-                    restaurant
-                  </span>
+                <div className="w-20 h-20 rounded-lg bg-slate-200 dark:bg-slate-700 shrink-0 shadow-sm flex items-center justify-center overflow-hidden">
+                  {place.imageUrl ? (
+                    <img 
+                      src={place.imageUrl} 
+                      alt={place.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="material-symbols-outlined text-slate-400">
+                      restaurant
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start">
                     <h3 className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors truncate">
-                      {restaurant.name}
+                      {place.name}
                     </h3>
-                    <div className="flex items-center gap-1 text-xs font-bold bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded text-amber-600">
-                      <span className="material-symbols-outlined text-[14px] fill-current">
-                        star
-                      </span>
-                      {restaurant.rating}
-                    </div>
+                    {place.rating && (
+                      <div className="flex items-center gap-1 text-xs font-bold bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded text-amber-600">
+                        <span className="material-symbols-outlined text-[14px] fill-current">
+                          star
+                        </span>
+                        {place.rating}
+                      </div>
+                    )}
                   </div>
-                  <p
-                    className={`text-xs font-medium mt-1 ${
-                      restaurant.isOpen ? 'text-primary' : 'text-slate-400'
-                    }`}
-                  >
-                    {restaurant.isOpen ? '영업 중' : '영업 종료'}
-                  </p>
+                  {place.category && (
+                    <p className="text-xs font-medium mt-1 text-primary">
+                      {place.category}
+                    </p>
+                  )}
                   <p className="text-xs text-slate-500 mt-1 truncate">
-                    {restaurant.address}
+                    {place.address}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {restaurant.description}
-                  </p>
+                  {place.phone && (
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {place.phone}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
           ))}
+          {/* 페이지네이션 */}
+          {pageInfo && pageInfo.totalPages > 1 && (
+            <div className="p-4 border-t border-primary/5 flex justify-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1 rounded bg-primary/10 text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                이전
+              </button>
+              <span className="px-3 py-1 text-sm text-slate-600">
+                {page} / {pageInfo.totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(pageInfo.totalPages, p + 1))}
+                disabled={!pageInfo.hasNext}
+                className="px-3 py-1 rounded bg-primary/10 text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                다음
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -154,22 +179,30 @@ const Search = () => {
         </div>
 
         {/* Map Pins */}
-        {filteredRestaurants.map((restaurant, index) => (
+        {places.map((place: Place, index: number) => {
+          // 임시 그리드 레이아웃 (3열): 지도 API 연동 전까지 화면 안에 머물도록
+          const cols = 3
+          const colIndex = index % cols
+          const rowIndex = Math.floor(index / cols)
+          const left = 10 + colIndex * 30 // 10%, 40%, 70%
+          const top = 20 + rowIndex * 15 // 20%, 35%, 50%, ...
+          
+          return (
           <div
-            key={restaurant.id}
+            key={place.placeId}
             className={`absolute cursor-pointer transition-transform ${
-              selectedRestaurant === restaurant.id ? 'scale-110 z-20' : 'z-10'
+              selectedPlace === place.placeId ? 'scale-110 z-20' : 'z-10'
             }`}
             style={{
-              left: `${20 + index * 30}%`,
-              top: `${30 + index * 20}%`,
+              left: `${left}%`,
+              top: `${top}%`,
             }}
-            onClick={() => setSelectedRestaurant(restaurant.id)}
+            onClick={() => setSelectedPlace(place.placeId)}
           >
             <div className="relative group">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xl border-2 border-white transition-transform ${
-                  selectedRestaurant === restaurant.id
+                  selectedPlace === place.placeId
                     ? 'bg-primary scale-110'
                     : 'bg-primary group-hover:scale-110'
                 }`}
@@ -179,15 +212,18 @@ const Search = () => {
                 </span>
               </div>
               <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rotate-45 border-r-2 border-b-2 border-white" />
-              {selectedRestaurant === restaurant.id && (
+              {selectedPlace === place.placeId && (
                 <div className="absolute top-1/2 left-full ml-3 -translate-y-1/2 bg-white dark:bg-background-dark px-3 py-1.5 rounded-lg shadow-xl border border-primary/20 whitespace-nowrap">
-                  <p className="text-xs font-bold">{restaurant.name}</p>
-                  <p className="text-[10px] text-primary">★ {restaurant.rating}</p>
+                  <p className="text-xs font-bold">{place.name}</p>
+                  {place.rating && (
+                    <p className="text-[10px] text-primary">★ {place.rating}</p>
+                  )}
                 </div>
               )}
             </div>
           </div>
-        ))}
+          )
+        })}
 
         {/* Map Controls */}
         <div className="absolute top-6 right-6 flex flex-col gap-2">

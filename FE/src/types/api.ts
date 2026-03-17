@@ -120,6 +120,21 @@ export interface Place {
   rating?: number;
   recommendReason?: string; // 추천 장소 조회시
   openingHours?: Record<string, any> | string;
+  imageUrl?: string; // 가게 검색 응답에 포함
+  category?: string; // 가게 검색 응답에 포함
+}
+
+export interface PlaceSearchRequest {
+  keyword: string;  // 필수
+  lat?: number;     // 선택
+  lng?: number;     // 선택
+  page: number;     // 필수
+  size: number;     // 필수
+}
+
+export interface PlaceSearchResponse {
+  content: Place[];
+  pageInfo: PageInfo;
 }
 
 // --- 리뷰 (Review) ---

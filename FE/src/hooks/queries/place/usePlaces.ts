@@ -8,6 +8,7 @@ import { placeApi } from '@/api/placeApi';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { extractApiErrorMessage } from '@/lib/apiUtils';
 import type { NearbyPlacesParams } from '@/types/map';
+import type { PlaceSearchRequest, ApiPaginationResponse, Place } from '@/types/api';
 
 /**
  * 주변 장소 목록을 조회하는 훅
@@ -23,7 +24,7 @@ export const useNearbyPlaces = (
         queryFn: () => placeApi.getNearbyPlaces(params),
         enabled,
         staleTime: 1000 * 60, // 1분간 fresh 상태 유지 (중복 요청 방지)
-        select: (data) => data.content, // 페이지네이션 래퍼 벗기고 배열만 반환
+        select: (data: ApiPaginationResponse<Place>) => data.content, // 페이지네이션 래퍼 벗기고 배열만 반환
         meta: {
             errorMessage: extractApiErrorMessage,
         },
@@ -39,5 +40,25 @@ export const usePlaceDetail = (placeId: number, enabled = true) => {
         queryFn: () => placeApi.getPlaceDetail(placeId),
         enabled: enabled && !!placeId,
         staleTime: 1000 * 60 * 5, // 5분
+    });
+};
+
+/**
+ * 가게 검색 훅
+ * @param params - 검색 파라미터 (keyword, lat?, lng?, page, size)
+ * @param enabled - false이면 자동 조회를 비활성화
+ */
+export const useSearchPlaces = (
+    params: PlaceSearchRequest,
+    enabled = true,
+) => {
+    return useQuery({
+        queryKey: queryKeys.place.search(params),
+        queryFn: () => placeApi.searchPlaces(params),
+        enabled: enabled && !!params.keyword, // keyword가 있을 때만 조회
+        staleTime: 1000 * 60, // 1분간 fresh 상태 유지
+        meta: {
+            errorMessage: extractApiErrorMessage,
+        },
     });
 };
