@@ -9,6 +9,7 @@ import com.sulddara.server.plan.mapper.PlanMapper;
 import com.sulddara.server.plan.repository.PlanRepository;
 import com.sulddara.server.plan.dto.PlanDetailResponseDto;
 import com.sulddara.server.plan.dto.PlanSummaryDto;
+import com.sulddara.server.plan.dto.PlanUpdateRequestDto;
 import com.sulddara.server.share.error.exception.ForbiddenException;
 import com.sulddara.server.user.domain.User;
 import com.sulddara.server.user.exception.UserNotFoundException;
@@ -410,5 +411,112 @@ class PlanServiceImplTest {
     // When & Then
     assertThatThrownBy(() -> planService.getSharedPlanDetail(invalidToken))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  // ========== updatePlan 테스트 ==========
+
+  @Test
+  @DisplayName("플랜 수정 - 유효한 요청 시 정보가 정상 수정된다")
+  void updatePlan_validRequest_returnsUpdatedDetail() {
+    // Given
+    Long userId = 1L;
+    Long planId = 100L;
+    User user = User.builder().build();
+    ReflectionTestUtils.setField(user, "id", userId);
+
+    Plan plan = new Plan(user, "원본", 100000L, 4, LocalDateTime.now(), "원본타입", "원본메모", "token");
+    ReflectionTestUtils.setField(plan, "id", planId);
+
+    PlanUpdateRequestDto requestDto = PlanUpdateRequestDto.builder()
+        .title("수정 제목")
+        .meetingAt(LocalDateTime.now().plusDays(1))
+        .participantCount(6)
+        .totalBudget(150000L)
+        .planType("수정타입")
+        .memo("수정메모")
+        .build();
+
+    PlanDetailResponseDto expectedDto = PlanDetailResponseDto.builder()
+        .planId(planId)
+        .title("수정 제목")
+        .build();
+
+    given(userRepository.existsById(userId)).willReturn(true);
+    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)).willReturn(Optional.of(plan));
+    given(planMapper.toDetailResponse(any(Plan.class))).willReturn(expectedDto);
+
+    // When
+    PlanDetailResponseDto response = planService.updatePlan(userId, planId, requestDto);
+
+    // Then
+    assertThat(response.getTitle()).isEqualTo("수정 제목");
+    verify(planRepository, never()).save(any()); // dirty checking으로 동작하므로 save 불필요
+  }
+
+  @Test
+  @DisplayName("플랜 수정 - 타인의 플랜인 경우 ForbiddenException 발생")
+  void updatePlan_unauthorized_throwsForbiddenException() {
+    // Given
+    Long requestUserId = 2L;
+    Long ownerUserId = 1L;
+    Long planId = 100L;
+
+    User owner = User.builder().build();
+    ReflectionTestUtils.setField(owner, "id", ownerUserId);
+
+    Plan plan = new Plan(owner, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    ReflectionTestUtils.setField(plan, "id", planId);
+
+    given(userRepository.existsById(requestUserId)).willReturn(true);
+    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)).willReturn(Optional.of(plan));
+
+    // When & Then
+    assertThatThrownBy(() -> planService.updatePlan(requestUserId, planId, any()))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  // ========== deletePlan 테스트 ==========
+
+  @Test
+  @DisplayName("플랜 삭제 - 유효한 요청 시 soft delete가 수행된다")
+  void deletePlan_validRequest_callsSoftDelete() {
+    // Given
+    Long userId = 1L;
+    Long planId = 100L;
+    User user = User.builder().build();
+    ReflectionTestUtils.setField(user, "id", userId);
+
+    Plan plan = new Plan(user, "제목", 100000L, 4, LocalDateTime.now(), "타입", "메모", "token");
+    ReflectionTestUtils.setField(plan, "id", planId);
+
+    given(userRepository.existsById(userId)).willReturn(true);
+    given(planRepository.findByIdAndDeletedAtIsNull(planId)).willReturn(Optional.of(plan));
+
+    // When
+    planService.deletePlan(userId, planId);
+
+    // Then
+    assertThat(plan.getDeletedAt()).isNotNull();
+  }
+
+  @Test
+  @DisplayName("플랜 삭제 - 타인의 플랜인 경우 ForbiddenException 발생")
+  void deletePlan_unauthorized_throwsForbiddenException() {
+    // Given
+    Long requestUserId = 2L;
+    Long ownerUserId = 1L;
+    Long planId = 100L;
+
+    User owner = User.builder().build();
+    ReflectionTestUtils.setField(owner, "id", ownerUserId);
+
+    Plan plan = new Plan(owner, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+
+    given(userRepository.existsById(requestUserId)).willReturn(true);
+    given(planRepository.findByIdAndDeletedAtIsNull(planId)).willReturn(Optional.of(plan));
+
+    // When & Then
+    assertThatThrownBy(() -> planService.deletePlan(requestUserId, planId))
+        .isInstanceOf(ForbiddenException.class);
   }
 }

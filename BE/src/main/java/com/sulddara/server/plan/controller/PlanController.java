@@ -5,6 +5,7 @@ import com.sulddara.server.plan.dto.PlanCreateRequestDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
 import com.sulddara.server.plan.dto.PlanDetailResponseDto;
 import com.sulddara.server.plan.dto.PlanListResponseDto;
+import com.sulddara.server.plan.dto.PlanUpdateRequestDto;
 import com.sulddara.server.plan.service.PlanService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -49,5 +50,24 @@ public class PlanController {
   @GetMapping("/share/{shareToken}")
   public ResponseEntity<PlanDetailResponseDto> getSharedPlanDetail(@PathVariable String shareToken) {
     return ResponseEntity.ok(planService.getSharedPlanDetail(shareToken));
+  }
+
+  @PatchMapping("/{planId}")
+  public ResponseEntity<PlanDetailResponseDto> updatePlan(
+      @AuthenticationPrincipal CustomOAuth2User user,
+      @PathVariable Long planId,
+      @Valid @RequestBody PlanUpdateRequestDto requestDto) {
+    Long userId = user.getUserId();
+    PlanDetailResponseDto response = planService.updatePlan(userId, planId, requestDto);
+    return ResponseEntity.ok(response);
+  }
+
+  @DeleteMapping("/{planId}")
+  public ResponseEntity<Void> deletePlan(
+      @AuthenticationPrincipal CustomOAuth2User user,
+      @PathVariable Long planId) {
+    Long userId = user.getUserId();
+    planService.deletePlan(userId, planId);
+    return ResponseEntity.noContent().build();
   }
 }

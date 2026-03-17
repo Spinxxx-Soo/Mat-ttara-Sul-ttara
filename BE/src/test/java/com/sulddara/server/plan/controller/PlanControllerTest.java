@@ -1,6 +1,5 @@
 package com.sulddara.server.plan.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sulddara.server.auth.oauth.CustomOAuth2User;
 import com.sulddara.server.plan.dto.PlanDetailResponseDto;
 import com.sulddara.server.plan.dto.PlanListResponseDto;
@@ -25,11 +24,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -117,5 +120,32 @@ class PlanControllerTest {
         .andExpect(jsonPath("$.planId").value(11L))
         .andExpect(jsonPath("$.title").value("공유 플랜"))
         .andExpect(jsonPath("$.shareToken").value("tokentest"));
+  }
+
+  @Test
+  @DisplayName("플랜 수정 성공")
+  void updatePlan_success() throws Exception {
+    PlanDetailResponseDto responseDto = PlanDetailResponseDto.builder()
+        .planId(10L)
+        .title("수정된 플랜")
+        .build();
+
+    given(planService.updatePlan(anyLong(), anyLong(), any())).willReturn(responseDto);
+
+    mockMvc.perform(patch("/api/v1/plans/10")
+            .contentType("application/json")
+            .content("{\"title\":\"수정된 플랜\", \"meetingAt\":\"2026-03-20T12:00:00\", \"participantCount\":5}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.planId").value(10L))
+        .andExpect(jsonPath("$.title").value("수정된 플랜"));
+  }
+
+  @Test
+  @DisplayName("플랜 삭제 성공")
+  void deletePlan_success() throws Exception {
+    mockMvc.perform(delete("/api/v1/plans/10"))
+        .andExpect(status().isNoContent());
+
+    verify(planService).deletePlan(anyLong(), anyLong());
   }
 }
