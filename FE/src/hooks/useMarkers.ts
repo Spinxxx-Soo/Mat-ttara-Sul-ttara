@@ -1,18 +1,21 @@
 import { useEffect, useRef } from 'react';
-import type { Place } from '@/types/api';
+import type { PlaceMarkerData } from '@/types/map';
 import type { NaverMapInstance, NaverMarkerInstance } from '@/types/naver.d';
 
 // ==========================================
 // S14P21B205-194: 장소 마커 표시 및 관리 훅
+// S14P21B205-195: 마커 데이터 타입(PlaceMarkerData)으로 변경
+// S14P21B205-196: 마커 선택 상태 처리
 // ==========================================
 
 interface UseMarkersProps {
   mapInstance: NaverMapInstance | null;
-  places: Place[];
-  onMarkerClick?: (place: Place, marker: NaverMarkerInstance) => void;
+  places: PlaceMarkerData[];
+  selectedPlaceId?: number | null;
+  onMarkerClick?: (place: PlaceMarkerData, marker: NaverMarkerInstance) => void;
 }
 
-export const useMarkers = ({ mapInstance, places, onMarkerClick }: UseMarkersProps) => {
+export const useMarkers = ({ mapInstance, places, selectedPlaceId, onMarkerClick }: UseMarkersProps) => {
   // 생성된 마커 인스턴스들을 보관
   const markersRef = useRef<NaverMarkerInstance[]>([]);
 
@@ -26,14 +29,18 @@ export const useMarkers = ({ mapInstance, places, onMarkerClick }: UseMarkersPro
 
     // 2. 새로운 장소 배열로 마커 생성
     const newMarkers = places.map((place) => {
-      const position = new window.naver.maps.LatLng(place.lat, place.lng);
-      
-      const marker = new window.naver.maps.Marker({
+      const position = new window.naver.maps.LatLng(place.position.lat, place.position.lng);
+      const isSelected = place.id === selectedPlaceId;
+
+      // TODO: 추후 커스텀 마커 이미지 적용 (195번 티켓 범주)
+      // 현재는 선택 여부에 따라 기본 마커의 색상/크기를 다르게 보이는 용도로 zIndex만 조정
+      const markerOptions: any = {
         position,
         map: mapInstance,
-        // TODO: 마커 아이콘 커스텀 (카테고리별 분기)
-        // icon: { ... }
-      });
+        zIndex: isSelected ? 100 : 1,
+      };
+
+      const marker = new window.naver.maps.Marker(markerOptions);
 
       // 마커 클릭 이벤트 등록
       if (onMarkerClick) {
@@ -51,7 +58,7 @@ export const useMarkers = ({ mapInstance, places, onMarkerClick }: UseMarkersPro
     return () => {
       markersRef.current.forEach((marker) => marker.setMap(null));
     };
-  }, [mapInstance, places, onMarkerClick]);
+  }, [mapInstance, places, selectedPlaceId, onMarkerClick]);
 
   return { markers: markersRef.current };
 };

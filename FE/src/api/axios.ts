@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 import { ApiError } from '@/types/api';
 import { envConfig } from '@/config/env';
+import toast from 'react-hot-toast';
 
 export const apiClient = axios.create({
   baseURL: envConfig.apiBaseUrl,
@@ -33,43 +34,102 @@ apiClient.interceptors.request.use(
 // ==========================================
 // Response Interceptor
 // ==========================================
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
 apiClient.interceptors.response.use(
   (response) => {
-    // API 명세상 백엔드가 상태코드 200/201 등으로 데이터를 그대로 내려줌
     return response;
   },
   async (error: AxiosError<ApiError>) => {
-    // 만약 error.response가 없다면 네트워크 에러이거나 타임아웃
+    const originalRequest = error.config;
+
     if (!error.response) {
       console.error('Network/Timeout Error:', error.message);
-      // 여기서 Toast 라이브러리 연동 가능: toast.error('서버와 연결할 수 없습니다.')
       return Promise.reject(error);
     }
 
     const { status, data } = error.response;
 
-    switch (status) {
-      case 401:
-        // 401 Unauthorized: Refresh Token 로직 등
-        // 현재는 구현 복잡도를 위해 일단 로그아웃 처리 후 리다이렉트
-        console.warn('Unauthorized (401). Logging out...');
+    // 401 Unauthorized && Not a retry request
+    if (status === 401 && originalRequest && !(originalRequest as any)._retry) {
+      if (isRefreshing) {
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = 'Bearer ' + token;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      (originalRequest as any)._retry = true;
+      isRefreshing = true;
+
+      const refresh_token = useAuthStore.getState().refreshToken;
+
+      if (!refresh_token) {
         useAuthStore.getState().logout();
         window.location.href = '/login';
-        break;
+        return Promise.reject(error);
+      }
 
+      return new Promise(async (resolve, reject) => {
+        try {
+          // 순구 axios를 사용하여 인터셉터 루프 방지
+          const response = await axios.post(
+            `${envConfig.apiBaseUrl}/api/v1/auth/refresh`,
+            { refreshToken: refresh_token }
+          );
+
+          const { accessToken, refreshToken } = response.data;
+          
+          useAuthStore.getState().setTokens(accessToken, refreshToken);
+          
+          apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + accessToken;
+          originalRequest.headers.Authorization = 'Bearer ' + accessToken;
+
+          processQueue(null, accessToken);
+          resolve(apiClient(originalRequest));
+        } catch (err) {
+          processQueue(err, null);
+          useAuthStore.getState().logout();
+          window.location.href = '/login';
+          reject(err);
+        } finally {
+          isRefreshing = false;
+        }
+      });
+    }
+
+    switch (status) {
       case 403:
         console.warn('Forbidden (403):', data.message);
-        // toast.error('해당 기능에 대한 접근 권한이 없습니다.');
+        toast.error('접근 권한이 없습니다.');
         break;
 
       case 404:
         console.warn('Not Found (404):', data.message);
-        // toast.error('요청하신 리소스를 찾을 수 없습니다.');
         break;
 
       case 500:
         console.error('Server Error (500):', data.message);
-        // toast.error('서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        toast.error('서버 내부 오류가 발생했습니다.');
         break;
 
       default:
@@ -77,8 +137,6 @@ apiClient.interceptors.response.use(
         break;
     }
 
-    // 호출부에서 에러를 한번 더 핸들링 할 수 있도록 reject
-    // 호출부에서는 e.response?.data?.message 등을 받아서 사용 가능
     return Promise.reject(error);
   },
 );

@@ -120,6 +120,21 @@ export interface Place {
   rating?: number;
   recommendReason?: string; // 추천 장소 조회시
   openingHours?: Record<string, any> | string;
+  imageUrl?: string; // 가게 검색 응답에 포함
+  category?: string; // 가게 검색 응답에 포함
+}
+
+export interface PlaceSearchRequest {
+  keyword: string;  // 필수
+  lat?: number;     // 선택
+  lng?: number;     // 선택
+  page: number;     // 필수
+  size: number;     // 필수
+}
+
+export interface PlaceSearchResponse {
+  content: Place[];
+  pageInfo: PageInfo;
 }
 
 // --- 리뷰 (Review) ---
@@ -160,3 +175,57 @@ export interface ChatMessage {
   updatedAt?: string;
 }
 
+// Request 타입들
+export interface CreateSessionRequest {
+  title: string;
+}
+
+export interface CreateSessionResponse {
+  sessionId: string;
+  createdAt: string;
+}
+
+export interface GetSessionsRequest {
+  cursor?: string | number;
+  size?: number;
+}
+
+export interface SessionListResponse {
+  content: ChatSession[];
+  nextCursor?: string | number;
+  hasNext: boolean;
+}
+
+export interface SendMessageRequest {
+  sessionId: string;
+  content: string;
+}
+
+export interface SendMessageResponse {
+  messageId: number;
+  sessionId: string;
+  role: 'USER' | 'ASSISTANT' | 'SYSTEM' | string;
+  content: string;
+  createdAt: string;
+}
+
+export interface GetMessagesRequest {
+  sessionId: string;
+  page?: number;
+  size?: number;
+}
+
+export interface MessageListResponse {
+  content: ChatMessage[];
+  pageInfo: PageInfo;
+}
+
+export interface UpdateMessageRequest {
+  content: string;
+}
+
+export interface UpdateMessageResponse {
+  messageId: number;
+  content: string;
+  updatedAt: string;
+}

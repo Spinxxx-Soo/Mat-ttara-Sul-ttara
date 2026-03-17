@@ -10,9 +10,10 @@ import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces';
 import { useMarkers } from '@/hooks/useMarkers';
 import { useInfoWindow } from '@/hooks/useInfoWindow';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { mapPlacesToMarkerDataList } from '@/lib/placeMapper';
 import type { NaverMapInstance } from '@/types/naver.d';
-import type { Coordinates } from '@/types/map';
-import { useState, useCallback, useEffect } from 'react';
+import type { Coordinates, PlaceMarkerData } from '@/types/map';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 export default function Home() {
   const { isLoggedIn, logout } = useAuthStore();
@@ -39,15 +40,23 @@ export default function Home() {
     !!mapInst
   );
 
-  const { openInfoWindow } = useInfoWindow(mapInst);
+  const mappedPlaces = useMemo(() => {
+    return mapPlacesToMarkerDataList(places || []);
+  }, [places]);
 
-  const handleMarkerClick = useCallback((place: any, marker: any) => {
+  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
+
+  const { openInfoWindow, closeInfoWindow } = useInfoWindow(mapInst);
+
+  const handleMarkerClick = useCallback((place: PlaceMarkerData, marker: any) => {
+    setSelectedPlaceId(place.id);
+
     const content = `
       <div style="padding:12px; min-width:150px; font-family:sans-serif;">
         <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:bold;">${place.name}</h3>
         <p style="margin:0; font-size:12px; color:#666;">별점: ${place.rating || 'N/A'}</p>
         <p style="margin:4px 0 0 0; font-size:12px; color:#999; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${place.address}</p>
-        <a href="/places/${place.placeId}" style="display:inline-block; margin-top:8px; font-size:12px; color:#3b82f6; text-decoration:none;">자세히 보기 &rarr;</a>
+        <a href="/places/${place.id}" style="display:inline-block; margin-top:8px; font-size:12px; color:#3b82f6; text-decoration:none;">자세히 보기 &rarr;</a>
       </div>
     `;
     openInfoWindow(marker, content);
@@ -55,13 +64,19 @@ export default function Home() {
 
   useMarkers({
     mapInstance: mapInst,
-    places: places || [],
+    places: mappedPlaces,
+    selectedPlaceId,
     onMarkerClick: handleMarkerClick,
   });
 
   const handleMapIdle = useCallback((center: Coordinates) => {
     setMapCenter(center);
   }, []);
+
+  const handleMapClick = useCallback(() => {
+    setSelectedPlaceId(null);
+    closeInfoWindow();
+  }, [closeInfoWindow]);
 
   const { coordinates: geoCoords, fetchLocation, isLoading: isGeoLoading } = useGeolocation(false);
 
@@ -114,6 +129,7 @@ export default function Home() {
             <NaverMap 
               onMapReady={setMapInst} 
               onIdle={handleMapIdle} 
+              onClick={handleMapClick}
             />
             {/* 내 주변 버튼 */}
             <button 
