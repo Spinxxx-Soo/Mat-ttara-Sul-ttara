@@ -47,6 +47,8 @@ const Search = () => {
               placeholder="가게 이름, 메뉴 또는 지역 검색"
             />
           </div>
+          {/* 필터 버튼 (MVP 제외) */}
+          {/*
           <div className="flex gap-2 mt-4 overflow-x-auto hide-scrollbar">
             <button className="shrink-0 px-4 py-1.5 rounded-full bg-primary text-white text-xs font-medium">
               전체
@@ -61,6 +63,7 @@ const Search = () => {
               주차 가능
             </button>
           </div>
+          */}
         </div>
 
         {/* Search Results */}
@@ -176,15 +179,23 @@ const Search = () => {
         </div>
 
         {/* Map Pins */}
-        {places.map((place: Place, index: number) => (
+        {places.map((place: Place, index: number) => {
+          // 임시 그리드 레이아웃 (3열): 지도 API 연동 전까지 화면 안에 머물도록
+          const cols = 3
+          const colIndex = index % cols
+          const rowIndex = Math.floor(index / cols)
+          const left = 10 + colIndex * 30 // 10%, 40%, 70%
+          const top = 20 + rowIndex * 15 // 20%, 35%, 50%, ...
+          
+          return (
           <div
             key={place.placeId}
             className={`absolute cursor-pointer transition-transform ${
               selectedPlace === place.placeId ? 'scale-110 z-20' : 'z-10'
             }`}
             style={{
-              left: `${20 + index * 30}%`,
-              top: `${30 + index * 20}%`,
+              left: `${left}%`,
+              top: `${top}%`,
             }}
             onClick={() => setSelectedPlace(place.placeId)}
           >
@@ -211,7 +222,8 @@ const Search = () => {
               )}
             </div>
           </div>
-        ))}
+          )
+        })}
 
         {/* Map Controls */}
         <div className="absolute top-6 right-6 flex flex-col gap-2">
