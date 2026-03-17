@@ -59,12 +59,12 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
       // 언마운트 시 인스턴스 해제
       mapInstance.current = null;
     };
+    // defaultCenter 객체 참조가 매 렌더마다 바뀌더라도 원시 좌표값 기준으로만 재생성 여부를 판단한다.
   }, [sdkLoaded, defaultCenter.lat, defaultCenter.lng, defaultZoom]);
 
   const setCenter = (center: Coordinates) => {
     setViewport((prev) => ({ ...prev, center }));
     if (mapInstance.current && sdkLoaded) {
-      // @ts-expect-error: naver types will be added in 189
       mapInstance.current.setCenter(new window.naver.maps.LatLng(center.lat, center.lng));
     }
   };
