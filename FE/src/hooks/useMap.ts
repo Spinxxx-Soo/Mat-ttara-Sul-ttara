@@ -46,6 +46,21 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
       .catch((err: Error) => setSdkError(err.message));
   }, [sdkLoaded]);
 
+  // S14P21B205-189: SDK 로드 완료 후 지도 인스턴스 생성/해제 lifecycle 처리
+  useEffect(() => {
+    if (!sdkLoaded || !mapRef.current || mapInstance.current) return;
+
+    mapInstance.current = new (window as any).naver.maps.Map(mapRef.current, {
+      center: new (window as any).naver.maps.LatLng(defaultCenter.lat, defaultCenter.lng),
+      zoom: defaultZoom,
+    });
+
+    return () => {
+      // 언마운트 시 인스턴스 해제
+      mapInstance.current = null;
+    };
+  }, [sdkLoaded, defaultCenter.lat, defaultCenter.lng, defaultZoom]);
+
   const setCenter = (center: Coordinates) => {
     setViewport((prev) => ({ ...prev, center }));
     if (mapInstance.current && sdkLoaded) {
