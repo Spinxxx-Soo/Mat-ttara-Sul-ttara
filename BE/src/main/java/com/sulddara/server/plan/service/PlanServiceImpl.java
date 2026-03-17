@@ -157,4 +157,21 @@ public class PlanServiceImpl implements PlanService {
 
     return planMapper.toDetailResponse(plan);
   }
+
+  @Override
+  @Transactional
+  public void deletePlan(Long userId, Long planId) {
+    if (!userRepository.existsById(userId)) {
+      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+    }
+
+    Plan plan = planRepository.findByIdAndDeletedAtIsNull(planId)
+        .orElseThrow(() -> new IllegalArgumentException("플랜을 찾을 수 없습니다."));
+
+    if (!plan.getUser().getId().equals(userId)) {
+      throw new ForbiddenException(ErrorCode.FORBIDDEN);
+    }
+
+    plan.softDelete();
+  }
 }

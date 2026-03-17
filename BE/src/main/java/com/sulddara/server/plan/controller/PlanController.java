@@ -55,4 +55,13 @@ public class PlanController {
     PlanDetailResponseDto response = planService.updatePlan(userId, planId, requestDto);
     return ResponseEntity.ok(response);
   }
+
+  @DeleteMapping("/{planId}")
+  public ResponseEntity<Void> deletePlan(
+      @AuthenticationPrincipal CustomOAuth2User user,
+      @PathVariable Long planId) {
+    Long userId = user.getUserId();
+    planService.deletePlan(userId, planId);
+    return ResponseEntity.noContent().build();
+  }
 }
