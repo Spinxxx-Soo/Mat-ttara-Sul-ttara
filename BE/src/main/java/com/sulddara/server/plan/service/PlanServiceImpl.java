@@ -120,4 +120,41 @@ public class PlanServiceImpl implements PlanService {
 
     return planMapper.toDetailResponse(plan);
   }
+
+  @Override
+  @Transactional
+  public PlanDetailResponseDto updatePlan(Long userId, Long planId, com.sulddara.server.plan.dto.PlanUpdateRequestDto requestDto) {
+    if (!userRepository.existsById(userId)) {
+      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+    }
+
+    Plan plan = planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)
+        .orElseThrow(() -> new IllegalArgumentException("플랜을 찾을 수 없습니다."));
+
+    if (!plan.getUser().getId().equals(userId)) {
+      throw new ForbiddenException(ErrorCode.FORBIDDEN);
+    }
+
+    plan.update(
+        requestDto.getTitle(),
+        requestDto.getMeetingAt(),
+        requestDto.getParticipantCount(),
+        requestDto.getTotalBudget(),
+        requestDto.getPlanType(),
+        requestDto.getMemo()
+    );
+
+    plan.getDetails().clear();
+
+    if (requestDto.getDetails() != null) {
+      for (com.sulddara.server.plan.dto.PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.getDetails()) {
+        Place place = placeRepository.findById(detailDto.getPlaceId())
+            .orElseThrow(() -> new IllegalArgumentException(PLACE_NOT_FOUND_MSG + detailDto.getPlaceId()));
+        PlanDetail detail = new PlanDetail(place, detailDto.getSeqNo(), detailDto.getRecommendReason());
+        plan.addDetail(detail);
+      }
+    }
+
+    return planMapper.toDetailResponse(plan);
+  }
 }

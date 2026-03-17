@@ -45,4 +45,14 @@ public class PlanController {
     Long userId = user.getUserId();
     return ResponseEntity.ok(planService.getPlanDetail(userId, planId));
   }
+
+  @PatchMapping("/{planId}")
+  public ResponseEntity<PlanDetailResponseDto> updatePlan(
+      @AuthenticationPrincipal CustomOAuth2User user,
+      @PathVariable Long planId,
+      @Valid @RequestBody com.sulddara.server.plan.dto.PlanUpdateRequestDto requestDto) {
+    Long userId = user.getUserId();
+    PlanDetailResponseDto response = planService.updatePlan(userId, planId, requestDto);
+    return ResponseEntity.ok(response);
+  }
 }
