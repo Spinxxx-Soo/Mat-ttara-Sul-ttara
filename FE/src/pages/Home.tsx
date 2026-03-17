@@ -49,7 +49,7 @@ export default function Home() {
   const { openInfoWindow, closeInfoWindow } = useInfoWindow(mapInst);
 
   const handleMarkerClick = useCallback((place: PlaceMarkerData, marker: any) => {
-    setSelectedPlaceId(place.id as number);
+    setSelectedPlaceId(place.id);
 
     const content = `
       <div style="padding:12px; min-width:150px; font-family:sans-serif;">
