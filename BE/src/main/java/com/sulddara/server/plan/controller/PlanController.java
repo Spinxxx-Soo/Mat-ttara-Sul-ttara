@@ -45,4 +45,9 @@ public class PlanController {
     Long userId = user.getUserId();
     return ResponseEntity.ok(planService.getPlanDetail(userId, planId));
   }
+
+  @GetMapping("/share/{shareToken}")
+  public ResponseEntity<PlanDetailResponseDto> getSharedPlanDetail(@PathVariable String shareToken) {
+    return ResponseEntity.ok(planService.getSharedPlanDetail(shareToken));
+  }
 }

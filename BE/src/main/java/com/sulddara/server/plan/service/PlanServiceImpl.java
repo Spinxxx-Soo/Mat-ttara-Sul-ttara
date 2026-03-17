@@ -120,4 +120,12 @@ public class PlanServiceImpl implements PlanService {
 
     return planMapper.toDetailResponse(plan);
   }
+
+  @Override
+  public PlanDetailResponseDto getSharedPlanDetail(String shareToken) {
+    Plan plan = planRepository.findWithDetailsByShareTokenAndDeletedAtIsNull(shareToken)
+        .orElseThrow(() -> new IllegalArgumentException("유효하지 않거나 삭제된 공유 링크입니다."));
+
+    return planMapper.toDetailResponse(plan);
+  }
 }

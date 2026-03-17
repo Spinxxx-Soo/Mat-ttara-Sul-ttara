@@ -12,5 +12,7 @@ public interface PlanService {
   PlanListResponseDto getMyPlans(Long userId, Long cursor, int size);
 
   PlanDetailResponseDto getPlanDetail(Long userId, Long planId);
+
+  PlanDetailResponseDto getSharedPlanDetail(String shareToken);
 }
 
