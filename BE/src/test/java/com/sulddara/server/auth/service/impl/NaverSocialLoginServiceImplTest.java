@@ -1,7 +1,5 @@
 package com.sulddara.server.auth.service.impl;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import com.sulddara.server.auth.controller.response.LoginResponse;
 import com.sulddara.server.auth.jwt.JwtUtil;
 import com.sulddara.server.share.error.ErrorCode;
@@ -22,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
+import org.springframework.core.ParameterizedTypeReference;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,8 +70,8 @@ class NaverSocialLoginServiceImplTest {
                 .willReturn(tokenResponse);
 
         // 2. 유저 정보 요청 Mock (exchange 사용)
-        ResponseEntity<Map> userInfoResponse = new ResponseEntity<>(naverUserInfo, HttpStatus.OK);
-        given(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(Map.class)))
+        ResponseEntity<Map<String, Object>> userInfoResponse = new ResponseEntity<>(naverUserInfo, HttpStatus.OK);
+        given(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(new ParameterizedTypeReference<Map<String, Object>>() {})))
                 .willReturn(userInfoResponse);
 
         // 3. 서비스 로직 Mock
