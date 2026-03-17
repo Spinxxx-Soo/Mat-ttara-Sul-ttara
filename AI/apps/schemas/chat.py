@@ -55,23 +55,32 @@ class BaseState(APIModel):
 class ChatResponseType(str, Enum):
     RECOMMENDATION = "RECOMMENDATION"
     FOLLOW_UP = "FOLLOW_UP"
-    CLARIFICATION = "CLARIFICATION"
 
 #단기 기억 저장
 class MemoryStatus(str, Enum):
     OK = "OK"
     MISSING = "MISSING"
-    STALE = "STALE"
 
 #스레드 정보
-class SessionState(BaseState):
+class SessionState(APIModel):
+    """플랜 파싱 정보"""
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    people: Optional[int] = Field(default=None, ge=1)
+    time: Optional[str] = None
+    purpose: Optional[str] = None
+    mood: Optional[str] = None
     excludedPlaceIds: List[int] = Field(default_factory=list)
 
 
-class ParsedState(BaseState):
+class ParsedState(APIModel):
     """LLM 또는 파서가 추출한 상태 정보."""
     lat: Optional[float] = None
     lng: Optional[float] = None
+    people: Optional[int] = Field(default=None, ge=1)
+    time: Optional[str] = None
+    purpose: Optional[str] = None
+    mood: Optional[str] = None
 
 #사용자 장기 메모리
 class PreferenceSummary(APIModel):

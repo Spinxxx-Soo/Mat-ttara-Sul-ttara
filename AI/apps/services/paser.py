@@ -43,6 +43,8 @@ class ChatParser:
             "purpose": None,
             "mood": None,
             "budget": None,
+            "lat": None,
+            "lng": None,
         }
 
         # 인원 추출
@@ -100,19 +102,19 @@ class ChatParser:
             "아래 사용자 발화에서 장소 추천에 필요한 정보를 JSON으로 추출하세요.\n"
             "반드시 JSON만 출력하세요.\n\n"
             "추출 대상 필드:\n"
-            "- area: 지역명\n"
             "- people: 인원수 (정수)\n"
             "- time: 시간대\n"
             "- purpose: 목적\n"
             "- mood: 분위기\n"
-            "- budget: 예산 수준\n\n"
+            "- lat: 위도 (사용자가 명시적으로 언급한 경우만, float)\n"
+            "- lng: 경도 (사용자가 명시적으로 언급한 경우만, float)\n\n"
             "값이 명확하지 않으면 null로 두세요.\n"
             "기존 상태와 충돌하면, 이번 발화에서 새롭게 명확히 말한 값만 갱신하세요.\n\n"
             f"[기존 요약]\n{summary or '없음'}\n\n"
             f"[기존 parsed_state]\n{json.dumps(previous_parsed_state, ensure_ascii=False)}\n\n"
             f"[사용자 발화]\n{user_message}\n\n"
             "예시 출력:\n"
-            '{"area": "강남", "people": 3, "time": "저녁", "purpose": "술자리", "mood": "조용함", "budget": null}'
+            '{"people": 3, "time": "저녁", "purpose": "술자리", "mood": "조용함", "lat": null, "lng": null}'
         )
 
         response = await self.client.chat_completion(

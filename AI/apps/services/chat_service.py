@@ -16,9 +16,10 @@ from apps.schemas.chat import (
     ChatResponseType,
     MemoryStatus,
     PreferenceSummary,
+    ParsedState as ParsedStateSchema,
 )
 from apps.domain.chat.client import OpenAIClient
-from apps.domain.chat.parser import ChatParser
+from apps.services.paser import ChatParser
 
 
 SUMMARY_TRIGGER_MESSAGE_COUNT = 12
@@ -26,12 +27,12 @@ RECENT_MESSAGE_WINDOW = 6
 
 
 class ParsedState(TypedDict, total=False):
-    area: Optional[str]
+    lat: Optional[float]
+    lng: Optional[float]
     people: Optional[int]
     time: Optional[str]
     purpose: Optional[str]
     mood: Optional[str]
-    budget: Optional[str]
 
 
 class ChatState(TypedDict):
@@ -95,6 +96,18 @@ class ChatService:
         current_summary = state.get("summary", "") if state else ""
         previous_parsed_state = state.get("parsed_state", {}) if state else {}
 
+        # 2-1) sessionState가 있으면 parsedState에 병합 (초기값으로 사용)
+        if request.sessionState:
+            # sessionState에서 필요한 필드만 추출 (lat, lng, people, time, purpose, mood)
+            session_state_dict = request.sessionState.model_dump(
+                exclude={"excludedPlaceIds"},
+                include={"lat", "lng", "people", "time", "purpose", "mood"}
+            )
+            # None이 아닌 값만 병합
+            for key, value in session_state_dict.items():
+                if value is not None:
+                    previous_parsed_state[key] = value
+
         # 3) 유저 발화 파싱
         parsed_update = await self.parser.parse(
             user_message=user_message,
@@ -106,6 +119,12 @@ class ChatService:
             previous=previous_parsed_state,
             new=parsed_update,
         )
+
+        # 3-1) time을 시간값으로 변환
+        if merged_parsed_state.get("time"):
+            merged_parsed_state["time"] = self._convert_time_to_time_value(
+                merged_parsed_state["time"]
+            )
 
         await self.graph.aupdate_state(
             config={"configurable": {"thread_id": thread_id}},
@@ -148,13 +167,16 @@ class ChatService:
             values={"messages": [AIMessage(content=chat_response_text)]},
         )
 
+        # 7) parsedState를 스키마 형식으로 변환
+        parsed_state_schema = ParsedStateSchema(**merged_parsed_state) if merged_parsed_state else None
+
         return ChatMessageResponse(
             threadId=thread_id,
             userId=str(request.userId),
             chatResponse=chat_response_text,
             type=ChatResponseType.FOLLOW_UP,
             memoryStatus=memory_status,
-            parsedState=merged_parsed_state,
+            parsedState=parsed_state_schema,
         )
 
     async def _chatbot_node(self, state: ChatState) -> ChatState:
@@ -305,8 +327,6 @@ class ChatService:
     def _format_parsed_state(self, parsed_state: ParsedState) -> str:
         parts = []
 
-        if parsed_state.get("area"):
-            parts.append(f"지역: {parsed_state['area']}")
         if parsed_state.get("people") is not None:
             parts.append(f"인원: {parsed_state['people']}명")
         if parsed_state.get("time"):
@@ -315,10 +335,37 @@ class ChatService:
             parts.append(f"목적: {parsed_state['purpose']}")
         if parsed_state.get("mood"):
             parts.append(f"분위기: {parsed_state['mood']}")
-        if parsed_state.get("budget"):
-            parts.append(f"예산: {parsed_state['budget']}")
+        if parsed_state.get("lat") is not None and parsed_state.get("lng") is not None:
+            parts.append(f"위치: ({parsed_state['lat']}, {parsed_state['lng']})")
 
         return "\n".join(parts)
+
+    def _convert_time_to_time_value(self, time_str: str) -> str:
+        """
+        시간대 문자열을 시간값으로 변환
+        예: "저녁" -> "18:00"
+        """
+        time_mapping = {
+            "아침": "08:00",
+            "조식": "08:00",
+            "브런치": "10:00",
+            "점심": "12:00",
+            "런치": "12:00",
+            "저녁": "18:00",
+            "디너": "18:00",
+            "퇴근 후": "18:00",
+            "밤": "21:00",
+            "늦은 시간": "21:00",
+            "야식": "22:00",
+        }
+        
+        # 이미 시간 형식인 경우 (HH:MM 또는 HH:MM:SS) 그대로 반환
+        if ":" in time_str and len(time_str) <= 8:
+            return time_str
+        
+        # 매핑에서 찾기
+        normalized = time_str.strip()
+        return time_mapping.get(normalized, time_str)
 
     def _merge_parsed_state(
         self,
@@ -330,8 +377,11 @@ class ChatService:
         """
         merged: ParsedState = dict(previous)
 
+        # 반환 JSON에 포함되는 필드만 병합 (area, budget 제외)
+        allowed_keys = {"lat", "lng", "people", "time", "purpose", "mood"}
+        
         for key, value in new.items():
-            if value is not None and value != "":
+            if key in allowed_keys and value is not None and value != "":
                 merged[key] = value
 
         return merged
