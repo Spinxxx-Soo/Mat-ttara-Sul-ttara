@@ -88,6 +88,7 @@ class ChatService:
         await self.graph.aupdate_state(
             config={"configurable": {"thread_id": thread_id}},
             values={"messages": [HumanMessage(content=user_message)]},
+            as_node="chatbot",
         )
 
         # 2) 최신 state 다시 조회
@@ -129,6 +130,7 @@ class ChatService:
         await self.graph.aupdate_state(
             config={"configurable": {"thread_id": thread_id}},
             values={"parsed_state": merged_parsed_state},
+            as_node="chatbot",
         )
 
         # 4) 필요 시 summary 갱신
@@ -142,6 +144,7 @@ class ChatService:
             await self.graph.aupdate_state(
                 config={"configurable": {"thread_id": thread_id}},
                 values={"summary": updated_summary},
+                as_node="chatbot",
             )
 
         # 5) 모델에 넣을 입력 구성
@@ -165,6 +168,7 @@ class ChatService:
         await self.graph.aupdate_state(
             config={"configurable": {"thread_id": thread_id}},
             values={"messages": [AIMessage(content=chat_response_text)]},
+            as_node="chatbot",
         )
 
         # 7) parsedState를 스키마 형식으로 변환
@@ -172,7 +176,7 @@ class ChatService:
 
         return ChatMessageResponse(
             threadId=thread_id,
-            userId=str(request.userId),
+            userId=request.userId,
             chatResponse=chat_response_text,
             type=ChatResponseType.FOLLOW_UP,
             memoryStatus=memory_status,

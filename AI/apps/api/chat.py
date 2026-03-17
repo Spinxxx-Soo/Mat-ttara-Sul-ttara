@@ -39,7 +39,7 @@ async def get_place_candidates(request: PlaceCandidatesRequest):
         # TODO: userId를 threadId에서 추출하거나 별도로 받아야 함
         response: PlaceCandidatesResponse = ChatMessageResponse(
             threadId=request.threadId,
-            userId="0",  # TODO: 실제 userId로 변경 필요
+            userId=0,  # TODO: 실제 userId로 변경 필요
             chatResponse="장소 후보를 조회했습니다.",
             type=ChatResponseType.RECOMMENDATION,
             memoryStatus=MemoryStatus.OK,
