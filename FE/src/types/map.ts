@@ -25,7 +25,7 @@ export interface MapViewport {
 
 /** 지도 위에 표시되는 마커 한 개의 데이터 */
 export interface MapMarker {
-    id: string | number;
+    id: number;
     position: Coordinates;
     label?: string;
     /** 마커 클릭 시 선택 상태로 표시할지 여부 */
