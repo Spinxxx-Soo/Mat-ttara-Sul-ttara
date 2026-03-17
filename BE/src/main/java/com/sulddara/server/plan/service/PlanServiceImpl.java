@@ -12,6 +12,7 @@ import com.sulddara.server.plan.dto.PlanCreateResponseDto;
 import com.sulddara.server.plan.dto.PlanDetailResponseDto;
 import com.sulddara.server.plan.dto.PlanListResponseDto;
 import com.sulddara.server.plan.dto.PlanSummaryDto;
+import com.sulddara.server.plan.dto.PlanUpdateRequestDto;
 import com.sulddara.server.plan.mapper.PlanMapper;
 import com.sulddara.server.plan.repository.PlanRepository;
 import com.sulddara.server.user.domain.User;
@@ -32,6 +33,7 @@ public class PlanServiceImpl implements PlanService {
 
   private static final String USER_NOT_FOUND_MSG = "사용자를 찾을 수 없습니다. ID: ";
   private static final String PLACE_NOT_FOUND_MSG = "장소를 찾을 수 없습니다. ID: ";
+  private static final String PLAN_NOT_FOUND_MSG = "플랜을 찾을 수 없습니다.";
 
   private final PlanRepository planRepository;
   private final PlaceRepository placeRepository;
@@ -112,7 +114,7 @@ public class PlanServiceImpl implements PlanService {
     }
 
     Plan plan = planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)
-        .orElseThrow(() -> new IllegalArgumentException("플랜을 찾을 수 없습니다."));
+        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
@@ -123,13 +125,13 @@ public class PlanServiceImpl implements PlanService {
 
   @Override
   @Transactional
-  public PlanDetailResponseDto updatePlan(Long userId, Long planId, com.sulddara.server.plan.dto.PlanUpdateRequestDto requestDto) {
+  public PlanDetailResponseDto updatePlan(Long userId, Long planId, PlanUpdateRequestDto requestDto) {
     if (!userRepository.existsById(userId)) {
       throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
     }
 
     Plan plan = planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)
-        .orElseThrow(() -> new IllegalArgumentException("플랜을 찾을 수 없습니다."));
+        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
@@ -147,7 +149,7 @@ public class PlanServiceImpl implements PlanService {
     plan.getDetails().clear();
 
     if (requestDto.getDetails() != null) {
-      for (com.sulddara.server.plan.dto.PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.getDetails()) {
+      for (PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.getDetails()) {
         Place place = placeRepository.findById(detailDto.getPlaceId())
             .orElseThrow(() -> new IllegalArgumentException(PLACE_NOT_FOUND_MSG + detailDto.getPlaceId()));
         PlanDetail detail = new PlanDetail(place, detailDto.getSeqNo(), detailDto.getRecommendReason());
@@ -166,7 +168,7 @@ public class PlanServiceImpl implements PlanService {
     }
 
     Plan plan = planRepository.findByIdAndDeletedAtIsNull(planId)
-        .orElseThrow(() -> new IllegalArgumentException("플랜을 찾을 수 없습니다."));
+        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);

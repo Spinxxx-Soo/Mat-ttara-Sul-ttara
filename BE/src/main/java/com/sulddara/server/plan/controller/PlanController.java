@@ -5,6 +5,7 @@ import com.sulddara.server.plan.dto.PlanCreateRequestDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
 import com.sulddara.server.plan.dto.PlanDetailResponseDto;
 import com.sulddara.server.plan.dto.PlanListResponseDto;
+import com.sulddara.server.plan.dto.PlanUpdateRequestDto;
 import com.sulddara.server.plan.service.PlanService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -50,7 +51,7 @@ public class PlanController {
   public ResponseEntity<PlanDetailResponseDto> updatePlan(
       @AuthenticationPrincipal CustomOAuth2User user,
       @PathVariable Long planId,
-      @Valid @RequestBody com.sulddara.server.plan.dto.PlanUpdateRequestDto requestDto) {
+      @Valid @RequestBody PlanUpdateRequestDto requestDto) {
     Long userId = user.getUserId();
     PlanDetailResponseDto response = planService.updatePlan(userId, planId, requestDto);
     return ResponseEntity.ok(response);
