@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Any
 from typing_extensions import TypedDict, Annotated
 
 from langgraph.graph import StateGraph, add_messages
@@ -18,28 +18,41 @@ from apps.schemas.chat import (
     PreferenceSummary,
 )
 from apps.domain.chat.client import OpenAIClient
+from apps.domain.chat.parser import ChatParser
 
 
 SUMMARY_TRIGGER_MESSAGE_COUNT = 12
 RECENT_MESSAGE_WINDOW = 6
 
 
+class ParsedState(TypedDict, total=False):
+    area: Optional[str]
+    people: Optional[int]
+    time: Optional[str]
+    purpose: Optional[str]
+    mood: Optional[str]
+    budget: Optional[str]
+
+
 class ChatState(TypedDict):
     """LangGraph 상태"""
     messages: Annotated[list[BaseMessage], add_messages]
     summary: str
+    parsed_state: ParsedState
+
 
 class ChatService:
     """챗봇 서비스"""
 
     def __init__(self):
         self.client = OpenAIClient()
+        self.parser = ChatParser(client=self.client)
 
         # 개발용 checkpointer
-        # 운영에서는 Redis 기반으로 교체 해야함.
+        # 운영에서는 Redis 기반으로 교체
         self.checkpointer = InMemorySaver()
 
-        # 임시 장기 메모리 저장소 -> 추후 랭체인 메모리
+        # 임시 장기 메모리 저장소
         self._long_term_memories: dict[str, PreferenceSummary] = {}
 
         self.graph = self._build_graph()
@@ -70,18 +83,36 @@ class ChatService:
             if request.contextInjection.reason == "MISSING_MEMORY":
                 memory_status = MemoryStatus.MISSING
 
-        # 이번 유저 메시지를 state에 먼저 저장
+        # 1) 유저 메시지 저장
         await self.graph.aupdate_state(
             config={"configurable": {"thread_id": thread_id}},
             values={"messages": [HumanMessage(content=user_message)]},
         )
 
-        # 저장된 상태 다시 조회
+        # 2) 최신 state 다시 조회
         state = self._get_thread_state(thread_id)
         full_messages = state.get("messages", []) if state else []
         current_summary = state.get("summary", "") if state else ""
+        previous_parsed_state = state.get("parsed_state", {}) if state else {}
 
-        # 필요 시 summary 갱신
+        # 3) 유저 발화 파싱
+        parsed_update = await self.parser.parse(
+            user_message=user_message,
+            summary=current_summary,
+            previous_parsed_state=previous_parsed_state,
+        )
+
+        merged_parsed_state = self._merge_parsed_state(
+            previous=previous_parsed_state,
+            new=parsed_update,
+        )
+
+        await self.graph.aupdate_state(
+            config={"configurable": {"thread_id": thread_id}},
+            values={"parsed_state": merged_parsed_state},
+        )
+
+        # 4) 필요 시 summary 갱신
         updated_summary = current_summary
         if self._should_refresh_summary(full_messages):
             updated_summary = await self._summarize_messages(
@@ -94,11 +125,12 @@ class ChatService:
                 values={"summary": updated_summary},
             )
 
-        # 모델에 넣을 입력 구성: system + summary + recent messages
+        # 5) 모델에 넣을 입력 구성
         recent_messages = self._get_recent_messages(full_messages, RECENT_MESSAGE_WINDOW)
         model_messages = self._build_messages_for_model(
             thread_id=thread_id,
             summary=updated_summary,
+            parsed_state=merged_parsed_state,
             recent_messages=recent_messages,
         )
 
@@ -110,7 +142,7 @@ class ChatService:
             .get("content", "응답을 생성할 수 없습니다.")
         )
 
-        # AI 응답 저장
+        # 6) AI 응답 저장
         await self.graph.aupdate_state(
             config={"configurable": {"thread_id": thread_id}},
             values={"messages": [AIMessage(content=chat_response_text)]},
@@ -122,13 +154,12 @@ class ChatService:
             chatResponse=chat_response_text,
             type=ChatResponseType.FOLLOW_UP,
             memoryStatus=memory_status,
-            parsedState=None,
+            parsedState=merged_parsed_state,
         )
 
     async def _chatbot_node(self, state: ChatState) -> ChatState:
         """
-        현재 구조에서는 직접 graph node 로직을 쓰지 않으므로
-        최소 형태로 유지.
+        현재 구조에서는 직접 graph node 로직을 쓰지 않으므로 최소 형태 유지
         """
         return state
 
@@ -202,6 +233,7 @@ class ChatService:
         self,
         thread_id: str,
         summary: str,
+        parsed_state: ParsedState,
         recent_messages: list[BaseMessage],
     ) -> list[dict[str, str]]:
         """
@@ -217,6 +249,15 @@ class ChatService:
                 {
                     "role": "system",
                     "content": f"[이전 대화 요약]\n{summary}",
+                }
+            )
+
+        parsed_state_text = self._format_parsed_state(parsed_state)
+        if parsed_state_text:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"[현재 추출된 사용자 요청 정보]\n{parsed_state_text}",
                 }
             )
 
@@ -260,6 +301,40 @@ class ChatService:
             parts.append(f"선호하는 가격대: {preference.preferredPriceLevel}단계")
 
         return "\n".join(parts)
+
+    def _format_parsed_state(self, parsed_state: ParsedState) -> str:
+        parts = []
+
+        if parsed_state.get("area"):
+            parts.append(f"지역: {parsed_state['area']}")
+        if parsed_state.get("people") is not None:
+            parts.append(f"인원: {parsed_state['people']}명")
+        if parsed_state.get("time"):
+            parts.append(f"시간대: {parsed_state['time']}")
+        if parsed_state.get("purpose"):
+            parts.append(f"목적: {parsed_state['purpose']}")
+        if parsed_state.get("mood"):
+            parts.append(f"분위기: {parsed_state['mood']}")
+        if parsed_state.get("budget"):
+            parts.append(f"예산: {parsed_state['budget']}")
+
+        return "\n".join(parts)
+
+    def _merge_parsed_state(
+        self,
+        previous: ParsedState,
+        new: dict[str, Any],
+    ) -> ParsedState:
+        """
+        새로 파싱된 값만 기존 state에 덮어쓰기
+        """
+        merged: ParsedState = dict(previous)
+
+        for key, value in new.items():
+            if value is not None and value != "":
+                merged[key] = value
+
+        return merged
 
     def _to_openai_messages(self, messages: list[BaseMessage]) -> list[dict[str, str]]:
         result: list[dict[str, str]] = []
