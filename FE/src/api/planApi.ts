@@ -1,6 +1,5 @@
 import { apiClient } from '@/api/axios';
-import type { Plan } from '@/types/plan';
-import type { ApiPaginationResponse } from '@/types/api';
+import type { Plan, ApiPaginationResponse } from '@/types/api';
 
 /**
  * 플랜 관련 API (S14P21B205-213)

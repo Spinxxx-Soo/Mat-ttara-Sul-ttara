@@ -1,65 +1,19 @@
-import { useNavigate } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
-
-interface Plan {
-  id: string
-  name: string
-  date: string
-  people: number
-  budget: number
-  location: string
-  image: string
-  status: 'upcoming' | 'completed'
-  daysUntil?: number
-}
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
 
 const MyPlan = () => {
-  const navigate = useNavigate()
-
-  // TODO: 실제 플랜 데이터 API 연동
-  const plans: Plan[] = [
-    {
-      id: '1',
-      name: '강남역 불금 미식회',
-      date: '2024-01-15',
-      people: 4,
-      budget: 200000,
-      location: '서울 강남구 역삼동 인근',
-      image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
-      status: 'upcoming',
-      daysUntil: 3,
-    },
-    {
-      id: '2',
-      name: '을지로 노포 투어',
-      date: '2024-01-05',
-      people: 2,
-      budget: 80000,
-      location: '서울 중구 을지로 3가',
-      image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400',
-      status: 'completed',
-    },
-    {
-      id: '3',
-      name: '청담동 기념일 디너',
-      date: '2024-01-25',
-      people: 2,
-      budget: 350000,
-      location: '서울 강남구 청담동',
-      image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400',
-      status: 'upcoming',
-      daysUntil: 12,
-    },
-  ]
+  const navigate = useNavigate();
+  const { data, isLoading, isError } = usePlansQuery();
+  const plans = data?.plans || [];
 
   const handleCreatePlan = () => {
-    // TODO: 플랜 생성 페이지로 이동
-    navigate('/my-plan/new')
-  }
+    navigate('/my-plan/new');
+  };
 
   const handleViewDetail = (id: string) => {
-    navigate(`/my-plan/${id}`)
-  }
+    navigate(`/my-plan/${id}`);
+  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
@@ -88,7 +42,7 @@ const MyPlan = () => {
         </header>
 
         {/* Content */}
-        <div className="max-w-4xl mx-auto p-8 w-full">
+        <div className="max-w-4xl mx-auto p-8 w-full overflow-y-auto">
           {/* Title & Add Button */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
             <div className="space-y-1">
@@ -107,70 +61,108 @@ const MyPlan = () => {
 
           {/* Plans List */}
           <div className="grid gap-6">
-            {plans.map((plan) => (
-              <div
-                key={plan.id}
-                className="group flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all border border-slate-100 dark:border-slate-800"
-              >
-                <div className="w-full md:w-72 h-48 md:h-auto overflow-hidden relative">
-                  <img
-                    alt={plan.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    src={plan.image}
-                  />
-                  {plan.status === 'upcoming' && plan.daysUntil !== undefined && (
-                    <div className="absolute top-3 left-3 px-3 py-1 bg-primary/90 text-white text-xs font-bold rounded-full">
-                      D-{plan.daysUntil}
-                    </div>
-                  )}
-                  {plan.status === 'completed' && (
-                    <div className="absolute top-3 left-3 px-3 py-1 bg-slate-500/90 text-white text-xs font-bold rounded-full">
-                      종료
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 p-6 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start">
-                      <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors">
-                        {plan.name}
-                      </h4>
-                      <span className="material-symbols-outlined text-slate-400 cursor-pointer hover:text-primary">
-                        bookmark
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                        <span className="material-symbols-outlined text-primary text-lg">
-                          group
-                        </span>
-                        <span>인원: {plan.people}명</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                        <span className="material-symbols-outlined text-primary text-lg">
-                          payments
-                        </span>
-                        <span>예산: {plan.budget.toLocaleString()}원</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 col-span-2">
-                        <span className="material-symbols-outlined text-primary text-lg">
-                          location_on
-                        </span>
-                        <span>{plan.location}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-6 flex items-center justify-end">
-                    <button
-                      onClick={() => handleViewDetail(plan.id)}
-                      className="px-5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold rounded-lg hover:bg-primary hover:text-white transition-all"
-                    >
-                      상세 보기
-                    </button>
-                  </div>
-                </div>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
+                <p className="text-slate-500">일정을 불러오는 중입니다...</p>
               </div>
-            ))}
+            ) : isError ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-red-50 dark:bg-red-950/20 rounded-3xl border border-dashed border-red-200 dark:border-red-900/30">
+                <span className="material-symbols-outlined text-6xl text-red-400 mb-4">error</span>
+                <p className="text-red-600 dark:text-red-400 font-medium">일정을 불러오는 중 오류가 발생했습니다.</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-4 px-6 py-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-xl hover:bg-red-200 transition-colors font-semibold"
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : plans.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-700 mb-4">
+                  calendar_today
+                </span>
+                <p className="text-slate-500 font-medium mb-1">등록된 여행 계획이 없습니다.</p>
+                <p className="text-slate-400 text-sm mb-6">첫 번째 맛집 여행 계획을 만들어보세요!</p>
+                <button
+                  onClick={handleCreatePlan}
+                  className="px-6 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-primary hover:text-white transition-all font-semibold"
+                >
+                  플랜 만들기
+                </button>
+              </div>
+            ) : (
+              plans.map((plan) => (
+                <div
+                  key={plan.id}
+                  className="group flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all border border-slate-100 dark:border-slate-800"
+                >
+                  <div className="w-full md:w-72 h-48 md:h-auto overflow-hidden relative">
+                    <img
+                      alt={plan.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      src={plan.thumbnailUrl}
+                    />
+                    {plan.status === 'upcoming' && plan.daysUntil !== undefined && (
+                      <div className="absolute top-3 left-3 px-3 py-1 bg-primary/90 text-white text-xs font-bold rounded-full">
+                        D-{plan.daysUntil}
+                      </div>
+                    )}
+                    {plan.status === 'completed' && (
+                      <div className="absolute top-3 left-3 px-3 py-1 bg-slate-500/90 text-white text-xs font-bold rounded-full">
+                        종료
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 p-6 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors">
+                          {plan.title}
+                        </h4>
+                        <span className="material-symbols-outlined text-slate-400 cursor-pointer hover:text-primary">
+                          bookmark
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                          <span className="material-symbols-outlined text-primary text-lg">
+                            group
+                          </span>
+                          <span>인원: {plan.participantCount}명</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                          <span className="material-symbols-outlined text-primary text-lg">
+                            payments
+                          </span>
+                          <span>예산: {plan.formattedBudget}원</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                          <span className="material-symbols-outlined text-primary text-lg">
+                            location_on
+                          </span>
+                          <span>타입: {plan.planType}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                          <span className="material-symbols-outlined text-primary text-lg">
+                            calendar_month
+                          </span>
+                          <span>{plan.formattedDate}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-6 flex items-center justify-end">
+                      <button
+                        onClick={() => handleViewDetail(plan.id)}
+                        className="px-5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold rounded-lg hover:bg-primary hover:text-white transition-all"
+                      >
+                        상세 보기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Load More */}
@@ -183,7 +175,7 @@ const MyPlan = () => {
         </div>
       </main>
     </div>
-  )
-}
+  );
+};
 
-export default MyPlan
+export default MyPlan;

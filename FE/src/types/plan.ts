@@ -1,11 +1,32 @@
-import { Plan } from '@/types/api';
-
 /**
- * 플랜 목록 조회 응답 포맷 (Legacy/Backup - Prefer types/api.ts)
+ * UI에서 표시하기 위한 플랜 모델
+ *
+ * Plan 원본 타입은 @/types/api 에서 직접 import 하세요.
  */
-export interface GetPlansResponse {
-  plans: Plan[];
-  totalCount: number;
+export interface PlanUIModel {
+  id: string; // string for convenience
+  planId: number; // original numeric ID
+  title: string;
+  meetingAt: string;
+  participantCount: number;
+  totalBudget: number;
+  planType: string;
+  memo: string;
+  createdAt: string;
+  updatedAt: string;
+
+  // UI 전용 가공 필드
+  formattedDate: string;
+  formattedBudget: string;
+  status: 'upcoming' | 'completed';
+  daysUntil?: number;
+  thumbnailUrl: string;
 }
 
-export type { Plan };
+/**
+ * 플랜 목록 응답 UI 모델
+ */
+export interface PlanListUIModel {
+  plans: PlanUIModel[];
+  totalCount: number;
+}

@@ -11,31 +11,8 @@ const MyPlanDetail = () => {
 
   const { data: plan, isLoading, isError } = usePlanDetailQuery(id || '')
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-
-  if (isError || !plan) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="text-center">
-          <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">플랜을 불러오지 못했습니다.</p>
-          <button
-            onClick={() => navigate('/my-plan')}
-            className="px-6 py-2 bg-primary text-white rounded-xl font-semibold"
-          >
-            목록으로 돌아가기
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const shareUrl = `${window.location.origin}/my-plan/${plan.planId}`
+  // shareUrl은 plan이 존재할 때만 사용
+  const shareUrl = plan ? `${window.location.origin}/my-plan/${plan.planId}` : ''
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl)
@@ -44,7 +21,7 @@ const MyPlanDetail = () => {
 
   const handleDelete = () => {
     if (confirm('정말 이 플랜을 삭제하시겠습니까?')) {
-      // TODO: 삭제 API 호출
+      // TODO: 삭제 API 호출 (planApi.deletePlan 연동)
       navigate('/my-plan')
     }
   }
@@ -69,139 +46,187 @@ const MyPlanDetail = () => {
               </p>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowShareModal(true)}
-              className="px-4 py-2 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
-            >
-              공유
-            </button>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-4 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-primary/10 shadow-sm"
-            >
-              {isEditing ? '저장' : '수정'}
-            </button>
-            <button
-              onClick={handleDelete}
-              className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-800 shadow-sm"
-            >
-              삭제
-            </button>
-          </div>
+          {plan && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="px-4 py-2 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
+              >
+                공유
+              </button>
+              {/* TODO: 수정 기능은 별도 플랜 수정 API 연동 티켓에서 구현 예정 */}
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="px-4 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-primary/10 shadow-sm"
+              >
+                {isEditing ? '취소' : '수정'}
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-800 shadow-sm"
+              >
+                삭제
+              </button>
+            </div>
+          )}
         </header>
 
         {/* Content */}
-        <div className="max-w-4xl mx-auto p-8 w-full space-y-6">
-          {/* Plan Info Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-sm border border-slate-100 dark:border-slate-800">
-            <div className="space-y-6">
-              <div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    defaultValue={plan.title}
-                    className="text-3xl font-bold text-slate-900 dark:text-slate-100 w-full px-4 py-2 border border-primary/20 rounded-lg focus:ring-2 focus:ring-primary"
-                  />
-                ) : (
-                  <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                    {plan.title}
-                  </h1>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-primary text-2xl">
-                    calendar_today
-                  </span>
-                  <div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">생성 일시</p>
-                    <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                      {new Date(plan.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-primary text-2xl">group</span>
-                  <div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">인원 수</p>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        defaultValue={plan.participantCount}
-                        className="text-base font-semibold text-slate-900 dark:text-slate-100 w-20 px-2 py-1 border border-primary/20 rounded"
-                      />
-                    ) : (
-                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                        {plan.participantCount}명
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-primary text-2xl">
-                    payments
-                  </span>
-                  <div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">예산</p>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        defaultValue={plan.totalBudget}
-                        className="text-base font-semibold text-slate-900 dark:text-slate-100 w-32 px-2 py-1 border border-primary/20 rounded"
-                      />
-                    ) : (
-                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                        {plan.totalBudget.toLocaleString()}원
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-primary text-2xl">
-                    location_on
-                  </span>
-                  <div className="flex-1">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">유형</p>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        defaultValue={plan.planType}
-                        className="text-base font-semibold text-slate-900 dark:text-slate-100 w-full px-2 py-1 border border-primary/20 rounded"
-                      />
-                    ) : (
-                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                        {plan.planType}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">메모</p>
-                {isEditing ? (
-                  <textarea
-                    defaultValue={plan.memo}
-                    className="w-full px-4 py-3 border border-primary/20 rounded-lg focus:ring-2 focus:ring-primary"
-                    rows={3}
-                  />
-                ) : (
-                  <p className="text-base text-slate-700 dark:text-slate-300">{plan.memo || '메모가 없습니다.'}</p>
-                )}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+            </div>
+          ) : isError || !plan ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4 block">
+                  error_outline
+                </span>
+                <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">플랜을 불러오지 못했습니다.</p>
+                <p className="text-slate-500 text-sm mb-6">유효하지 않은 플랜이거나 서버 오류가 발생했습니다.</p>
+                <button
+                  onClick={() => navigate('/my-plan')}
+                  className="px-6 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  목록으로 돌아가기
+                </button>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="max-w-4xl mx-auto p-8 w-full space-y-6">
+              {isEditing && (
+                <div className="px-4 py-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/50 rounded-xl text-sm text-amber-700 dark:text-amber-300">
+                  {/* TODO: 수정 API 연동 후 아래 입력 필드를 활성화하고 저장 로직을 구현해야 합니다 (planApi.updatePlan) */}
+                  ⚠️ 수정 기능은 현재 준비 중입니다. 입력 필드는 조회 전용입니다.
+                </div>
+              )}
 
+              {/* Plan Info Card */}
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-sm border border-slate-100 dark:border-slate-800">
+                <div className="space-y-6">
+                  <div>
+                    {isEditing ? (
+                      // TODO: 수정 API 연동 시 value + onChange로 변경
+                      <input
+                        type="text"
+                        defaultValue={plan.title}
+                        disabled
+                        className="text-3xl font-bold text-slate-900 dark:text-slate-100 w-full px-4 py-2 border border-primary/20 rounded-lg bg-slate-50 dark:bg-slate-800 cursor-not-allowed opacity-70"
+                      />
+                    ) : (
+                      <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                        {plan.title}
+                      </h1>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* 약속 일시 - meetingAt 기반 */}
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary text-2xl">
+                        calendar_today
+                      </span>
+                      <div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">약속 일시</p>
+                        <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                          {plan.formattedDate}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 인원 수 */}
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary text-2xl">group</span>
+                      <div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">인원 수</p>
+                        {isEditing ? (
+                          // TODO: 수정 API 연동 시 value + onChange로 변경
+                          <input
+                            type="number"
+                            defaultValue={plan.participantCount}
+                            disabled
+                            className="text-base font-semibold text-slate-900 dark:text-slate-100 w-20 px-2 py-1 border border-primary/20 rounded bg-slate-50 dark:bg-slate-800 cursor-not-allowed opacity-70"
+                          />
+                        ) : (
+                          <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                            {plan.participantCount}명
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 예산 */}
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary text-2xl">
+                        payments
+                      </span>
+                      <div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">예산</p>
+                        {isEditing ? (
+                          // TODO: 수정 API 연동 시 value + onChange로 변경
+                          <input
+                            type="number"
+                            defaultValue={plan.totalBudget}
+                            disabled
+                            className="text-base font-semibold text-slate-900 dark:text-slate-100 w-32 px-2 py-1 border border-primary/20 rounded bg-slate-50 dark:bg-slate-800 cursor-not-allowed opacity-70"
+                          />
+                        ) : (
+                          <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                            {plan.formattedBudget}원
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 유형 */}
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary text-2xl">
+                        location_on
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">유형</p>
+                        {isEditing ? (
+                          // TODO: 수정 API 연동 시 value + onChange로 변경
+                          <input
+                            type="text"
+                            defaultValue={plan.planType}
+                            disabled
+                            className="text-base font-semibold text-slate-900 dark:text-slate-100 w-full px-2 py-1 border border-primary/20 rounded bg-slate-50 dark:bg-slate-800 cursor-not-allowed opacity-70"
+                          />
+                        ) : (
+                          <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                            {plan.planType}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 메모 */}
+                  <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">메모</p>
+                    {isEditing ? (
+                      // TODO: 수정 API 연동 시 value + onChange로 변경
+                      <textarea
+                        defaultValue={plan.memo}
+                        disabled
+                        className="w-full px-4 py-3 border border-primary/20 rounded-lg bg-slate-50 dark:bg-slate-800 cursor-not-allowed opacity-70"
+                        rows={3}
+                      />
+                    ) : (
+                      <p className="text-base text-slate-700 dark:text-slate-300">{plan.memo || '메모가 없습니다.'}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
       {/* Share Modal */}
-      {showShareModal && (
+      {showShareModal && plan && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full mx-4">
             <div className="flex justify-between items-center mb-4">
