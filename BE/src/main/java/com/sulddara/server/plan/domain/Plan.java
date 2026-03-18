@@ -13,7 +13,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.SQLRestriction;
+
 @Entity
+@SQLRestriction("deleted_at IS NULL")
 @Table(name = "plans", indexes = {
     @Index(name = "idx_plans_user_created", columnList = "user_id, created_at"),
     @Index(name = "idx_plans_deleted", columnList = "deleted_at")
@@ -87,6 +90,9 @@ public class Plan {
 
   public void softDelete() {
     this.deletedAt = LocalDateTime.now();
+    for (PlanDetail detail : this.details) {
+      detail.softDelete();
+    }
   }
 
   public boolean isDeleted() {
