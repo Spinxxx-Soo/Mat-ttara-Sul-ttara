@@ -11,15 +11,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class PlaceServiceImpl implements PlaceService {
+
+    private static final String PROVIDER_NAVER = "NAVER";
+    private static final int NAVER_DISPLAY_MAX = 5;
 
     private final ExternalPlaceSearchService externalPlaceSearchService;
     private final PlaceRepository placeRepository;
@@ -27,36 +30,39 @@ public class PlaceServiceImpl implements PlaceService {
     @Override
     @Transactional(readOnly = true)
     public PlaceSearchResponseDto searchPlaces(String keyword, Double lat, Double lng, int page, int size, String sort) {
-        
-        // 1. 네이버 API 검색 호출 (정렬은 일단 random 혹은 comment 중 기본값 사용, 여기서는 네이버 기본인 random(유사도순) 사용)
-        // 네이버 API의 display 최대값이 5이므로, size를 5로 제한하거나 추가 로직이 필요하지만 우선 size만큼 요청
-        int displaySize = Math.min(size, 5); 
+
+        // Fail-Fast: 검색어 없이 호출된 경우 빈 결과를 즉시 반환
+        if (keyword == null || keyword.isBlank()) {
+            return emptyResult(page, size);
+        }
+
+        // 1. 네이버 API 검색 호출
+        int displaySize = Math.min(size, NAVER_DISPLAY_MAX);
         NaverLocalSearchResponseDto naverResponse = externalPlaceSearchService.searchPlaces(keyword, displaySize, page, "random");
 
         // 2. 검색 결과 변환 및 로컬 DB (PLACES 테이블) 데이터 매핑
         List<PlaceSearchResponseDto.PlaceItemDto> items = naverResponse.getItems().stream().map(item -> {
             String cleanTitle = stripHtmlTags(item.getTitle());
-            String externalId = item.getMapx() + item.getMapy(); // KATEC 좌표 결합 문자열을 임시 식별자로 사용 혹은 title 사용
-            
-            Optional<Place> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId("NAVER", externalId);
-            
-            // 로컬 DB에 존재하면 해당 정보 활용, 없으면 기본값
+            String externalId = item.getMapx() + item.getMapy();
+
+            Optional<Place> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(PROVIDER_NAVER, externalId);
+
             Long placeId = localPlaceOpt.map(Place::getId).orElse(null);
             Boolean isOpen = localPlaceOpt.map(Place::getIsOpen).orElse(true);
-            
-            // 향후 리뷰 테이블 조인을 통해 계산할 평점/리뷰수 (현재는 0으로 처리)
+
+            // TODO: 리뷰 테이블 조인을 통해 계산 (현재 기본값)
             Double rating = 0.0;
             Integer reviewCount = 0;
-            
-            // 거리 계산 (TODO: KATEC -> WGS84 변환 로직 필요, 현재는 0.0)
+
+            // TODO: KATEC -> WGS84 변환 로직 필요 (현재 기본값)
             Double distance = 0.0;
 
             return PlaceSearchResponseDto.PlaceItemDto.builder()
                     .placeId(placeId)
                     .name(cleanTitle)
-                    .address(item.getRoadAddress() != null && !item.getRoadAddress().isBlank() ? item.getRoadAddress() : item.getAddress())
-                    .lat(Double.valueOf(item.getMapx())) // 보존용 KATEC
-                    .lng(Double.valueOf(item.getMapy())) // 보존용 KATEC
+                    .address(resolveAddress(item))
+                    .lat(parseDoubleSafely(item.getMapx()))
+                    .lng(parseDoubleSafely(item.getMapy()))
                     .rating(rating)
                     .imageUrl(localPlaceOpt.map(Place::getImageUrl).orElse(null))
                     .category(item.getCategory())
@@ -64,13 +70,14 @@ public class PlaceServiceImpl implements PlaceService {
                     .reviewCount(reviewCount)
                     .distance(distance)
                     .build();
-        }).collect(Collectors.toList());
+        }).toList();
 
-        // 3. 정렬 로직 (distance, rating 기준)
+        // 3. 정렬 로직 (원본 리스트가 불변이므로 새로운 리스트로 복사 후 정렬)
+        List<PlaceSearchResponseDto.PlaceItemDto> sortedItems = new java.util.ArrayList<>(items);
         if ("distance".equalsIgnoreCase(sort)) {
-            items.sort(Comparator.comparing(PlaceSearchResponseDto.PlaceItemDto::getDistance));
+            sortedItems.sort(Comparator.comparing(PlaceSearchResponseDto.PlaceItemDto::getDistance));
         } else if ("rating".equalsIgnoreCase(sort)) {
-            items.sort(Comparator.comparing(PlaceSearchResponseDto.PlaceItemDto::getRating).reversed());
+            sortedItems.sort(Comparator.comparing(PlaceSearchResponseDto.PlaceItemDto::getRating).reversed());
         }
 
         // 4. 페이징 메타데이터 생성
@@ -86,9 +93,32 @@ public class PlaceServiceImpl implements PlaceService {
                 .build();
 
         return PlaceSearchResponseDto.builder()
-                .content(items)
+                .content(sortedItems)
                 .pageInfo(pageInfo)
                 .build();
+    }
+
+    private PlaceSearchResponseDto emptyResult(int page, int size) {
+        return PlaceSearchResponseDto.builder()
+                .content(Collections.emptyList())
+                .pageInfo(PlaceSearchResponseDto.PageInfoDto.builder()
+                        .page(page).size(size).totalElements(0).totalPages(0).hasNext(false)
+                        .build())
+                .build();
+    }
+
+    private String resolveAddress(NaverLocalSearchResponseDto.NaverPlaceItem item) {
+        return (item.getRoadAddress() != null && !item.getRoadAddress().isBlank())
+                ? item.getRoadAddress()
+                : item.getAddress();
+    }
+
+    private Double parseDoubleSafely(String value) {
+        try {
+            return Double.valueOf(value);
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 
     private String stripHtmlTags(String input) {

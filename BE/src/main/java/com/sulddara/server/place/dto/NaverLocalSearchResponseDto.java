@@ -4,10 +4,11 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.Collections;
 import java.util.List;
 
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class NaverLocalSearchResponseDto {
 
     private String lastBuildDate;
@@ -15,6 +16,13 @@ public class NaverLocalSearchResponseDto {
     private int start;
     private int display;
     private List<NaverPlaceItem> items;
+
+    /**
+     * items가 null일 경우 빈 리스트를 반환하여 NPE를 방지합니다.
+     */
+    public List<NaverPlaceItem> getItems() {
+        return items != null ? items : Collections.emptyList();
+    }
 
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
