@@ -10,6 +10,9 @@ import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import com.sulddara.server.place.service.PlaceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,24 +42,26 @@ public class PlaceServiceImpl implements PlaceService {
             return emptyResult(page, size);
         }
 
-        // 1. Elasticsearch 우선 조회
-        List<PlaceDocument> esResults = searchFromElasticsearch(keyword);
+        // 1. Elasticsearch 우선 조회 (Pageable 적용)
+        Page<PlaceDocument> esPage = searchFromElasticsearch(keyword, page, size);
 
         List<PlaceSearchResponseDto.PlaceItemDto> items;
         int totalElements;
 
-        if (!esResults.isEmpty()) {
+        if (esPage != null && esPage.hasContent()) {
             // ES 캐시 히트: ES 문서에서 DTO로 변환
-            log.debug("ES cache hit for keyword: '{}', results: {}", keyword, esResults.size());
-            items = esResults.stream()
+            log.debug("ES cache hit for keyword: '{}', results: {}", keyword, esPage.getTotalElements());
+            items = esPage.getContent().stream()
                     .map(this::toPlaceItemDto)
                     .toList();
-            totalElements = esResults.size();
+            totalElements = (int) esPage.getTotalElements();
         } else {
-            // ES 캐시 미스: 네이버 API 호출 후 ES에 적재
+            // ES 캐시 미스: 네이버 API 호출 후 ES에 비동기 적재
             log.debug("ES cache miss for keyword: '{}', falling back to Naver API", keyword);
             int displaySize = Math.min(size, NAVER_DISPLAY_MAX);
-            NaverLocalSearchResponseDto naverResponse = externalPlaceSearchService.searchPlaces(keyword, displaySize, page, "random");
+            // ⚠️ Fix: 네이버 API start 오프셋 계산 (1-based)
+            int naverStart = (page - 1) * displaySize + 1;
+            NaverLocalSearchResponseDto naverResponse = externalPlaceSearchService.searchPlaces(keyword, displaySize, naverStart, "random");
 
             items = naverResponse.getItems().stream().map(item -> {
                 String cleanTitle = stripHtmlTags(item.getTitle());
@@ -66,10 +71,21 @@ public class PlaceServiceImpl implements PlaceService {
                 Long placeId = localPlaceOpt.map(Place::getId).orElse(null);
                 Boolean isOpen = localPlaceOpt.map(Place::getIsOpen).orElse(true);
 
-                // ES에 장소 데이터 적재 (비동기 처리 가능, 현재는 동기)
-                indexToElasticsearch(externalId, cleanTitle, resolveAddress(item),
-                        item.getCategory(), parseDoubleSafely(item.getMapx()),
-                        parseDoubleSafely(item.getMapy()), item.getTelephone());
+                // ⚠️ Fix: Naver TM128(KATEC) 평면 좌표 -> WGS84 위경도 변환
+                Double itemMapX = parseDoubleSafely(item.getMapx());
+                Double itemMapY = parseDoubleSafely(item.getMapy());
+                Double itemLng = 0.0;
+                Double itemLat = 0.0;
+                if (itemMapX > 0 && itemMapY > 0) {
+                    com.sulddara.server.place.util.CoordinateConverter.LatLng wgs84 = 
+                            com.sulddara.server.place.util.CoordinateConverter.convertTm128ToWgs84(itemMapX, itemMapY);
+                    itemLat = wgs84.lat;
+                    itemLng = wgs84.lng;
+                }
+
+                // ES에 비동기 적재
+                indexToElasticsearchAsync(externalId, cleanTitle, resolveAddress(item),
+                        item.getCategory(), itemLat, itemLng, item.getTelephone());
 
                 // TODO: 리뷰 테이블 조인을 통해 계산 (현재 기본값)
                 Double rating = 0.0;
@@ -82,8 +98,8 @@ public class PlaceServiceImpl implements PlaceService {
                         .placeId(placeId)
                         .name(cleanTitle)
                         .address(resolveAddress(item))
-                        .lat(parseDoubleSafely(item.getMapx()))
-                        .lng(parseDoubleSafely(item.getMapy()))
+                        .lat(itemLat)
+                        .lng(itemLng)
                         .rating(rating)
                         .imageUrl(localPlaceOpt.map(Place::getImageUrl).orElse(null))
                         .category(item.getCategory())
@@ -124,17 +140,18 @@ public class PlaceServiceImpl implements PlaceService {
 
     // --- Elasticsearch 연동 메서드 ---
 
-    private List<PlaceDocument> searchFromElasticsearch(String keyword) {
+    private Page<PlaceDocument> searchFromElasticsearch(String keyword, int page, int size) {
         try {
-            return placeSearchRepository.findByNameContaining(keyword);
+            return placeSearchRepository.findByNameContaining(keyword, PageRequest.of(page - 1, size));
         } catch (Exception e) {
             log.warn("Elasticsearch query failed, falling back to external API: {}", e.getMessage());
-            return Collections.emptyList();
+            return null;
         }
     }
 
-    private void indexToElasticsearch(String externalId, String name, String address,
-                                      String category, Double lat, Double lng, String phone) {
+    @Async
+    public void indexToElasticsearchAsync(String externalId, String name, String address,
+                                          String category, Double lat, Double lng, String phone) {
         try {
             PlaceDocument doc = PlaceDocument.builder()
                     .id(PROVIDER_NAVER + "_" + externalId)
@@ -149,6 +166,7 @@ public class PlaceServiceImpl implements PlaceService {
                     .isOpen(true)
                     .build();
             placeSearchRepository.save(doc);
+            log.debug("Indexed place to ES: {}", name);
         } catch (Exception e) {
             log.warn("Failed to index place to Elasticsearch: {}", e.getMessage());
         }
