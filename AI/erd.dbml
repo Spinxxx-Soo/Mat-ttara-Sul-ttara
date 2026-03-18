@@ -1,0 +1,351 @@
+// 1. USERS 테이블 - 사용자 테이블
+Table users {
+  user_id bigint [pk, increment, not null] // 사용자 고유 ID (Primary Key)
+  email varchar(255) [not null, unique] // 로그인용 이메일 (Unique)
+  name varchar(100) [not null] // 사용자 이름
+  created_at timestamp [not null] // 계정 생성 시각
+  last_login_at timestamp // 마지막 로그인 시각
+}
+
+// 2. USER_AUTH - 사용자 auth 테이블
+Table user_auth {
+  auth_id bigint [pk, increment, not null] // PK
+  user_id bigint [not null] // USERS.user_id (FK)
+  provider varchar(20) [not null] // 'GOOGLE', 'NAVER' 구분
+  provider_id varchar(255) [not null] // 구글/네이버가 제공하는 고유 ID
+  refresh_token text // 토큰 갱신용 (암호화 권장)
+  token_expires_in int [not null] // 토큰 유효 시간(초 단위)
+  token_updated_at timestamp [not null] // 토큰 발급/갱신 시각
+
+  indexes {
+    (provider, provider_id) [unique]
+    (user_id, provider) [unique]
+  }
+}
+
+// 3. USER_PREFERENCE - 사용자 취향 테이블
+Table user_preference {
+  pref_id bigint [pk, increment, not null] // 취향 정보 ID (Primary Key)
+  user_id bigint [not null] // 사용자 ID (Foreign Key → users.user_id)
+  usage_type varchar(50) // 모임 성격 (사적/공적)
+  age_group varchar(20) // 선호 연령대
+  gender varchar(10) // 사용자 성별
+  created_at timestamp [not null] // 취향 데이터가 처음 생성된 시각
+  updated_at timestamp // 취향 데이터가 마지막으로 수정된 시각
+}
+
+// 4. PLACES - 가게 테이블
+Table places {
+  place_id bigint [pk, increment, not null] // 장소 고유 ID (Primary Key)
+  name varchar(255) [not null] // 가게 이름
+  address varchar(255) // 가게 주소
+  provider varchar(20) [not null] // 네이버/카카오 등 API 제공자
+  external_place_id varchar(255) [not null] // API가 제공하는 고유 ID
+  image_url varchar(500) // 가게 이미지
+  category varchar(100) // 업종 카테고리
+  is_open boolean [not null, default: true] // 현재 영업 중 여부 (기본값: true)
+  last_status_checked_at timestamp // 마지막으로 is_open을 확인한 시간
+  lat double [not null] // 위도
+  lng double [not null] // 경도
+  url varchar(255) // 가게 상세 페이지 URL (네이버 지도 등)
+  phone varchar(20) // 가게 전화번호
+  opening_hours text // 요일별 영업시간 정보 (JSON)
+  description text // 가게 특징 및 소개 (AI 추천의 근거 데이터)
+  created_at timestamp [not null] // 우리 서비스 DB에 처음 등록된 시각
+  last_updated_at timestamp [not null] // 외부 API를 통해 데이터가 마지막으로 갱신된 시각
+
+  indexes {
+    (provider, external_place_id) [unique]
+    (lat, lng)
+  }
+}
+
+// 5. REVIEWS - 가게별 리뷰 테이블
+Table reviews {
+  review_id bigint [pk, increment, not null] // 리뷰 ID (Primary Key)
+  place_id bigint [not null] // 장소 ID (Foreign Key → places.place_id)
+  user_id bigint [not null] // 작성자 ID (Foreign Key → users.user_id)
+  rating int [not null] // 별점 (1~5점)
+  content text // 사용자가 작성한 리뷰 본문 (내용 없이 별점만 줄 수 있도록 NULL 허용)
+  created_at timestamp [not null] // 작성 시각
+  updated_at timestamp // 수정 시각
+  deleted_at timestamp // 삭제 시각 (soft delete)
+
+  indexes {
+    (place_id, user_id) [unique]
+    (place_id, created_at)
+    (user_id, created_at)
+  }
+}
+
+// 6. PLANS - 플랜 테이블
+Table plans {
+  plan_id bigint [pk, increment, not null] // 플랜 고유 ID (Primary Key)
+  user_id bigint [not null] // 생성자 ID (Foreign Key → users.user_id)
+  title varchar(255) [not null] // 플랜 제목
+  total_budget bigint // 전체 예상 예산
+  participant_count int [not null] // 모임 참여 인원 수
+  meeting_at timestamp [not null] // 약속 일시
+  plan_type varchar(50) // 모임 유형 (회식, 데이트 등)
+  share_token varchar(255) [not null, unique] // 외부 공유용 고유 링크 토큰
+  created_at timestamp [not null] // 생성 시각
+  updated_at timestamp // 수정 시각
+  deleted_at timestamp // 삭제 시각 (soft delete)
+
+  indexes {
+    (user_id, created_at)
+    (deleted_at)
+  }
+}
+
+// 7. PLAN_DETAILS - 플랜 디테일 테이블
+Table plan_details {
+  detail_id bigint [pk, increment, not null] // 상세 ID (Primary Key)
+  plan_id bigint [not null] // 플랜 ID (Foreign Key → plans.plan_id)
+  place_id bigint [not null] // 장소 ID (Foreign Key → places.place_id)
+  seq_no int [not null] // 방문 순서 (1차, 2차 등)
+  recommend_reason text // AI가 제공한 장소별 추천 이유
+  created_at timestamp [not null] // 상세 항목 생성 시각
+  updated_at timestamp // 상세 항목 수정 시각
+  deleted_at timestamp // 상세 항목 삭제 시각 (Soft Delete)
+
+  indexes {
+    (plan_id, place_id) [unique]
+    (plan_id, seq_no) [unique]
+    (plan_id, seq_no)
+  }
+}
+
+// 8. PLACE_META - AI 관련 테이블
+Table place_meta {
+  meta_id bigint [pk, increment, not null] // 메타데이터 ID (Primary Key)
+  place_id bigint [not null, unique] // 장소 ID (Foreign Key → places.place_id)
+  summary text // AI가 요약한 가게 자체 리뷰 내용
+  created_at timestamp [not null] // 메타데이터 생성 시각
+  updated_at timestamp // 리뷰 요약 갱신 시각
+}
+
+// 9. PLAN_PARTICIPANT - 플랜 참여자 테이블 (MVP x)
+Table plan_participant {
+  part_id bigint [pk, increment, not null] // 참여자 ID (Primary Key)
+  plan_id bigint [not null] // 플랜 ID (Foreign Key → plans.plan_id)
+  participant_name varchar(100) [not null] // 참여자 이름 또는 식별자
+  created_at timestamp [not null] // 참여자 등록 시각
+  deleted_at timestamp // 상세 항목 삭제 시각 (Soft Delete)
+
+  indexes {
+    (plan_id)
+  }
+}
+
+// 10. CHAT_MESSAGES - AI 대화 기록
+Table chat_messages {
+  message_id bigint [pk, increment, not null] // 메시지 고유 ID (PK)
+  user_id bigint [not null] // 작성자 ID (FK -> USERS)
+  session_id varchar(255) [not null] // 대화 세션 ID (브라우저/앱 단위 구분용)
+  role varchar(20) [not null] // 'USER' 또는 'ASSISTANT'
+  content text [not null] // 실제 대화 텍스트
+  created_at timestamp [not null] // 메시지 전송 시각
+  edited_at timestamp // 메시지 수정 시각
+  deleted_at timestamp // 메시지 삭제 시각
+
+  indexes {
+    (session_id, created_at)
+    (deleted_at)
+  }
+}
+
+// 11. CHAT_SESSIONS - 대화 세션(대화창) 테이블
+Table chat_sessions {
+  session_id bigint [pk, increment, not null] // 세션 ID (PK)
+  user_id bigint [not null] // USERS.user_id (FK)
+  status varchar(20) [not null] // ACTIVE, CLOSED
+  session_state json // 슬롯/상태 머신 상태 (area, time, people, budget 등)
+  session_summary text // 세션 요약(옵션)
+  created_at timestamp [not null] // 생성 시각
+  updated_at timestamp // 수정 시각
+  closed_at timestamp // 종료 시각
+
+  indexes {
+    (user_id, created_at)
+    (status)
+  }
+}
+
+// 12. [AI] USER_MEMORY - 사용자 장기 메모리 테이블
+Table user_memory {
+  memory_id bigint [pk, increment, not null] // PK
+  user_id bigint [not null] // USERS.user_id (FK)
+  memory_key varchar(100) [not null] // 메모리 키 (예: preferred_area)
+  memory_value double [not null] // 메모리 값
+  weight double [not null] // 중요도/가중치
+  source varchar(20) [not null] // 생성 출처 (chat/feedback/system 등)
+  last_seen_at timestamp [not null] // 마지막 사용 시각
+  created_at timestamp [not null] // 생성 시각
+  updated_at timestamp // 수정 시각
+
+  indexes {
+    (user_id, memory_key) [unique]
+    (user_id, weight)
+    (last_seen_at)
+  }
+}
+
+// 보류
+// 13. [AI] CHAT_RECOMMENDATIONS - 추천 실행 로그 테이블
+Table chat_recommendations {
+  rec_id bigint [pk, increment, not null] // PK
+  session_id bigint [not null] // CHAT_SESSIONS.session_id (FK)
+  user_id bigint [not null] // USERS.user_id (FK)
+  strategy varchar(50) [not null] // 추천 전략/버전
+  input_slots json [not null] // 추천 입력 슬롯(요약)
+  params json // 추천 파라미터(필터, topK 등)
+  chosen_place_id bigint // 최종 선택 장소 (PLACES FK)
+  plan_id bigint // 생성된 플랜 (PLANS FK)
+  created_at timestamp [not null] // 생성 시각
+
+  indexes {
+    (user_id, created_at)
+    (session_id, created_at)
+    (strategy)
+  }
+}
+
+// 14. [AI] CHAT_RECOMMENDATION_ITEMS - 추천 후보 리스트 테이블
+Table chat_recommendation_items {
+  item_id bigint [pk, increment, not null] // PK
+  rec_id bigint [not null] // CHAT_RECOMMENDATIONS.rec_id (FK)
+  place_id bigint [not null] // PLACES.place_id (FK)
+  rank_no int [not null] // 추천 순위
+  reason text // 추천 이유
+  evidence json // 추천 근거
+  created_at timestamp [not null] // 생성 시각
+
+  indexes {
+    (rec_id, rank_no) [unique]
+    (rec_id, place_id) [unique]
+  }
+}
+// 보류
+// 15. [AI] USER_FEEDBACK - 추천/장소 피드백 테이블
+Table user_feedback {
+  feedback_id bigint [pk, increment, not null] // PK
+  user_id bigint [not null] // USERS.user_id (FK)
+  plan_id bigint // PLANS.plan_id (FK)
+  place_id bigint [not null] // PLACES.place_id (FK)
+  rec_id bigint // CHAT_RECOMMENDATIONS.rec_id (FK)
+  feedback_type varchar(20) [not null] // like / dislike
+  rating int // 평점(옵션)
+  tags json // 태그형 피드백
+  comment text // 텍스트 의견
+  created_at timestamp [not null] // 생성 시각
+
+  indexes {
+    (user_id, place_id, rec_id) [unique]
+    (user_id, created_at)
+    (place_id, created_at)
+  }
+}
+
+// 16. [AI - RAG] CRWL_REVIEWS - 외부 리뷰 원문
+Table crwl_reviews {
+  ext_review_id bigint [pk, increment, not null] // PK
+  crawl_place_id varchar(255) [not null] // 외부 플랫폼의 장소 식별자 (예: Google Place ID)
+  place_id bigint // 내부 PLACES.place_id, 매칭 후 채움
+  store_name varchar(20) [not null] // 가게 이름
+  source varchar(20) [not null] // 리뷰 출처 (google, naver, kakao 등)
+  external_review_id varchar(255) // 외부 플랫폼 리뷰 ID
+  rating int // 플랫폼 평점
+  review_text text // 리뷰 원문 텍스트
+  lat double [not null] // 크롤링한 장소 위도
+  lng double [not null] // 크롤링한 장소 경도
+  created_at timestamp // 외부 플랫폼상의 리뷰 작성일
+  crawled_at timestamp [not null] // 크롤링 시각
+
+  indexes {
+    (place_id, crawled_at)
+    (source, external_review_id)
+    (lat, lng)
+    (crawl_place_id)
+  }
+}
+
+// 17. [AI - RAG] PLACE_REVIEW_TAGS - 리뷰 태그
+Table place_review_tags {
+  tag_id bigint [pk, increment, not null] // PK
+  place_id bigint [not null] // PLACES.place_id
+  source varchar(50) [not null] // 리뷰 출처
+  tag_name varchar(100) [not null] // 태그 이름
+  count int [not null] // 등장 횟수
+  last_updated_at timestamp [not null] // 업데이트 시각
+
+  indexes {
+    (place_id, source, tag_name) [unique]
+    (place_id, last_updated_at)
+  }
+}
+
+// 18. [AI - RAG] PLACE_SUMMARY_CACHE - RAG 요약 캐시
+Table place_summary_cache {
+  summary_id bigint [pk, increment, not null] // PK
+  place_id bigint [not null, unique] // PLACES.place_id
+  summary text [not null] // 장소 요약
+  updated_at timestamp [not null] // 업데이트 시각
+}
+
+// 19. [AI - RAG] EMBEDDING_DOCUMENTS - 임베딩 메타데이터
+Table embedding_documents {
+  doc_id bigint [pk, increment, not null] // PK
+  doc_type varchar(50) [not null] // place_review / place_summary
+  place_id bigint // PLACES.place_id
+  user_id bigint // USERS.user_id
+  vector_id varchar(255) [not null, unique] // VectorDB ID
+  created_at timestamp [not null] // 생성 시각
+
+  indexes {
+    (doc_type)
+    (place_id)
+    (user_id)
+  }
+}
+
+// =========================
+// Relationships
+// =========================
+
+Ref: user_auth.user_id > users.user_id
+Ref: user_preference.user_id > users.user_id
+
+Ref: reviews.place_id > places.place_id
+Ref: reviews.user_id > users.user_id
+
+Ref: plans.user_id > users.user_id
+Ref: plan_details.plan_id > plans.plan_id
+Ref: plan_details.place_id > places.place_id
+
+Ref: place_meta.place_id > places.place_id
+Ref: plan_participant.plan_id > plans.plan_id
+
+Ref: chat_sessions.user_id > users.user_id
+
+Ref: user_memory.user_id > users.user_id
+
+Ref: chat_recommendations.session_id > chat_sessions.session_id
+Ref: chat_recommendations.user_id > users.user_id
+Ref: chat_recommendations.chosen_place_id > places.place_id
+Ref: chat_recommendations.plan_id > plans.plan_id
+
+Ref: chat_recommendation_items.rec_id > chat_recommendations.rec_id
+Ref: chat_recommendation_items.place_id > places.place_id
+
+Ref: user_feedback.user_id > users.user_id
+Ref: user_feedback.plan_id > plans.plan_id
+Ref: user_feedback.place_id > places.place_id
+Ref: user_feedback.rec_id > chat_recommendations.rec_id
+
+Ref: crwl_reviews.place_id > places.place_id
+Ref: place_review_tags.place_id > places.place_id
+Ref: place_summary_cache.place_id > places.place_id
+
+Ref: embedding_documents.place_id > places.place_id
+Ref: embedding_documents.user_id > users.user_id
