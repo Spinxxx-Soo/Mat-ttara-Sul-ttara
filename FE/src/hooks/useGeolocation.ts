@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Coordinates } from '@/types/map';
+import { useLocationStore, FALLBACK_LOCATION } from '@/stores/locationStore';
 
 // ==========================================
 // S14P21B205-190, 191: 위치 기반 및 권한 훅
@@ -16,20 +17,21 @@ interface UseGeolocationReturn {
 }
 
 export const useGeolocation = (watch = false): UseGeolocationReturn => {
+  const setLocation = useLocationStore((state) => state.setLocation);
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<GeolocationErrorType>(null);
 
   const handleSuccess = useCallback((position: GeolocationPosition) => {
-    setCoordinates({
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-    });
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    setCoordinates({ lat, lng });
+    setLocation(lat, lng, false);
     setIsLoading(false);
     setError(null);
     setErrorType(null);
-  }, []);
+  }, [setLocation]);
 
   const handleError = useCallback((err: GeolocationPositionError) => {
     let type: GeolocationErrorType = null;
@@ -52,11 +54,13 @@ export const useGeolocation = (watch = false): UseGeolocationReturn => {
         break;
     }
 
-    setCoordinates(null);
+    const { lat, lng } = FALLBACK_LOCATION;
+    setCoordinates({ lat, lng });
+    setLocation(lat, lng, true);
     setErrorType(type);
     setError(message);
     setIsLoading(false);
-  }, []);
+  }, [setLocation]);
 
   const fetchLocation = useCallback(() => {
     if (!navigator.geolocation) {

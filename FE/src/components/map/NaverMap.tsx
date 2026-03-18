@@ -104,9 +104,11 @@ export default function NaverMap({
         </div>
       )}
       {/* 권한 거부 등 에러 상황 표시 (선택사항) */}
-      {errorType === 'denied' && (
+      {errorType && (
         <div className="absolute top-4 left-4 right-4 p-2 bg-yellow-100 text-yellow-800 text-sm rounded shadow z-10 opacity-90">
-          위치 권한이 거부되어 기본 위치를 표시합니다.
+          {errorType === 'denied'
+            ? '위치 권한이 거부되어 기본 위치(SSAFY 대전)를 표시합니다.'
+            : '위치 정보를 가져올 수 없어 기본 위치(SSAFY 대전)를 표시합니다.'}
         </div>
       )}
       
