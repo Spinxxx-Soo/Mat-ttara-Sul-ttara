@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Coordinates } from '@/types/map';
+import { useLocationStore, FALLBACK_LOCATION } from '@/stores/locationStore';
 
 // ==========================================
 // S14P21B205-190, 191: 위치 기반 및 권한 훅
@@ -22,10 +23,10 @@ export const useGeolocation = (watch = false): UseGeolocationReturn => {
   const [errorType, setErrorType] = useState<GeolocationErrorType>(null);
 
   const handleSuccess = useCallback((position: GeolocationPosition) => {
-    setCoordinates({
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-    });
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    setCoordinates({ lat, lng });
+    useLocationStore.getState().setLocation(lat, lng, false);
     setIsLoading(false);
     setError(null);
     setErrorType(null);
@@ -52,7 +53,9 @@ export const useGeolocation = (watch = false): UseGeolocationReturn => {
         break;
     }
 
-    setCoordinates(null);
+    const { lat, lng } = FALLBACK_LOCATION;
+    setCoordinates({ lat, lng });
+    useLocationStore.getState().setLocation(lat, lng, true);
     setErrorType(type);
     setError(message);
     setIsLoading(false);
