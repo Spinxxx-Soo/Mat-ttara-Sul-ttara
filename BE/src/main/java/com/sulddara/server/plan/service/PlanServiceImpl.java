@@ -83,9 +83,9 @@ public class PlanServiceImpl implements PlanService {
     List<Plan> plans;
 
     if (cursor == null) {
-      plans = planRepository.findByUserIdAndDeletedAtIsNullOrderByIdDesc(userId, pageRequest);
+      plans = planRepository.findByUserIdOrderByIdDesc(userId, pageRequest);
     } else {
-      plans = planRepository.findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(userId, cursor, pageRequest);
+      plans = planRepository.findByUserIdAndIdLessThanOrderByIdDesc(userId, cursor, pageRequest);
     }
 
     boolean hasNext = plans.size() > size;
@@ -113,7 +113,7 @@ public class PlanServiceImpl implements PlanService {
       throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
     }
 
-    Plan plan = planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)
+    Plan plan = planRepository.findWithDetailsById(planId)
         .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
 
     if (!plan.getUser().getId().equals(userId)) {
@@ -125,7 +125,7 @@ public class PlanServiceImpl implements PlanService {
 
   @Override
   public PlanDetailResponseDto getSharedPlanDetail(String shareToken) {
-    Plan plan = planRepository.findWithDetailsByShareTokenAndDeletedAtIsNull(shareToken)
+    Plan plan = planRepository.findWithDetailsByShareToken(shareToken)
         .orElseThrow(() -> new IllegalArgumentException("유효하지 않거나 삭제된 공유 링크입니다."));
 
     return planMapper.toDetailResponse(plan);
@@ -138,7 +138,7 @@ public class PlanServiceImpl implements PlanService {
       throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
     }
 
-    Plan plan = planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)
+    Plan plan = planRepository.findWithDetailsById(planId)
         .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
 
     if (!plan.getUser().getId().equals(userId)) {
@@ -154,7 +154,7 @@ public class PlanServiceImpl implements PlanService {
         requestDto.getMemo()
     );
 
-    plan.getDetails().clear();
+    plan.getDetails().forEach(PlanDetail::softDelete);
 
     if (requestDto.getDetails() != null) {
       for (PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.getDetails()) {
@@ -175,7 +175,7 @@ public class PlanServiceImpl implements PlanService {
       throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
     }
 
-    Plan plan = planRepository.findByIdAndDeletedAtIsNull(planId)
+    Plan plan = planRepository.findById(planId)
         .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
 
     if (!plan.getUser().getId().equals(userId)) {

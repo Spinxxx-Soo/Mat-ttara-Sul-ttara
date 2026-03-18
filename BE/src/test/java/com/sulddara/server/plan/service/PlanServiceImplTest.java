@@ -244,7 +244,7 @@ class PlanServiceImplTest {
 
     // getMyPlans 테스트
     given(userRepository.existsById(userId)).willReturn(true);
-    given(planRepository.findByUserIdAndDeletedAtIsNullOrderByIdDesc(userId, pageRequest))
+    given(planRepository.findByUserIdOrderByIdDesc(userId, pageRequest))
         .willReturn(plans);
     given(planMapper.toSummary(any(Plan.class))).willAnswer(invocation -> {
       Plan p = invocation.getArgument(0);
@@ -261,7 +261,7 @@ class PlanServiceImplTest {
     assertThat(response.getContent()).hasSize(2);
     assertThat(response.isHasNext()).isFalse();
     assertThat(response.getNextCursor()).isNull();
-    verify(planRepository).findByUserIdAndDeletedAtIsNullOrderByIdDesc(userId, pageRequest);
+    verify(planRepository).findByUserIdOrderByIdDesc(userId, pageRequest);
   }
 
   @Test
@@ -285,7 +285,7 @@ class PlanServiceImplTest {
 
     // getMyPlans cursor 테스트
     given(userRepository.existsById(userId)).willReturn(true);
-    given(planRepository.findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(userId, cursor, pageRequest))
+    given(planRepository.findByUserIdAndIdLessThanOrderByIdDesc(userId, cursor, pageRequest))
         .willReturn(plans);
     given(planMapper.toSummary(any(Plan.class))).willAnswer(invocation -> {
       Plan p = invocation.getArgument(0);
@@ -303,7 +303,7 @@ class PlanServiceImplTest {
     assertThat(response.getContent().get(0).getPlanId()).isEqualTo(9L);
     assertThat(response.isHasNext()).isTrue();
     assertThat(response.getNextCursor()).isEqualTo(9L);
-    verify(planRepository).findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(userId, cursor, pageRequest);
+    verify(planRepository).findByUserIdAndIdLessThanOrderByIdDesc(userId, cursor, pageRequest);
   }
 
   // ========== getPlanDetail 테스트 ==========
@@ -321,7 +321,7 @@ class PlanServiceImplTest {
     Plan plan = new Plan(user, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
     ReflectionTestUtils.setField(plan, "id", planId);
     given(userRepository.existsById(userId)).willReturn(true);
-    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId))
+    given(planRepository.findWithDetailsById(planId))
         .willReturn(Optional.of(plan));
 
     PlanDetailResponseDto expectedDto = PlanDetailResponseDto.builder()
@@ -355,7 +355,7 @@ class PlanServiceImplTest {
     ReflectionTestUtils.setField(plan, "id", planId);
 
     given(userRepository.existsById(requestUserId)).willReturn(true);
-    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId))
+    given(planRepository.findWithDetailsById(planId))
         .willReturn(Optional.of(plan));
 
     // When & Then
@@ -378,7 +378,7 @@ class PlanServiceImplTest {
     Plan plan = new Plan(owner, "공유 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", shareToken);
     ReflectionTestUtils.setField(plan, "id", planId);
 
-    given(planRepository.findWithDetailsByShareTokenAndDeletedAtIsNull(shareToken))
+    given(planRepository.findWithDetailsByShareToken(shareToken))
         .willReturn(Optional.of(plan));
 
     PlanDetailResponseDto expectedDto = PlanDetailResponseDto.builder()
@@ -405,7 +405,7 @@ class PlanServiceImplTest {
     // Given
     String invalidToken = "invalid";
 
-    given(planRepository.findWithDetailsByShareTokenAndDeletedAtIsNull(invalidToken))
+    given(planRepository.findWithDetailsByShareToken(invalidToken))
         .willReturn(Optional.empty());
 
     // When & Then
@@ -442,7 +442,7 @@ class PlanServiceImplTest {
         .build();
 
     given(userRepository.existsById(userId)).willReturn(true);
-    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)).willReturn(Optional.of(plan));
+    given(planRepository.findWithDetailsById(planId)).willReturn(Optional.of(plan));
     given(planMapper.toDetailResponse(any(Plan.class))).willReturn(expectedDto);
 
     // When
@@ -468,7 +468,7 @@ class PlanServiceImplTest {
     ReflectionTestUtils.setField(plan, "id", planId);
 
     given(userRepository.existsById(requestUserId)).willReturn(true);
-    given(planRepository.findWithDetailsByIdAndDeletedAtIsNull(planId)).willReturn(Optional.of(plan));
+    given(planRepository.findWithDetailsById(planId)).willReturn(Optional.of(plan));
 
     // When & Then
     assertThatThrownBy(() -> planService.updatePlan(requestUserId, planId, any()))
@@ -490,7 +490,7 @@ class PlanServiceImplTest {
     ReflectionTestUtils.setField(plan, "id", planId);
 
     given(userRepository.existsById(userId)).willReturn(true);
-    given(planRepository.findByIdAndDeletedAtIsNull(planId)).willReturn(Optional.of(plan));
+    given(planRepository.findById(planId)).willReturn(Optional.of(plan));
 
     // When
     planService.deletePlan(userId, planId);
@@ -513,7 +513,7 @@ class PlanServiceImplTest {
     Plan plan = new Plan(owner, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
 
     given(userRepository.existsById(requestUserId)).willReturn(true);
-    given(planRepository.findByIdAndDeletedAtIsNull(planId)).willReturn(Optional.of(plan));
+    given(planRepository.findById(planId)).willReturn(Optional.of(plan));
 
     // When & Then
     assertThatThrownBy(() -> planService.deletePlan(requestUserId, planId))

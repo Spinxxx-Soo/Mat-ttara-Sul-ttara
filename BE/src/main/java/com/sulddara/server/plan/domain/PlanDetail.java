@@ -11,11 +11,11 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.SQLRestriction;
+
 @Entity
-@Table(name = "plan_details", uniqueConstraints = {
-    @UniqueConstraint(columnNames = { "plan_id", "place_id" }),
-    @UniqueConstraint(columnNames = { "plan_id", "seq_no" })
-}, indexes = {
+@SQLRestriction("deleted_at IS NULL")
+@Table(name = "plan_details", indexes = {
     @Index(name = "idx_plan_details_plan_seq", columnList = "plan_id, seq_no")
 })
 @Getter
@@ -58,5 +58,9 @@ public class PlanDetail {
 
   void setPlan(Plan plan) {
     this.plan = plan;
+  }
+
+  public void softDelete() {
+    this.deletedAt = LocalDateTime.now();
   }
 }
