@@ -17,6 +17,7 @@ interface UseGeolocationReturn {
 }
 
 export const useGeolocation = (watch = false): UseGeolocationReturn => {
+  const setLocation = useLocationStore((state) => state.setLocation);
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,11 +27,11 @@ export const useGeolocation = (watch = false): UseGeolocationReturn => {
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
     setCoordinates({ lat, lng });
-    useLocationStore.getState().setLocation(lat, lng, false);
+    setLocation(lat, lng, false);
     setIsLoading(false);
     setError(null);
     setErrorType(null);
-  }, []);
+  }, [setLocation]);
 
   const handleError = useCallback((err: GeolocationPositionError) => {
     let type: GeolocationErrorType = null;
@@ -55,11 +56,11 @@ export const useGeolocation = (watch = false): UseGeolocationReturn => {
 
     const { lat, lng } = FALLBACK_LOCATION;
     setCoordinates({ lat, lng });
-    useLocationStore.getState().setLocation(lat, lng, true);
+    setLocation(lat, lng, true);
     setErrorType(type);
     setError(message);
     setIsLoading(false);
-  }, []);
+  }, [setLocation]);
 
   const fetchLocation = useCallback(() => {
     if (!navigator.geolocation) {
