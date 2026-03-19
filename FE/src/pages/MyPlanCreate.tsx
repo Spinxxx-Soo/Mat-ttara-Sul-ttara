@@ -1,15 +1,17 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import NaverMap from '@/components/map/NaverMap'
 import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
 import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
+import { useAuthStore } from '@/stores/authStore'
 import { useLocationStore, FALLBACK_LOCATION } from '@/stores/locationStore'
 import { Place } from '@/types/api'
 import toast from 'react-hot-toast'
 
 const MyPlanCreate = () => {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const { lat: userLat, lng: userLng } = useLocationStore()
   
   // 지도 관련 상태
@@ -35,6 +37,12 @@ const MyPlanCreate = () => {
   const [totalBudget, setTotalBudget] = useState('50000')
   const [planType, setPlanType] = useState('친목/회식')
   const [memo, setMemo] = useState('')
+
+  useEffect(() => {
+    if (user?.name && !title) {
+      setTitle(`${user.name}님의 맛집 모임`)
+    }
+  }, [title, user?.name])
 
   const handleIdle = useCallback((newCenter: { lat: number; lng: number }, newZoom: number) => {
     setMapCenter(newCenter)
@@ -84,7 +92,9 @@ const MyPlanCreate = () => {
           <header className="mb-6">
             <h1 className="text-2xl font-black tracking-tight mb-1">플랜 새로 만들기</h1>
             <p className="text-slate-500 text-sm">
-              모임 정보를 입력하고, 오른쪽 지도에서 장소를 선택하세요.
+              {user?.name
+                ? `${user.name}님, 모임 정보를 입력하고 오른쪽 지도에서 장소를 선택하세요.`
+                : '모임 정보를 입력하고, 오른쪽 지도에서 장소를 선택하세요.'}
             </p>
           </header>
 

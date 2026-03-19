@@ -1,5 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
+import { queryKeys } from '@/hooks/queries/queryKeys'
 import { logout } from '@/api/authApi'
 
 interface SidebarProps {
@@ -9,7 +11,8 @@ interface SidebarProps {
 const Sidebar = ({ className = '' }: SidebarProps) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const { logout: logoutStore } = useAuthStore()
+  const queryClient = useQueryClient()
+  const { logout: logoutStore, user } = useAuthStore()
   
   const handleLogout = async () => {
     try {
@@ -19,6 +22,9 @@ const Sidebar = ({ className = '' }: SidebarProps) => {
       console.error('로그아웃 API 호출 실패:', error)
     } finally {
       // 상태 관리에서 로그아웃 처리
+      queryClient.removeQueries({ queryKey: queryKeys.user.all })
+      queryClient.removeQueries({ queryKey: queryKeys.plan.all })
+      queryClient.removeQueries({ queryKey: queryKeys.chat.all })
       logoutStore()
       navigate('/login')
     }
@@ -83,11 +89,14 @@ const Sidebar = ({ className = '' }: SidebarProps) => {
       
       {/* 사용자 프로필 및 로그아웃 */}
       <div className="flex flex-col items-center gap-4 w-full px-2">
-        <button className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-orange-100 dark:from-primary/30 dark:to-orange-900/30 overflow-hidden border-2 border-primary/30 hover:border-primary transition-all shadow-md hover:shadow-lg">
+        <button
+          className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-orange-100 dark:from-primary/30 dark:to-orange-900/30 overflow-hidden border-2 border-primary/30 hover:border-primary transition-all shadow-md hover:shadow-lg"
+          title={user?.name || '사용자 프로필'}
+        >
           <img
             className="w-full h-full object-cover"
-            src="https://api.dicebear.com/7.x/avataaars/svg?seed=user"
-            alt="User profile"
+            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.email || user?.name || 'user')}`}
+            alt={user?.name ? `${user.name} profile` : 'User profile'}
             onError={(e) => {
               const target = e.target as HTMLImageElement
               target.src = 'https://via.placeholder.com/48'

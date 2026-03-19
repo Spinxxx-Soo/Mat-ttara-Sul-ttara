@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import LoadingState from '@/components/ui/LoadingState';
 
 interface ProtectedRouteProps {
   allowGuest?: boolean;
@@ -9,7 +10,20 @@ interface ProtectedRouteProps {
  * 인증이 필요한 경로를 위한 가드 컴포넌트
  */
 export const ProtectedRoute = ({ allowGuest = false }: ProtectedRouteProps) => {
-  const { isLoggedIn } = useAuthStore();
+  const { hasHydrated, isLoggedIn } = useAuthStore();
+
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen bg-background-light dark:bg-background-dark px-4 py-6">
+        <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-xl items-center justify-center">
+          <LoadingState
+            message="접근 권한을 확인하는 중입니다..."
+            className="w-full max-w-md"
+          />
+        </div>
+      </div>
+    );
+  }
 
   // 로그인하지 않았는데 익명 접근도 허용되지 않는 경우
   if (!isLoggedIn && !allowGuest) {

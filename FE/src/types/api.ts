@@ -78,6 +78,16 @@ export interface OnboardingRequest {
   gender: string;
 }
 
+export interface UserPreference {
+  prefId: number;
+  userId: number;
+  usageType: string;
+  ageGroup: string;
+  gender: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- 플랜 (Plan) ---
 export interface Plan {
   planId: number;
