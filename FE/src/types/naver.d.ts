@@ -53,6 +53,7 @@ export interface NaverMapOptions {
 export interface NaverMapInstance {
   setCenter: (latLng: NaverLatLng) => void;
   getCenter: () => NaverLatLng;
+  panTo: (latLng: NaverLatLng) => void;
   setZoom: (zoom: number) => void;
   getZoom: () => number;
   destroy: () => void;
