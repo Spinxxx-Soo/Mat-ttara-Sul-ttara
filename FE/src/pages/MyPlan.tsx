@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import LoadingState from '@/components/ui/LoadingState';
+import ErrorState from '@/components/ui/ErrorState';
+import EmptyState from '@/components/ui/EmptyState';
 import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
 
 const MyPlan = () => {
   const navigate = useNavigate();
-  const { data, isLoading, isError } = usePlansQuery();
-  const plans = data?.plans || [];
+  const [page, setPage] = useState<number>(0);
+  const { data, isPending, isError, refetch, isFetching } = usePlansQuery(page);
 
   const handleCreatePlan = () => {
     navigate('/my-plan/new');
@@ -61,38 +65,24 @@ const MyPlan = () => {
 
           {/* Plans List */}
           <div className="grid gap-6">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
-                <p className="text-slate-500">일정을 불러오는 중입니다...</p>
-              </div>
+            {isPending ? (
+              <LoadingState message="일정을 불러오는 중입니다..." />
             ) : isError ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-red-50 dark:bg-red-950/20 rounded-3xl border border-dashed border-red-200 dark:border-red-900/30">
-                <span className="material-symbols-outlined text-6xl text-red-400 mb-4">error</span>
-                <p className="text-red-600 dark:text-red-400 font-medium">일정을 불러오는 중 오류가 발생했습니다.</p>
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="mt-4 px-6 py-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-xl hover:bg-red-200 transition-colors font-semibold"
-                >
-                  다시 시도
-                </button>
-              </div>
-            ) : plans.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-                <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-700 mb-4">
-                  calendar_today
-                </span>
-                <p className="text-slate-500 font-medium mb-1">등록된 여행 계획이 없습니다.</p>
-                <p className="text-slate-400 text-sm mb-6">첫 번째 맛집 여행 계획을 만들어보세요!</p>
-                <button
-                  onClick={handleCreatePlan}
-                  className="px-6 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-primary hover:text-white transition-all font-semibold"
-                >
-                  플랜 만들기
-                </button>
-              </div>
-            ) : (
-              plans.map((plan) => (
+              <ErrorState
+                title="일정을 불러오는 중 오류가 발생했습니다."
+                onRetry={() => refetch()}
+                isFetching={isFetching}
+              />
+            ) : data && data.plans.length === 0 ? (
+              <EmptyState
+                icon="calendar_today"
+                title="등록된 여행 계획이 없습니다."
+                message="첫 번째 맛집 여행 계획을 만들어보세요!"
+                actionText="플랜 만들기"
+                onAction={handleCreatePlan}
+              />
+            ) : data ? (
+              data.plans.map((plan) => (
                 <div
                   key={plan.id}
                   className="group flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all border border-slate-100 dark:border-slate-800"
@@ -102,6 +92,10 @@ const MyPlan = () => {
                       alt={plan.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       src={plan.thumbnailUrl}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400';
+                      }}
                     />
                     {plan.status === 'upcoming' && plan.daysUntil !== undefined && (
                       <div className="absolute top-3 left-3 px-3 py-1 bg-primary/90 text-white text-xs font-bold rounded-full">
@@ -162,7 +156,7 @@ const MyPlan = () => {
                   </div>
                 </div>
               ))
-            )}
+            ) : null}
           </div>
 
           {/* Load More */}

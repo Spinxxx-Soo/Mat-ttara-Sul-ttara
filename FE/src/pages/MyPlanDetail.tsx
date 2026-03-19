@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import LoadingState from '@/components/ui/LoadingState'
+import ErrorState from '@/components/ui/ErrorState'
 import { usePlanDetailQuery } from '@/hooks/queries/plan/usePlanQueries'
 
 const MyPlanDetail = () => {
@@ -74,25 +76,15 @@ const MyPlanDetail = () => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
-            </div>
+            <LoadingState className="h-[60vh]" />
           ) : isError || !plan ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4 block">
-                  error_outline
-                </span>
-                <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">플랜을 불러오지 못했습니다.</p>
-                <p className="text-slate-500 text-sm mb-6">유효하지 않은 플랜이거나 서버 오류가 발생했습니다.</p>
-                <button
-                  onClick={() => navigate('/my-plan')}
-                  className="px-6 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
-                >
-                  목록으로 돌아가기
-                </button>
-              </div>
-            </div>
+            <ErrorState
+              className="h-[60vh]"
+              title="플랜을 불러오지 못했습니다."
+              message="유효하지 않은 플랜이거나 서버 오류가 발생했습니다."
+              actionText="목록으로 돌아가기"
+              onRetry={() => navigate('/my-plan')}
+            />
           ) : (
             <div className="max-w-4xl mx-auto p-8 w-full space-y-6">
               {isEditing && (
