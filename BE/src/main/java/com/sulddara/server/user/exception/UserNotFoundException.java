@@ -1,12 +1,18 @@
 package com.sulddara.server.user.exception;
 
-public class UserNotFoundException extends RuntimeException {
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
 
-  public UserNotFoundException(String message) {
-    super(message);
-  }
+/**
+ * [S14P21B205-367] 사용자를 찾을 수 없을 때 발생하는 404 예외
+ */
+public class UserNotFoundException extends BaseException {
 
-  public UserNotFoundException(String message, Throwable cause) {
-    super(message, cause);
-  }
+    public UserNotFoundException() {
+        super(ErrorCode.USER_NOT_FOUND);
+    }
+
+    public UserNotFoundException(String message) {
+        super(ErrorCode.USER_NOT_FOUND, message);
+    }
 }

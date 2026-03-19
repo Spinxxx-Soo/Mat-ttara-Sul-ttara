@@ -1,9 +1,9 @@
 package com.sulddara.server.auth.service.impl;
 
 import com.sulddara.server.auth.controller.response.LoginResponse;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
-import com.sulddara.server.share.error.exception.UnauthorizedException;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
+import com.sulddara.server.global.error.exception.UnauthorizedException;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.auth.jwt.GoogleUserInfo;
 import com.sulddara.server.auth.jwt.JwtUtil;
