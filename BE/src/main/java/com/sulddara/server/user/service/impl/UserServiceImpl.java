@@ -5,8 +5,9 @@ import com.sulddara.server.global.error.exception.BaseException;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.auth.jwt.OAuth2UserInfo;
 import com.sulddara.server.user.dto.*;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.user.domain.UserPreference;
+import com.sulddara.server.user.domain.enums.SocialType;
 import com.sulddara.server.user.repository.UserRepository;
 import com.sulddara.server.user.mapper.UserMapper;
 import com.sulddara.server.user.exception.UserNotFoundException;
@@ -27,29 +28,30 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserProfileResponseDto getUserProfile(Long userId) {
-        User user = getUserOrThrow(userId);
+        UserEntity user = getUserOrThrow(userId);
         return userMapper.toProfileResponse(user);
     }
 
     @Override
     @Transactional
     public UserProfileResponseDto updateUserProfile(Long userId, UserUpdateNameRequestDto requestDto) {
-        User user = getUserOrThrow(userId);
-        user.updateProfile(requestDto.getName(), requestDto.getBio());
+        UserEntity user = getUserOrThrow(userId);
+        user.updateName(requestDto.name());
+        user.updateBio(requestDto.bio());
         return userMapper.toProfileResponse(user);
     }
 
     @Override
     @Transactional
     public UserPreferenceResponseDto registerOrUpdatePreference(Long userId, UserPreferenceRequestDto requestDto) {
-        User user = getUserOrThrow(userId);
+        UserEntity user = getUserOrThrow(userId);
 
         if (user.getPreference() == null) {
             UserPreference newPreference = new UserPreference(
                     requestDto.getUsageType(),
                     requestDto.getAgeGroup(),
                     requestDto.getGender());
-            user.setPreference(newPreference);
+            user.updatePreference(newPreference);
         } else {
             user.getPreference().updatePreferences(
                     requestDto.getUsageType(),
@@ -63,11 +65,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteUser(Long userId) {
-        User user = getUserOrThrow(userId);
+        UserEntity user = getUserOrThrow(userId);
         userRepository.delete(user);
     }
 
-    private User getUserOrThrow(Long userId) {
+    private UserEntity getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
     }
@@ -77,24 +79,27 @@ public class UserServiceImpl implements UserService {
         if (userInfo.getProviderId() == null || userInfo.getProvider() == null) {
             throw new BaseException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return userRepository.findByProviderAndOauthId(
-                        userInfo.getProvider().toString(),
+        SocialType socialType = SocialType.valueOf(userInfo.getProvider().toString().toUpperCase());
+        return userRepository.findBySocialTypeAndSocialId(
+                        socialType,
                         userInfo.getProviderId()
                 )
                 .map(user -> {
-                    user.changeName(userInfo.getName());
+                    user.updateName(userInfo.getName());
                     user.updateLastLoginAt(LocalDateTime.now());
                     return new UserAuthResultDto(user, false);
                 })
                 .orElseGet(() -> {
-                    User newUser = User.builder()
-                            .oauthId(userInfo.getProviderId())
-                            .provider(userInfo.getProvider().toString())
-                            .email(userInfo.getEmail())
-                            .name(userInfo.getName())
-                            .role("ROLE_USER")
-                            .lastLoginAt(LocalDateTime.now())
-                            .build();
+                    UserEntity newUser = new UserEntity(
+                            userInfo.getEmail(),
+                            userInfo.getName(),
+                            null,
+                            null,
+                            socialType,
+                            userInfo.getProviderId(),
+                            "ROLE_USER"
+                    );
+                    newUser.updateLastLoginAt(LocalDateTime.now());
                     return new UserAuthResultDto(userRepository.save(newUser), true);
                 });
     }

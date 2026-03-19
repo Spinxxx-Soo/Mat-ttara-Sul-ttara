@@ -6,7 +6,7 @@ import com.sulddara.server.auth.service.AuthService;
 import com.sulddara.server.global.error.ErrorCode;
 import com.sulddara.server.global.error.exception.EntityNotFoundException;
 import com.sulddara.server.global.error.exception.UnauthorizedException;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -55,7 +55,7 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        User user = userRepository.findById(userId)
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
         String newAccessToken = jwtUtil.generateAccessToken(user.getId(), user.getEmail(), user.getRole());

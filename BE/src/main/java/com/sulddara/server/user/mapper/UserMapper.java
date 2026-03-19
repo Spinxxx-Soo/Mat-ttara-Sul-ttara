@@ -1,6 +1,6 @@
 package com.sulddara.server.user.mapper;
 
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.user.domain.UserPreference;
 import com.sulddara.server.user.dto.UserPreferenceResponseDto;
 import com.sulddara.server.user.dto.UserProfileResponseDto;
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class UserMapper {
 
-  public UserProfileResponseDto toProfileResponse(User user) {
+  public UserProfileResponseDto toProfileResponse(UserEntity user) {
     if (user == null) {
       return null;
     }

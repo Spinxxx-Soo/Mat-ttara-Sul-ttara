@@ -23,7 +23,7 @@ public class UserPreference {
 
   @OneToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "user_id", nullable = false)
-  private User user;
+  private UserEntity user;
 
   @Column(nullable = false)
   private String usageType; // 사적 or 공적
@@ -47,7 +47,7 @@ public class UserPreference {
     this.gender = gender;
   }
 
-  public void setUser(User user) {
+  public void setUser(UserEntity user) {
     this.user = user;
   }
 

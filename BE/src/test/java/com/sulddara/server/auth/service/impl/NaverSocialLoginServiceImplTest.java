@@ -2,9 +2,11 @@ package com.sulddara.server.auth.service.impl;
 
 import com.sulddara.server.auth.controller.response.LoginResponse;
 import com.sulddara.server.auth.jwt.JwtUtil;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
+import com.sulddara.server.user.domain.UserEntity;
+import com.sulddara.server.common.fixture.UserEntityFixture;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.user.service.UserService;
 import org.junit.jupiter.api.DisplayName;
@@ -75,7 +77,8 @@ class NaverSocialLoginServiceImplTest {
                 .willReturn(userInfoResponse);
 
         // 3. 서비스 로직 Mock
-        User mockUser = User.builder().id(1L).email("test@naver.com").role("ROLE_USER").build();
+        UserEntity mockUser = UserEntityFixture.createUserWithId(1L);
+        ReflectionTestUtils.setField(mockUser, "email", "test@naver.com");
         given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser, false));
         given(jwtUtil.generateAccessToken(any(), any(), any())).willReturn("jwt_access");
         given(jwtUtil.generateRefreshToken(any(), any())).willReturn("jwt_refresh");
