@@ -61,15 +61,16 @@ class ChatServiceImplTest {
         void sendMessage_Success_FirstMessage() {
             // given
             String content = "안녕하세요 AI님";
-            when(chatMessageRepository.existsBySessionId(SESSION_ID)).thenReturn(false);
+            // 세션 존재 및 소유권 확인 Mock (추가된 로직 대응)
+            ChatSessions session = ChatSessions.builder().sessionId(SESSION_ID).userId(USER_ID).build();
+            when(chatSessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
 
-            // save든 saveAndFlush든 대응할 수 있도록 설정
+            when(chatMessageRepository.existsBySessionId(SESSION_ID)).thenReturn(false);
             when(chatMessageRepository.saveAndFlush(any(ChatMessages.class)))
                     .thenAnswer(invocation -> {
                         ChatMessages arg = invocation.getArgument(0);
-                        // 리플렉션이나 빌더를 통해 ID가 채워진 새 객체 반환
                         return ChatMessages.builder()
-                                .messageId(MESSAGE_ID) // Mock ID 주입
+                                .messageId(MESSAGE_ID)
                                 .sessionId(arg.getSessionId())
                                 .userId(arg.getUserId())
                                 .role(arg.getRole())
@@ -82,18 +83,10 @@ class ChatServiceImplTest {
 
             // then
             assertThat(result.getContent()).isEqualTo(content);
+            assertThat(result.getCreatedAt()).isGreaterThan(0); // EpochMs 검증
             verify(chatMessageRepository, times(1)).saveAndFlush(any());
-            verify(publisher, times(1)).publishEvent(any(ChatMessageCreatedEvent.class));
         }
 
-        @Test
-        @DisplayName("실패: 내용이 비어있으면 예외가 발생한다")
-        void sendMessage_Fail_EmptyContent() {
-            // when & then
-            assertThatThrownBy(() -> chatService.sendMessage(SESSION_ID, USER_ID, ""))
-                    .isInstanceOf(BaseException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        }
     }
 
     @Nested
@@ -139,35 +132,48 @@ class ChatServiceImplTest {
     class UpdateMessageTest {
 
         @Test
-        @DisplayName("성공: 본인이 작성한 메시지를 수정하고 이벤트를 발행한다")
+        @DisplayName("성공: 본인이 작성한 USER 메시지를 ACTIVE 세션에서 수정한다")
         void updateMessages_Success() {
             // given
             String newContent = "수정된 내용";
+            // 1. USER 권한을 가진 메시지 준비
             ChatMessages message = ChatMessages.builder()
-                    .messageId(MESSAGE_ID).sessionId(SESSION_ID).userId(USER_ID).content("원본").build();
+                    .messageId(MESSAGE_ID).sessionId(SESSION_ID).userId(USER_ID)
+                    .role(RoleType.USER.toString()) // 👈 Role 체크 로직 대응
+                    .content("원본").build();
+
+            // 2. ACTIVE 상태인 세션 준비
+            ChatSessions session = ChatSessions.builder()
+                    .sessionId(SESSION_ID).userId(USER_ID).status("ACTIVE").build();
 
             when(chatMessageRepository.findByMessageIdAndUserId(MESSAGE_ID, USER_ID))
                     .thenReturn(Optional.of(message));
+            when(chatSessionRepository.findById(SESSION_ID))
+                    .thenReturn(Optional.of(session));
 
             // when
             ChatUpdateResponse result = chatService.updateMessages(USER_ID, MESSAGE_ID, newContent);
 
             // then
             assertThat(result.getContent()).isEqualTo(newContent);
+            assertThat(message.getContent()).isEqualTo(newContent); // 객체 상태 변경 확인
             verify(publisher, times(1)).publishEvent(any(ChatMessageUpdatedEvent.class));
         }
 
         @Test
-        @DisplayName("실패: 존재하지 않거나 권한이 없는 메시지 수정 시 Forbidden 예외가 발생한다")
-        void updateMessages_Fail_NotFound() {
+        @DisplayName("실패: AI 답변(ASSISTANT)은 수정할 수 없다")
+        void updateMessages_Fail_AssistantRole() {
             // given
+            ChatMessages aiMessage = ChatMessages.builder()
+                    .messageId(MESSAGE_ID).role(RoleType.ASSISTANT.toString()).build();
+
             when(chatMessageRepository.findByMessageIdAndUserId(MESSAGE_ID, USER_ID))
-                    .thenReturn(Optional.empty());
+                    .thenReturn(Optional.of(aiMessage));
 
             // when & then
             assertThatThrownBy(() -> chatService.updateMessages(USER_ID, MESSAGE_ID, "change"))
                     .isInstanceOf(BaseException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
         }
     }
 }

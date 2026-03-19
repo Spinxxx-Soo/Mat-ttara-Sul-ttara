@@ -52,15 +52,13 @@ public class ChatSessionServiceImpl implements ChatSessionService {
         if (user.isEmpty()){
             throw new BaseException(ErrorCode.USER_NOT_FOUND);
         }
-        var session = chatSessionRepository.findById(sessionId);
-        if (session.isEmpty()){
-            throw new BaseException(ErrorCode.SESSION_NOT_FOUND);
-        }
-        if(!Objects.equals(session.get().getUserId(), userId)){
+        ChatSessions session = chatSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BaseException(ErrorCode.SESSION_NOT_FOUND));
+
+        if(!Objects.equals(session.getUserId(), userId)){
             throw new BaseException(ErrorCode.FORBIDDEN);
         }
-        var entities = session.get();
-        chatSessionRepository.delete(entities);
+        session.closeSession();
     }
 
     @Override
@@ -76,6 +74,17 @@ public class ChatSessionServiceImpl implements ChatSessionService {
                 .map(ChatListDetailResponse::fromEntity).toList();
         Long nextCursor = responses.isEmpty() ? null : responses.getLast().getSessionId();
         return new ChatListResponse(responses, nextCursor, slice.hasNext());
+    }
+
+    @Override
+    @Transactional
+    public void validateSessionOwnership(Long userId, Long sessionId) {
+        ChatSessions session = chatSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BaseException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (!session.getUserId().equals(userId)) {
+            throw new BaseException(ErrorCode.FORBIDDEN);
+        }
     }
 
 

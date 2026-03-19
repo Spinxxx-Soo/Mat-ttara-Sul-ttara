@@ -46,8 +46,6 @@ public class AiService {
 
     @Transactional
     public void sendChat(long sessionId, long userId, String content, boolean isNew){
-        saveMessage(sessionId, userId, RoleType.USER.toString(), content); //사용자 질문 저장
-
         boolean isSync = isNew || redisTemplate.hasKey("ai:flag:" + sessionId);
         var aiChatRequest = createRequest(userId, sessionId, content, isSync, isNew);
 
@@ -99,7 +97,7 @@ public class AiService {
         // AI 메모리 상태(memoryStatus)에 따라 Redis 동기화 플래그 관리
         // SSE 방송을 위한 이벤트 발행
 
-        if (response == null || response.getParsedState() == null) {
+        if (response == null) {
             return;
         }
         try {
@@ -115,16 +113,19 @@ public class AiService {
             long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), response.getChatResponse()); // ai 답변 저장
 
             chatSessionRepository.findById(sessionId).ifPresent(session -> {
+                session.touch();
+
                 if (response.getTitle() != null && !response.getTitle().isBlank()) {
                     session.updateTitle(response.getTitle());
                 }
-
-                try {
-                    String parsedJson = objectMapper.writeValueAsString(response.getParsedState());
-                    session.updateState(parsedJson);
-                    redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
-                } catch (JsonProcessingException e) {
-                    throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+                if (response.getParsedState() != null){
+                    try {
+                        String parsedJson = objectMapper.writeValueAsString(response.getParsedState());
+                        session.updateState(parsedJson);
+                        redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
+                    } catch (JsonProcessingException e) {
+                        throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+                    }
                 }
             });
 

@@ -35,6 +35,13 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public ChatResponse sendMessage(long sessionId, Long userId, String content) {
+        ChatSessions session = chatSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BaseException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (!session.getUserId().equals(userId)) {
+            throw new BaseException(ErrorCode.FORBIDDEN);
+        }
+
         if (content == null || content.isBlank()) {
             throw new BaseException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -49,6 +56,8 @@ public class ChatServiceImpl implements ChatService {
                 .build();
 
         ChatMessages savedMessage = chatMessageRepository.saveAndFlush(chatMessages);
+
+        session.touch();
 
         publisher.publishEvent(new ChatMessageCreatedEvent(
                 sessionId,
@@ -87,7 +96,25 @@ public class ChatServiceImpl implements ChatService {
         ChatMessages message = chatMessageRepository.findByMessageIdAndUserId(messageId, userId)
                 .orElseThrow(() -> new BaseException(ErrorCode.FORBIDDEN));
 
-        message.setContent(content);
+        if (!message.isUserMessage()) {
+            throw new BaseException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        if (message.isDeleted()) {
+            throw new BaseException(ErrorCode.ENTITY_NOT_FOUND);
+        }
+
+        ChatSessions session = chatSessionRepository.findById(message.getSessionId())
+                .orElseThrow(() -> new BaseException(ErrorCode.SESSION_NOT_FOUND));
+
+        if ("CLOSED".equals(session.getStatus())) {
+            throw new BaseException(ErrorCode.FORBIDDEN);
+        }
+
+        if (content == null || content.isBlank()) {
+            throw new BaseException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        message.updateContent(content);
         chatMessageRepository.save(message);
 
         publisher.publishEvent(new ChatMessageUpdatedEvent(

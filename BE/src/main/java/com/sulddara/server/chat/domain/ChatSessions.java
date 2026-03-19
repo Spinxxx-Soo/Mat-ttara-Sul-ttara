@@ -63,4 +63,8 @@ public class ChatSessions {
             this.title = title;
         }
     }
+
+    public void touch() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }

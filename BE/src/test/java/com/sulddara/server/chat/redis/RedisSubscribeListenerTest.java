@@ -3,7 +3,6 @@ package com.sulddara.server.chat.redis;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sulddara.server.chat.ai.controller.response.AiChatResponse;
 import com.sulddara.server.chat.ai.service.AiService;
-import com.sulddara.server.share.error.exception.BaseException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,12 +12,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RedisSubscribeListenerTest {
@@ -29,12 +25,10 @@ class RedisSubscribeListenerTest {
     @Mock
     private AiService aiService;
 
-    // 실제 ObjectMapper를 사용하여 JSON 파싱 로직을 검증합니다.
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
-        // 생성자 주입이 아닌 @InjectMocks 사용 시 ObjectMapper 설정
         ReflectionTestUtils.setField(redisSubscribeListener, "objectMapper", objectMapper);
     }
 
@@ -42,8 +36,6 @@ class RedisSubscribeListenerTest {
     @DisplayName("정상적인 Redis 메시지가 오면 sessionId를 추출하여 handleResponse를 호출한다")
     void onMessage_Success() throws Exception {
         // given
-        String threadId = "chat-123";
-        long userId = 1L;
         String jsonMessage = """
                 {
                     "threadId": "chat-123",
@@ -58,30 +50,34 @@ class RedisSubscribeListenerTest {
         redisSubscribeListener.onMessage(jsonMessage);
 
         // then
-        // threadId "chat-123"에서 123이 추출되어 sessionId로 넘어갔는지 확인
-        verify(aiService, times(1)).handleResponse(eq(123L), eq(userId), any(AiChatResponse.class));
+        verify(aiService, times(1)).handleResponse(eq(123L), eq(1L), any(AiChatResponse.class));
     }
 
     @Test
-    @DisplayName("threadId 형식이 잘못되면 BaseException(INVALID_INPUT_VALUE)이 발생한다")
+    @DisplayName("threadId 형식이 잘못되면 예외를 던지지 않고 handleResponse를 호출하지 않는다")
     void onMessage_InvalidThreadId() {
         // given
         String invalidJson = "{\"threadId\": \"invalidId\", \"userId\": 1}";
 
-        // when & then
-        assertThatThrownBy(() -> redisSubscribeListener.onMessage(invalidJson))
-                .isInstanceOf(BaseException.class);
-        // ErrorCode.INVALID_INPUT_VALUE 검증 로직 추가 가능
+        // when
+        redisSubscribeListener.onMessage(invalidJson);
+
+        // then
+        // 예외가 발생하지 않아야 하며, 서비스 호출이 일어나지 않아야 함
+        verify(aiService, never()).handleResponse(anyLong(), anyLong(), any());
     }
 
     @Test
-    @DisplayName("JSON 형식이 깨져있으면 BaseException(INTERNAL_SERVER_ERROR)이 발생한다")
+    @DisplayName("JSON 형식이 깨져있으면 예외를 던지지 않고 로그를 남기며 종료한다")
     void onMessage_JsonParsingError() {
         // given
         String brokenJson = "{ threadId: incomplete... }";
 
-        // when & then
-        assertThatThrownBy(() -> redisSubscribeListener.onMessage(brokenJson))
-                .isInstanceOf(BaseException.class);
+        // when
+        redisSubscribeListener.onMessage(brokenJson);
+
+        // then
+        // JSON 파싱 에러 시에도 예외를 밖으로 던지지 않고 서비스 호출만 안 되면 됨
+        verify(aiService, never()).handleResponse(anyLong(), anyLong(), any());
     }
 }

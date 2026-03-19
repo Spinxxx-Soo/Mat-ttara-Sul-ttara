@@ -12,6 +12,7 @@ import java.util.List;
 
 public interface ChatSessionRepository extends JpaRepository<ChatSessions, Long> {
     @Query("SELECT s FROM ChatSessions s WHERE s.userId = :userId " +
+            "AND s.status = 'ACTIVE' " +
             "AND s.title != 'new chat' " +
             "AND (:cursor IS NULL OR s.sessionId < :cursor) " +
             "ORDER BY s.sessionId DESC")

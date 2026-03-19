@@ -1,5 +1,6 @@
 package com.sulddara.server.chat.service.impl;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -28,6 +29,7 @@ import com.sulddara.server.chat.domain.ChatSessions;
 import com.sulddara.server.chat.repository.ChatSessionRepository;
 import com.sulddara.server.share.error.ErrorCode;
 import com.sulddara.server.share.error.exception.BaseException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class ChatSessionServiceImplTest {
@@ -74,22 +76,36 @@ class ChatSessionServiceImplTest {
     // --- deleteChatSessions 테스트 ---
 
     @Test
-    @DisplayName("채팅 세션 삭제 성공")
+    @DisplayName("채팅 세션 삭제 성공 - Soft Delete(CLOSED) 확인")
     void deleteChatSessions_Success() {
         // given
+        Long userId = 1L; // 현재 로그인한 유저 ID
+
+        // 세션 생성 시 소유자 ID(userId)를 반드시 포함해야 함
         ChatSessions session = ChatSessions.builder()
-                .sessionId(sessionId)
                 .userId(userId)
+                .title("new_chat")
+                .status("ACTIVE")
                 .build();
 
+        // Reflection을 이용해 세션 ID 주입
+        ReflectionTestUtils.setField(session, "sessionId", 100L);
+
         given(userRepository.findById(userId)).willReturn(Optional.of(mock(User.class)));
-        given(chatSessionRepository.findById(sessionId)).willReturn(Optional.of(session));
+        given(chatSessionRepository.findById(100L)).willReturn(Optional.of(session));
 
         // when
-        chatSessionService.deleteChatSessions(userId, sessionId);
+        chatSessionService.deleteChatSessions(userId, 100L);
 
         // then
-        verify(chatSessionRepository, times(1)).delete(session);
+        // 1. Hard Delete가 호출되지 않았는지 검증
+        verify(chatSessionRepository, never()).delete(any(ChatSessions.class));
+
+        // 2. 상태값이 CLOSED로 변경되었는지 검증 (Soft Delete)
+        assertThat(session.getStatus()).isEqualTo("CLOSED");
+
+        // 3. 종료 시간이 할당되었는지 검증
+        assertThat(session.getClosedAt()).isNotNull();
     }
 
     @Test

@@ -25,7 +25,8 @@ public class RedisSubscribeListener {
             String threadId = response.getThreadId();
 
             if (threadId == null || !threadId.contains("-")) {
-                throw new BaseException(ErrorCode.INVALID_INPUT_VALUE);
+                log.error("잘못된 threadId 형식입니다. threadId={}", threadId);
+                return;
             }
 
             long sessionId = Long.parseLong(threadId.split("-")[1]);
@@ -33,7 +34,7 @@ public class RedisSubscribeListener {
             aiService.handleResponse(sessionId, response.getUserId(), response);
 
         } catch (Exception e) {
-            throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+            log.error("Redis AI reply 처리 실패. message={}", message, e);
         }
     }
 }

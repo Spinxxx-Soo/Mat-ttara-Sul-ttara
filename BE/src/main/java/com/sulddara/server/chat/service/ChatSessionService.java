@@ -10,4 +10,6 @@ public interface ChatSessionService {
     void deleteChatSessions(Long userId, Long sessionId);
 
     ChatListResponse getChatSessions(Long userId, Long cursor, Pageable pageable);
+
+    void validateSessionOwnership(Long userId, Long sessionId);
 }

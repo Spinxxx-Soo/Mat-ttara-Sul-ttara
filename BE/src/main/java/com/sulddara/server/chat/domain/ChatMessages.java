@@ -41,4 +41,18 @@ public class ChatMessages {
     private LocalDateTime editedAt;
 
     private LocalDateTime deletedAt; // Soft Delete
+
+    // 비즈니스 메서드
+    public void updateContent(String newContent) {
+        this.content = newContent;
+        this.editedAt = LocalDateTime.now();
+    }
+
+    public boolean isUserMessage() {
+        return "USER".equals(this.role);
+    }
+
+    public boolean isDeleted() {
+        return this.deletedAt != null;
+    }
 }
