@@ -1,27 +1,23 @@
 package com.sulddara.server.plan.service;
 
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.ForbiddenException;
-
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.ForbiddenException;
 import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.place.exception.PlaceNotFoundException;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.plan.domain.Plan;
 import com.sulddara.server.plan.domain.PlanDetail;
-import com.sulddara.server.plan.dto.PlanCreateRequestDto;
-import com.sulddara.server.plan.dto.PlanCreateResponseDto;
-import com.sulddara.server.plan.dto.PlanDetailResponseDto;
-import com.sulddara.server.plan.dto.PlanListResponseDto;
-import com.sulddara.server.plan.dto.PlanSummaryDto;
-import com.sulddara.server.plan.dto.PlanUpdateRequestDto;
+import com.sulddara.server.plan.dto.*;
+import com.sulddara.server.plan.exception.PlanNotFoundException;
 import com.sulddara.server.plan.mapper.PlanMapper;
 import com.sulddara.server.plan.repository.PlanRepository;
 import com.sulddara.server.user.domain.User;
 import com.sulddara.server.user.exception.UserNotFoundException;
 import com.sulddara.server.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,10 +26,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PlanServiceImpl implements PlanService {
-
-  private static final String USER_NOT_FOUND_MSG = "사용자를 찾을 수 없습니다. ID: ";
-  private static final String PLACE_NOT_FOUND_MSG = "장소를 찾을 수 없습니다. ID: ";
-  private static final String PLAN_NOT_FOUND_MSG = "플랜을 찾을 수 없습니다.";
 
   private final PlanRepository planRepository;
   private final PlaceRepository placeRepository;
@@ -44,7 +36,7 @@ public class PlanServiceImpl implements PlanService {
   @Transactional
   public PlanCreateResponseDto createPlan(Long userId, PlanCreateRequestDto requestDto) {
     User user = userRepository.findById(userId)
-        .orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG + userId));
+        .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
 
     String shareToken = UUID.randomUUID().toString().replace("-", "");
 
@@ -61,8 +53,7 @@ public class PlanServiceImpl implements PlanService {
     if (requestDto.getDetails() != null) {
       for (PlanCreateRequestDto.PlanDetailRequestDto detailDto : requestDto.getDetails()) {
         Place place = placeRepository.findById(detailDto.getPlaceId())
-            .orElseThrow(() -> new IllegalArgumentException(PLACE_NOT_FOUND_MSG + detailDto.getPlaceId()));
-
+            .orElseThrow(() -> new PlaceNotFoundException("장소를 찾을 수 없습니다. ID: " + detailDto.getPlaceId()));
 
         PlanDetail detail = new PlanDetail(place, detailDto.getSeqNo(), null);
         plan.addDetail(detail);
@@ -76,7 +67,7 @@ public class PlanServiceImpl implements PlanService {
   @Override
   public PlanListResponseDto getMyPlans(Long userId, Long cursor, int size) {
     if (!userRepository.existsById(userId)) {
-      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+      throw new UserNotFoundException();
     }
 
     PageRequest pageRequest = PageRequest.of(0, size + 1);
@@ -110,11 +101,11 @@ public class PlanServiceImpl implements PlanService {
   @Override
   public PlanDetailResponseDto getPlanDetail(Long userId, Long planId) {
     if (!userRepository.existsById(userId)) {
-      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+      throw new UserNotFoundException();
     }
 
     Plan plan = planRepository.findWithDetailsById(planId)
-        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
+        .orElseThrow(PlanNotFoundException::new);
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
@@ -126,7 +117,7 @@ public class PlanServiceImpl implements PlanService {
   @Override
   public PlanDetailResponseDto getSharedPlanDetail(String shareToken) {
     Plan plan = planRepository.findWithDetailsByShareToken(shareToken)
-        .orElseThrow(() -> new IllegalArgumentException("유효하지 않거나 삭제된 공유 링크입니다."));
+        .orElseThrow(() -> new PlanNotFoundException("유효하지 않거나 삭제된 공유 링크입니다."));
 
     return planMapper.toDetailResponse(plan);
   }
@@ -135,11 +126,11 @@ public class PlanServiceImpl implements PlanService {
   @Transactional
   public PlanDetailResponseDto updatePlan(Long userId, Long planId, PlanUpdateRequestDto requestDto) {
     if (!userRepository.existsById(userId)) {
-      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+      throw new UserNotFoundException();
     }
 
     Plan plan = planRepository.findWithDetailsById(planId)
-        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
+        .orElseThrow(PlanNotFoundException::new);
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
@@ -159,7 +150,7 @@ public class PlanServiceImpl implements PlanService {
     if (requestDto.getDetails() != null) {
       for (PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.getDetails()) {
         Place place = placeRepository.findById(detailDto.getPlaceId())
-            .orElseThrow(() -> new IllegalArgumentException(PLACE_NOT_FOUND_MSG + detailDto.getPlaceId()));
+            .orElseThrow(() -> new PlaceNotFoundException("장소를 찾을 수 없습니다. ID: " + detailDto.getPlaceId()));
         PlanDetail detail = new PlanDetail(place, detailDto.getSeqNo(), detailDto.getRecommendReason());
         plan.addDetail(detail);
       }
@@ -172,11 +163,11 @@ public class PlanServiceImpl implements PlanService {
   @Transactional
   public void deletePlan(Long userId, Long planId) {
     if (!userRepository.existsById(userId)) {
-      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+      throw new UserNotFoundException();
     }
 
     Plan plan = planRepository.findById(planId)
-        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
+        .orElseThrow(PlanNotFoundException::new);
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
