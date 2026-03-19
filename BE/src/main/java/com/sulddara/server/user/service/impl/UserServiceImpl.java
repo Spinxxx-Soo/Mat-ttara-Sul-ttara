@@ -1,7 +1,7 @@
 package com.sulddara.server.user.service.impl;
 
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.auth.jwt.OAuth2UserInfo;
 import com.sulddara.server.user.dto.*;
@@ -21,8 +21,6 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
-
-    private static final String USER_NOT_FOUND_MSG = "User not found with id: ";
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
@@ -71,7 +69,7 @@ public class UserServiceImpl implements UserService {
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG + userId));
+                .orElseThrow(UserNotFoundException::new);
     }
 
     @Transactional
