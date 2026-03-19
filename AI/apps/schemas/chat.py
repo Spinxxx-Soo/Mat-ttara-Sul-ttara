@@ -288,6 +288,12 @@ class ChatMessageResponse(APIModel):
         description="응답 타입",
         example=ChatResponseType.FOLLOW_UP.value,
     )
+    # FOLLOW_UP일 때는 백엔드가 선택한 슬롯, RECOMMENDATION일 때는 None
+    targetSlot: Optional[str] = Field(
+        default=None,
+        description="이번 턴에 질문한 슬롯 키 (예: time, purpose, people, mood)",
+        example="time",
+    )
     memoryStatus: MemoryStatus = Field(
         ...,
         description="메모리 상태",

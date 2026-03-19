@@ -22,18 +22,34 @@ class ChatParser:
         previous_parsed_state: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        유저 발화 파싱
+        유저 발화 파싱 및 상태 병합
         - 먼저 규칙 기반으로 추출
         - 부족한 값은 LLM으로 보완
+        - 이전 상태와 병합
+        - 시간값 변환
         """
+        # 1) 규칙 기반 + LLM 파싱
         rule_result = self._rule_based_parse(user_message)
         llm_result = await self._llm_parse(
             user_message=user_message,
             summary=summary,
             previous_parsed_state=previous_parsed_state,
         )
+        parsed_update = self._merge_results(rule_result, llm_result)
 
-        return self._merge_results(rule_result, llm_result)
+        # 2) 이전 상태와 병합
+        merged_state = self.merge_parsed_state(
+            previous=previous_parsed_state,
+            new=parsed_update,
+        )
+
+        # 3) 시간값 변환
+        if merged_state.get("time"):
+            merged_state["time"] = self.convert_time_to_time_value(
+                merged_state["time"]
+            )
+
+        return merged_state
 
     def _rule_based_parse(self, user_message: str) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -106,15 +122,13 @@ class ChatParser:
             "- time: 시간대\n"
             "- purpose: 목적\n"
             "- mood: 분위기\n"
-            "- lat: 위도 (사용자가 명시적으로 언급한 경우만, float)\n"
-            "- lng: 경도 (사용자가 명시적으로 언급한 경우만, float)\n\n"
             "값이 명확하지 않으면 null로 두세요.\n"
             "기존 상태와 충돌하면, 이번 발화에서 새롭게 명확히 말한 값만 갱신하세요.\n\n"
             f"[기존 요약]\n{summary or '없음'}\n\n"
             f"[기존 parsed_state]\n{json.dumps(previous_parsed_state, ensure_ascii=False)}\n\n"
             f"[사용자 발화]\n{user_message}\n\n"
             "예시 출력:\n"
-            '{"people": 3, "time": "저녁", "purpose": "술자리", "mood": "조용함", "lat": null, "lng": null}'
+            '{"people": 3, "time": "18:00", "purpose": "술자리", "mood": "조용함", "lat": null, "lng": null}'
         )
 
         response = await self.client.chat_completion(
@@ -161,3 +175,49 @@ class ChatParser:
             return {}
         except json.JSONDecodeError:
             return {}
+
+    def merge_parsed_state(
+        self,
+        previous: dict[str, Any],
+        new: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        새로 파싱된 값만 기존 state에 덮어쓰기
+        """
+        merged = dict(previous)
+
+        # 반환 JSON에 포함되는 필드만 병합 (area, budget 제외)
+        allowed_keys = {"lat", "lng", "people", "time", "purpose", "mood"}
+
+        for key, value in new.items():
+            if key in allowed_keys and value is not None and value != "":
+                merged[key] = value
+
+        return merged
+
+    def convert_time_to_time_value(self, time_str: str) -> str:
+        """
+        시간대 문자열을 시간값으로 변환
+        예: "저녁" -> "18:00"
+        """
+        time_mapping = {
+            "아침": "08:00",
+            "조식": "08:00",
+            "브런치": "10:00",
+            "점심": "12:00",
+            "런치": "12:00",
+            "저녁": "18:00",
+            "디너": "18:00",
+            "퇴근 후": "18:00",
+            "밤": "21:00",
+            "늦은 시간": "21:00",
+            "야식": "22:00",
+        }
+
+        # 이미 시간 형식인 경우 (HH:MM 또는 HH:MM:SS) 그대로 반환
+        if ":" in time_str and len(time_str) <= 8:
+            return time_str
+
+        # 매핑에서 찾기
+        normalized = time_str.strip()
+        return time_mapping.get(normalized, time_str)
