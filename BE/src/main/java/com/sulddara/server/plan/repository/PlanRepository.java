@@ -11,19 +11,17 @@ import java.util.Optional;
 @Repository
 public interface PlanRepository extends JpaRepository<Plan, Long> {
 
-  Page<Plan> findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);
+  Page<Plan> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
-  java.util.List<Plan> findByUserIdAndDeletedAtIsNullOrderByIdDesc(Long userId, Pageable pageable);
+  java.util.List<Plan> findByUserIdOrderByIdDesc(Long userId, Pageable pageable);
 
-  java.util.List<Plan> findByUserIdAndIdLessThanAndDeletedAtIsNullOrderByIdDesc(Long userId, Long id, Pageable pageable);
-
-  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"details", "details.place"})
-  Optional<Plan> findWithDetailsByIdAndDeletedAtIsNull(Long planId);
-
-  Optional<Plan> findByIdAndDeletedAtIsNull(Long planId);
+  java.util.List<Plan> findByUserIdAndIdLessThanOrderByIdDesc(Long userId, Long id, Pageable pageable);
 
   @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"details", "details.place"})
-  Optional<Plan> findWithDetailsByShareTokenAndDeletedAtIsNull(String shareToken);
+  Optional<Plan> findWithDetailsById(Long planId);
 
-  Optional<Plan> findByShareTokenAndDeletedAtIsNull(String shareToken);
+  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"details", "details.place"})
+  Optional<Plan> findWithDetailsByShareToken(String shareToken);
+
+  Optional<Plan> findByShareToken(String shareToken);
 }
