@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import LoadingState from '@/components/ui/LoadingState';
@@ -7,8 +8,8 @@ import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
 
 const MyPlan = () => {
   const navigate = useNavigate();
-  const { data, isLoading, isError } = usePlansQuery();
-  const plans = data?.plans || [];
+  const [page, setPage] = useState<number>(0);
+  const { data, isPending, isError, refetch, isFetching } = usePlansQuery(page);
 
   const handleCreatePlan = () => {
     navigate('/my-plan/new');
@@ -64,14 +65,15 @@ const MyPlan = () => {
 
           {/* Plans List */}
           <div className="grid gap-6">
-            {isLoading ? (
+            {isPending ? (
               <LoadingState message="일정을 불러오는 중입니다..." />
             ) : isError ? (
               <ErrorState
                 title="일정을 불러오는 중 오류가 발생했습니다."
-                onRetry={() => window.location.reload()}
+                onRetry={() => refetch()}
+                isFetching={isFetching}
               />
-            ) : plans.length === 0 ? (
+            ) : data && data.plans.length === 0 ? (
               <EmptyState
                 icon="calendar_today"
                 title="등록된 여행 계획이 없습니다."
@@ -79,8 +81,8 @@ const MyPlan = () => {
                 actionText="플랜 만들기"
                 onAction={handleCreatePlan}
               />
-            ) : (
-              plans.map((plan) => (
+            ) : data ? (
+              data.plans.map((plan) => (
                 <div
                   key={plan.id}
                   className="group flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all border border-slate-100 dark:border-slate-800"
@@ -90,6 +92,10 @@ const MyPlan = () => {
                       alt={plan.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       src={plan.thumbnailUrl}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400';
+                      }}
                     />
                     {plan.status === 'upcoming' && plan.daysUntil !== undefined && (
                       <div className="absolute top-3 left-3 px-3 py-1 bg-primary/90 text-white text-xs font-bold rounded-full">
@@ -150,7 +156,7 @@ const MyPlan = () => {
                   </div>
                 </div>
               ))
-            )}
+            ) : null}
           </div>
 
           {/* Load More */}

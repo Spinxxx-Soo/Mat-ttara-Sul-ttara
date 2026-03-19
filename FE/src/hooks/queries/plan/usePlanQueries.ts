@@ -11,6 +11,7 @@ export const usePlansQuery = (page = 0, size = 10) => {
     queryKey: [...queryKeys.plan.list(), page, size],
     queryFn: () => planApi.getPlans(page, size),
     select: mapPlanListToUI,
+    placeholderData: (previousData) => previousData,
   });
 };
 
