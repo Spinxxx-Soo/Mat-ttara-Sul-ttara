@@ -42,7 +42,7 @@ class UserServiceTest {
   void getUserProfileTest() {
     // given
     User user = User.builder()
-            .oauthId("google_12345")
+            .providerId("google_12345")
             .provider("GOOGLE")
             .name("Test User")
             .email("test@google.com")
@@ -69,7 +69,7 @@ class UserServiceTest {
   void updateUserProfileTest() {
     // given
     User user = User.builder()
-            .oauthId("google_12345")
+            .providerId("google_12345")
             .provider("GOOGLE")
             .name("Old Name")
             .email("test@google.com")
@@ -100,7 +100,7 @@ class UserServiceTest {
   void registerOrUpdatePreference_newPreference_createsPreference() {
     // given
     User user = User.builder()
-        .oauthId("test_oauth")
+        .providerId("test_oauth")
         .provider("TEST")
         .name("Test User")
         .email("test@test.com")
@@ -131,7 +131,7 @@ class UserServiceTest {
   void registerOrUpdatePreference_existingPreference_updatesPreference() {
     // given
     User user = User.builder()
-        .oauthId("test_oauth")
+        .providerId("test_oauth")
         .provider("TEST")
         .name("Test User")
         .email("test@test.com")
@@ -163,7 +163,7 @@ class UserServiceTest {
   void deleteUserTest() {
     // given
     User user = User.builder()
-            .oauthId("test_oauth")
+            .providerId("test_oauth")
             .provider("TEST")
             .name("Test User")
             .email("test@test.com")

@@ -25,6 +25,7 @@ public enum ErrorCode {
     // 404 Not Found
     USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다."),
     ENTITY_NOT_FOUND(404, "엔티티를 찾을 수 없습니다."),
+    SESSION_NOT_FOUND(404, "해당 세션을 찾을 수 없습니다."),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(500, "서버에 오류가 발생했습니다.");
