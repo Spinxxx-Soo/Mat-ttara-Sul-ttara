@@ -1,15 +1,28 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
-import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
+import { useInfinitePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
+import { usePlanStore } from '@/stores/planStore';
+import { PlanUIModel } from '@/types/plan';
 
 const MyPlan = () => {
   const navigate = useNavigate();
-  const [cursor, setCursor] = useState<string | number | undefined>(undefined);
-  const { data, isPending, isError, refetch, isFetching } = usePlansQuery(cursor);
+  const { 
+    data, 
+    isPending, 
+    isError, 
+    refetch, 
+    isFetching, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfinitePlansQuery();
+
+  const { selectedPlan, setSelectedPlan } = usePlanStore();
+
+  const plans = data?.pages.flatMap((page) => page.plans) || [];
 
   const handleCreatePlan = () => {
     navigate('/my-plan/new');
@@ -20,8 +33,16 @@ const MyPlan = () => {
   };
 
   const handleLoadMore = () => {
-    if (data?.hasNext && data.nextCursor) {
-      setCursor(data.nextCursor);
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
+
+  const handleSelectPlan = (plan: PlanUIModel) => {
+    if (selectedPlan?.id === plan.id) {
+      setSelectedPlan(null);
+    } else {
+      setSelectedPlan(plan);
     }
   };
 
@@ -79,7 +100,7 @@ const MyPlan = () => {
                 onRetry={() => refetch()}
                 isFetching={isFetching}
               />
-            ) : data && data.plans.length === 0 ? (
+            ) : plans.length === 0 ? (
               <EmptyState
                 icon="calendar_today"
                 title="등록된 여행 계획이 없습니다."
@@ -87,11 +108,15 @@ const MyPlan = () => {
                 actionText="플랜 만들기"
                 onAction={handleCreatePlan}
               />
-            ) : data ? (
-              data.plans.map((plan) => (
+            ) : plans.length > 0 ? (
+              plans.map((plan) => (
                 <div
                   key={plan.id}
-                  className="group flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all border border-slate-100 dark:border-slate-800"
+                  className={`group flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all border ${
+                    selectedPlan?.id === plan.id 
+                      ? 'border-primary ring-1 ring-primary/20 bg-primary/5 dark:bg-primary/5' 
+                      : 'border-slate-100 dark:border-slate-800'
+                  }`}
                 >
                   <div className="w-full md:w-72 h-48 md:h-auto overflow-hidden relative">
                     <img
@@ -151,7 +176,17 @@ const MyPlan = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="mt-6 flex items-center justify-end">
+                    <div className="mt-6 flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => handleSelectPlan(plan)}
+                        className={`px-5 py-2 font-bold rounded-lg transition-all ${
+                          selectedPlan?.id === plan.id
+                            ? 'bg-primary text-white shadow-md shadow-primary/20'
+                            : 'bg-white dark:bg-slate-900 text-primary border border-primary/30 hover:bg-primary/5'
+                        }`}
+                      >
+                        {selectedPlan?.id === plan.id ? '선택됨' : '플랜 선택'}
+                      </button>
                       <button
                         onClick={() => handleViewDetail(plan.id)}
                         className="px-5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold rounded-lg hover:bg-primary hover:text-white transition-all"
@@ -166,14 +201,15 @@ const MyPlan = () => {
           </div>
 
           {/* Load More */}
-          {data?.hasNext && (
+          {hasNextPage && (
             <div className="mt-12 flex justify-center">
               <button 
                 onClick={handleLoadMore}
-                className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium hover:text-primary transition-colors"
+                disabled={isFetchingNextPage}
+                className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium hover:text-primary transition-colors disabled:opacity-50"
               >
-                더 많은 플랜 보기
-                <span className="material-symbols-outlined">expand_more</span>
+                {isFetchingNextPage ? '불러오는 중...' : '더 많은 플랜 보기'}
+                {!isFetchingNextPage && <span className="material-symbols-outlined">expand_more</span>}
               </button>
             </div>
           )}
