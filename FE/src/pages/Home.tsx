@@ -5,7 +5,7 @@ import CopyLinkButton from '@/components/CopyLinkButton';
 import Button from '@/components/ui/Button';
 import NaverMap from '@/components/map/NaverMap';
 import { useAuthStore } from '@/stores/authStore';
-import { Plan } from '@/types/plan';
+// TODO: Home.tsx의 plans 섹션은 개발 테스트용 임시 코드입니다. 실제 플랜 목록은 /my-plan 페이지 참고.
 import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces';
 import { useMarkers } from '@/hooks/useMarkers';
 import { useInfoWindow } from '@/hooks/useInfoWindow';
@@ -18,15 +18,13 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 export default function Home() {
   const { isLoggedIn, logout } = useAuthStore();
 
-  // Polling MVP: 데이터 refetch 간격(10초)으로 셋팅
-  const { data: plans, isLoading } = useQuery<Plan[]>({
+  // TODO: 개발 테스트용 임시 polling 코드. 실제 플랜 API는 planApi.ts 참고.
+  type DevPlan = { id: string; title: string; description: string };
+  const { data: plans, isLoading } = useQuery<DevPlan[]>({
     queryKey: ['plans'],
     queryFn: async () => {
-      // 실제 프로젝트에서는 axios apiClient 훅 연동
-      // const response = await apiClient.get('/api/plans');
-      // return response.data;
       return [
-        { id: '1', title: 'Plan A', description: 'MVP 첫 번째 플랜', createdAt: '', updatedAt: '' },
+        { id: '1', title: 'Plan A', description: 'MVP 첫 번째 플랜' },
       ];
     },
     refetchInterval: 10000,
@@ -110,7 +108,7 @@ export default function Home() {
             <p className="text-gray-500">데이터를 불러오는 중입니다...</p>
           ) : (
             <ul className="list-disc pl-5 space-y-2">
-              {plans?.map((plan: Plan) => (
+              {plans?.map((plan: DevPlan) => (
                 <li key={plan.id} className="text-gray-800">
                   <span className="font-semibold">{plan.title}</span> - {plan.description}
                 </li>
