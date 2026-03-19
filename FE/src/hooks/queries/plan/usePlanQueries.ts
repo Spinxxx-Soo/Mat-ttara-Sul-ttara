@@ -13,6 +13,7 @@ export const usePlansQuery = (cursor?: string | number, size = 10) => {
     queryKey: [...queryKeys.plan.list(), cursor, size],
     queryFn: () => planApi.getPlans(cursor, size),
     select: mapPlanListToUI,
+    placeholderData: (previousData) => previousData,
   });
 };
 

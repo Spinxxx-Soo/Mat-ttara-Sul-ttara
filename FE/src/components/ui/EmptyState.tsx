@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 interface EmptyStateProps {
   icon?: string;
   title?: string;
@@ -7,14 +9,14 @@ interface EmptyStateProps {
   className?: string;
 }
 
-export default function EmptyState({
+const EmptyState = memo(({
   icon = 'inbox',
   title = '데이터가 없습니다.',
   message,
   actionText,
   onAction,
   className = ''
-}: EmptyStateProps) {
+}: EmptyStateProps) => {
   return (
     <div className={`flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 text-center px-4 ${className}`}>
       <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 text-primary">
@@ -29,11 +31,15 @@ export default function EmptyState({
       {onAction && actionText && (
         <button
           onClick={onAction}
-          className="px-6 py-2 bg-primary text-white rounded-xl font-medium shadow-sm hover:bg-primary/90 transition-colors"
+          className="px-6 py-2 bg-primary text-white rounded-xl font-medium shadow-sm hover:bg-primary/90 transition-all active:scale-95"
         >
           {actionText}
         </button>
       )}
     </div>
   );
-}
+});
+
+EmptyState.displayName = 'EmptyState';
+
+export default EmptyState;
