@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import { usePlanDetailQuery } from '@/hooks/queries/plan/usePlanQueries'
 
 const MyPlanDetail = () => {
   const { id } = useParams()
@@ -8,23 +9,33 @@ const MyPlanDetail = () => {
   const [showShareModal, setShowShareModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
-  // TODO: 실제 플랜 데이터 API 연동
-  const plan = {
-    id: id || '1',
-    name: '강남역 불금 미식회',
-    date: '2024-01-15',
-    time: '19:00',
-    people: 4,
-    budget: 200000,
-    location: '서울 강남구 역삼동 인근',
-    reason: '강남역 근처 다양한 맛집과 분위기 좋은 술집이 많아서 추천합니다.',
-    restaurants: [
-      { name: '맛있는 식당', type: '한식', rating: 4.5 },
-      { name: '분위기 좋은 바', type: '바', rating: 4.8 },
-    ],
+  const { data: plan, isLoading, isError } = usePlanDetailQuery(id || '')
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
-  const shareUrl = `${window.location.origin}/my-plan/${plan.id}`
+  if (isError || !plan) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
+        <div className="text-center">
+          <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">플랜을 불러오지 못했습니다.</p>
+          <button
+            onClick={() => navigate('/my-plan')}
+            className="px-6 py-2 bg-primary text-white rounded-xl font-semibold"
+          >
+            목록으로 돌아가기
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const shareUrl = `${window.location.origin}/my-plan/${plan.planId}`
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl)
@@ -89,12 +100,12 @@ const MyPlanDetail = () => {
                 {isEditing ? (
                   <input
                     type="text"
-                    defaultValue={plan.name}
+                    defaultValue={plan.title}
                     className="text-3xl font-bold text-slate-900 dark:text-slate-100 w-full px-4 py-2 border border-primary/20 rounded-lg focus:ring-2 focus:ring-primary"
                   />
                 ) : (
                   <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                    {plan.name}
+                    {plan.title}
                   </h1>
                 )}
               </div>
@@ -105,25 +116,10 @@ const MyPlanDetail = () => {
                     calendar_today
                   </span>
                   <div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">약속 일시</p>
-                    {isEditing ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="date"
-                          defaultValue={plan.date}
-                          className="text-base font-semibold text-slate-900 dark:text-slate-100 px-2 py-1 border border-primary/20 rounded"
-                        />
-                        <input
-                          type="time"
-                          defaultValue={plan.time}
-                          className="text-base font-semibold text-slate-900 dark:text-slate-100 px-2 py-1 border border-primary/20 rounded"
-                        />
-                      </div>
-                    ) : (
-                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                        {plan.date} {plan.time}
-                      </p>
-                    )}
+                    <p className="text-sm text-slate-500 dark:text-slate-400">생성 일시</p>
+                    <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      {new Date(plan.createdAt).toLocaleString()}
+                    </p>
                   </div>
                 </div>
 
@@ -134,12 +130,12 @@ const MyPlanDetail = () => {
                     {isEditing ? (
                       <input
                         type="number"
-                        defaultValue={plan.people}
+                        defaultValue={plan.participantCount}
                         className="text-base font-semibold text-slate-900 dark:text-slate-100 w-20 px-2 py-1 border border-primary/20 rounded"
                       />
                     ) : (
                       <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                        {plan.people}명
+                        {plan.participantCount}명
                       </p>
                     )}
                   </div>
@@ -154,12 +150,12 @@ const MyPlanDetail = () => {
                     {isEditing ? (
                       <input
                         type="number"
-                        defaultValue={plan.budget}
+                        defaultValue={plan.totalBudget}
                         className="text-base font-semibold text-slate-900 dark:text-slate-100 w-32 px-2 py-1 border border-primary/20 rounded"
                       />
                     ) : (
                       <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                        {plan.budget.toLocaleString()}원
+                        {plan.totalBudget.toLocaleString()}원
                       </p>
                     )}
                   </div>
@@ -170,16 +166,16 @@ const MyPlanDetail = () => {
                     location_on
                   </span>
                   <div className="flex-1">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">장소</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">유형</p>
                     {isEditing ? (
                       <input
                         type="text"
-                        defaultValue={plan.location}
+                        defaultValue={plan.planType}
                         className="text-base font-semibold text-slate-900 dark:text-slate-100 w-full px-2 py-1 border border-primary/20 rounded"
                       />
                     ) : (
                       <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                        {plan.location}
+                        {plan.planType}
                       </p>
                     )}
                   </div>
@@ -187,15 +183,15 @@ const MyPlanDetail = () => {
               </div>
 
               <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">추천 이유</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">메모</p>
                 {isEditing ? (
                   <textarea
-                    defaultValue={plan.reason}
+                    defaultValue={plan.memo}
                     className="w-full px-4 py-3 border border-primary/20 rounded-lg focus:ring-2 focus:ring-primary"
                     rows={3}
                   />
                 ) : (
-                  <p className="text-base text-slate-700 dark:text-slate-300">{plan.reason}</p>
+                  <p className="text-base text-slate-700 dark:text-slate-300">{plan.memo || '메모가 없습니다.'}</p>
                 )}
               </div>
             </div>
@@ -225,7 +221,7 @@ const MyPlanDetail = () => {
                 type="text"
                 value={shareUrl}
                 readOnly
-                className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm"
+                className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm outline-none"
               />
               <button
                 onClick={handleCopyLink}
