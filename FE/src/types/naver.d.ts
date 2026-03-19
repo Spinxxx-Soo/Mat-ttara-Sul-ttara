@@ -68,12 +68,15 @@ export interface NaverMarkerOptions {
   map?: NaverMapInstance;
   icon?: string | object;
   title?: string;
+  zIndex?: number;
 }
 
 export interface NaverMarkerInstance {
   setMap: (map: NaverMapInstance | null) => void;
   getPosition: () => NaverLatLng;
   setPosition: (latLng: NaverLatLng) => void;
+  setZIndex: (zIndex: number) => void;
+  setIcon: (icon: string | object) => void;
 }
 
 export interface NaverInfoWindowInstance {

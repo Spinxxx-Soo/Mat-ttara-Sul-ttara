@@ -1,4 +1,4 @@
-import { Plan, ApiPaginationResponse } from '@/types/api';
+import { Plan, ApiCursorPaginationResponse } from '@/types/api';
 import { PlanUIModel, PlanListUIModel } from '@/types/plan';
 import dayjs from 'dayjs';
 
@@ -35,11 +35,12 @@ export const mapPlanToUI = (plan: Plan): PlanUIModel => {
 };
 
 /**
- * 플랜 목록 응답 전체 변환
+ * 플랜 목록 응답 전체 변환 (S14P21B205-132: 커서 기반)
  */
-export const mapPlanListToUI = (response: ApiPaginationResponse<Plan>): PlanListUIModel => {
+export const mapPlanListToUI = (response: ApiCursorPaginationResponse<Plan>): PlanListUIModel => {
   return {
-    plans: response.content.map(mapPlanToUI),
-    totalCount: response.pageInfo.totalElements,
+    plans: (response.content || []).map(mapPlanToUI),
+    nextCursor: response.nextCursor || null,
+    hasNext: response.hasNext || false,
   };
 };

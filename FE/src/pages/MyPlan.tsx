@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import LoadingState from '@/components/ui/LoadingState';
@@ -7,7 +8,8 @@ import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
 
 const MyPlan = () => {
   const navigate = useNavigate();
-  const { data, isLoading, isError } = usePlansQuery();
+  const [cursor, setCursor] = useState<string | number | undefined>(undefined);
+  const { data, isLoading, isError } = usePlansQuery(cursor);
   const plans = data?.plans || [];
 
   const handleCreatePlan = () => {
@@ -16,6 +18,12 @@ const MyPlan = () => {
 
   const handleViewDetail = (id: string) => {
     navigate(`/my-plan/${id}`);
+  };
+
+  const handleLoadMore = () => {
+    if (data?.hasNext && data.nextCursor) {
+      setCursor(data.nextCursor);
+    }
   };
 
   return (
@@ -154,12 +162,17 @@ const MyPlan = () => {
           </div>
 
           {/* Load More */}
-          <div className="mt-12 flex justify-center">
-            <button className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium hover:text-primary transition-colors">
-              더 많은 플랜 보기
-              <span className="material-symbols-outlined">expand_more</span>
-            </button>
-          </div>
+          {data?.hasNext && (
+            <div className="mt-12 flex justify-center">
+              <button 
+                onClick={handleLoadMore}
+                className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium hover:text-primary transition-colors"
+              >
+                더 많은 플랜 보기
+                <span className="material-symbols-outlined">expand_more</span>
+              </button>
+            </div>
+          )}
         </div>
       </main>
     </div>

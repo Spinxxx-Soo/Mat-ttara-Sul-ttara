@@ -3,7 +3,8 @@ import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import LoadingState from '@/components/ui/LoadingState'
 import ErrorState from '@/components/ui/ErrorState'
-import { usePlanDetailQuery } from '@/hooks/queries/plan/usePlanQueries'
+import { usePlanDetailQuery, useDeletePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
+import toast from 'react-hot-toast'
 
 const MyPlanDetail = () => {
   const { id } = useParams()
@@ -12,19 +13,28 @@ const MyPlanDetail = () => {
   const [isEditing, setIsEditing] = useState(false)
 
   const { data: plan, isLoading, isError } = usePlanDetailQuery(id || '')
+  const { mutate: deletePlan } = useDeletePlanMutation()
 
   // shareUrl은 plan이 존재할 때만 사용
-  const shareUrl = plan ? `${window.location.origin}/my-plan/${plan.planId}` : ''
+  const shareUrl = plan ? `${window.location.origin}/my-plan/${plan.id}` : ''
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl)
-    alert('링크가 복사되었습니다!')
+    toast.success('링크가 복사되었습니다!')
   }
 
   const handleDelete = () => {
     if (confirm('정말 이 플랜을 삭제하시겠습니까?')) {
-      // TODO: 삭제 API 호출 (planApi.deletePlan 연동)
-      navigate('/my-plan')
+      if (!id) return;
+      deletePlan(id, {
+        onSuccess: () => {
+          toast.success('플랜이 삭제되었습니다.');
+          navigate('/my-plan');
+        },
+        onError: () => {
+          toast.error('플랜 삭제 중 오류가 발생했습니다.');
+        }
+      });
     }
   }
 
