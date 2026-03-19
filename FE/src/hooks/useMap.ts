@@ -7,6 +7,10 @@ import type { NaverMapInstance } from '@/types/naver.d';
 // S14P21B205-188: 지도 SDK 로더 연동 훅
 // ==========================================
 
+/**
+ * @param defaultCenter 초기 지도 생성 시점에만 참조되는 중심 좌표입니다. 이후 Prop이 변경되어도 자동으로 지도가 이동하지 않습니다.
+ * @param defaultZoom 초기 지도 생성 시점에만 참조되는 줌 레벨입니다.
+ */
 interface UseMapOptions {
   defaultCenter?: Coordinates;
   defaultZoom?: number;
@@ -62,6 +66,7 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
       mapInstance.current = null;
     };
     // defaultCenter/defaultZoom은 지도 최초 생성 시점의 초기값으로만 사용한다.
+    // 외부 요소 변화로 지도를 이동하려면 반환값인 setCenter 함수를 직접 호출해야 한다.
   }, [sdkLoaded]);
 
   const setCenter = (center: Coordinates) => {
