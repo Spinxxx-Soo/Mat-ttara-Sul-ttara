@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -105,7 +106,7 @@ class ChatServiceImplTest {
             // given
             Pageable pageable = PageRequest.of(0, 10);
             ChatSessions session = ChatSessions.builder().sessionId(SESSION_ID).userId(USER_ID).build();
-            ChatMessages message = ChatMessages.builder().messageId(MESSAGE_ID).content("hi").role(RoleType.USER.toString()).build();
+            ChatMessages message = ChatMessages.builder().messageId(MESSAGE_ID).content("hi").role(RoleType.USER.toString()).createdAt(LocalDateTime.now()).build();
 
             when(chatSessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
             when(chatMessageRepository.findMessagesByCursor(SESSION_ID, null, pageable))

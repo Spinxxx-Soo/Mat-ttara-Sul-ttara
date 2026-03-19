@@ -1,5 +1,6 @@
 package com.sulddara.server.chat.ai.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sulddara.server.chat.ai.controller.request.AiChatRequest;
 import com.sulddara.server.chat.ai.controller.request.AiPlaceCandidatesRequest;
@@ -43,6 +44,7 @@ public class AiService {
     private final ObjectMapper objectMapper;
     private final RedisTemplate<String, String> redisTemplate;
 
+    @Transactional
     public void sendChat(long sessionId, long userId, String content, boolean isNew){
         saveMessage(sessionId, userId, RoleType.USER.toString(), content); //사용자 질문 저장
 
@@ -55,10 +57,8 @@ public class AiService {
                 .retrieve()
                 .bodyToMono(Void.class)
                 .timeout(Duration.ofSeconds(10))
-                .subscribe(
-                        v -> log.info("AI 서버 요청 전송 완료: session={}", sessionId),
-                        err -> log.error("AI 통신 에러: session={}, error={}", sessionId, err.getMessage())
-                );
+                .doOnError(e -> log.error("AI 서버 통신 치명적 실패: session={}", sessionId, e))
+                .subscribe();
 
     }
 
@@ -99,6 +99,9 @@ public class AiService {
         // AI 메모리 상태(memoryStatus)에 따라 Redis 동기화 플래그 관리
         // SSE 방송을 위한 이벤트 발행
 
+        if (response == null || response.getParsedState() == null) {
+            return;
+        }
         try {
             if ("RECOMMENDATION".equals(response.getType())) {
                 List<Long> candidateIds = placeRepository.findIdsByLocation(
@@ -109,22 +112,21 @@ public class AiService {
                 return;
             }
 
-
             long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), response.getChatResponse()); // ai 답변 저장
 
             chatSessionRepository.findById(sessionId).ifPresent(session -> {
                 if (response.getTitle() != null && !response.getTitle().isBlank()) {
                     session.updateTitle(response.getTitle());
                 }
+
+                try {
+                    String parsedJson = objectMapper.writeValueAsString(response.getParsedState());
+                    session.updateState(parsedJson);
+                    redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
+                } catch (JsonProcessingException e) {
+                    throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+                }
             });
-
-
-            if(response.getParsedState() != null) {
-                String parsedJson = objectMapper.writeValueAsString(response.getParsedState());
-                redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
-                chatSessionRepository.findById(sessionId)
-                        .ifPresent(session -> session.updateState(parsedJson));
-            }
 
             if("MISSING".equals(response.getMemoryStatus())){
                 redisTemplate.opsForValue().set("ai:flag:" + sessionId, "true", Duration.ofHours(1));
@@ -170,7 +172,7 @@ public class AiService {
     public PreferenceSummary getPreferenceSummary(long userId){
         var userPreference = userPreferenceRepository.findById(userId).orElse(null);
         if (userPreference == null){
-            throw new BaseException(ErrorCode.UNAUTHORIZED);
+            throw new BaseException(ErrorCode.USER_NOT_FOUND);
         }
         return new PreferenceSummary(
                 userPreference.getUsageType(),

@@ -62,11 +62,13 @@ class AiServiceTest {
         // given
         long sessionId = 1L;
         long userId = 100L;
+        SessionState mockState = SessionState.builder().lat(37.5).lng(127.0).build();
         AiChatResponse response = AiChatResponse.builder()
                 .type("FOLLOW_UP")
                 .chatResponse("안녕하세요! 무엇을 도와드릴까요?")
                 .title("새로운 채팅 제목")
                 .memoryStatus("OK")
+                .parsedState(mockState)
                 .build();
 
         ChatMessages mockMessage = ChatMessages.builder().messageId(50L).build();
@@ -130,7 +132,7 @@ class AiServiceTest {
             aiService.getPreferenceSummary(userId);
         });
 
-        assertEquals(ErrorCode.UNAUTHORIZED, exception.getErrorCode());
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test

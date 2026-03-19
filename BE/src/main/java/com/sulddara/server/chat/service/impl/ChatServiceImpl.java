@@ -62,7 +62,7 @@ public class ChatServiceImpl implements ChatService {
 
         return new ChatResponse(sessionId, savedMessage.getMessageId(),
                 userId, RoleType.USER.toString(),
-                content, LocalDateTime.now());
+                content, Instant.now().toEpochMilli());
     }
 
     @Override
@@ -97,6 +97,6 @@ public class ChatServiceImpl implements ChatService {
                 Instant.now().toEpochMilli()
         ));
 
-        return new ChatUpdateResponse(messageId, content, LocalDateTime.now());
+        return new ChatUpdateResponse(messageId, content, Instant.now().toEpochMilli());
     }
 }

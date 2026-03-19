@@ -19,7 +19,7 @@ class SseHubTest {
     private SseHub sseHub;
 
     @Mock
-    private RedisTemplate<String, Object> redisTemplate;
+    private RedisTemplate<String, String> redisTemplate;
 
     @BeforeEach
     void setUp() {

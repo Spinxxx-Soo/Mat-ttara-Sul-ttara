@@ -59,19 +59,32 @@ class GoogleSocialLoginServiceImplTest {
         String googleAccessToken = "google_access_token";
         Map<String, Object> googleUserInfo = Map.of("sub", "12345", "email", "test@gmail.com", "name", "테스터");
 
-        // 1. postForObject Mock 설정 (ArgumentMatchers.any()를 사용해 유연하게 매칭)
-        Map<String, Object> tokenResponse = Map.of("access_token", googleAccessToken);
-        given(restTemplate.postForObject(anyString(), any(), eq(Map.class)))
+        // 1. getAccessToken 내부의 exchange Mock 설정 (POST 방식)
+        Map<String, Object> tokenResponseBody = Map.of("access_token", googleAccessToken);
+        ResponseEntity<Map<String, Object>> tokenResponse = new ResponseEntity<>(tokenResponseBody, HttpStatus.OK);
+
+        // ParameterizedTypeReference 매칭을 위해 any()를 사용
+        given(restTemplate.exchange(
+                eq("https://oauth2.googleapis.com/token"),
+                eq(HttpMethod.POST),
+                any(),
+                any(ParameterizedTypeReference.class)))
                 .willReturn(tokenResponse);
 
-        // 2. exchange Mock 설정
+        // 2. getUserInfo 내부의 exchange Mock 설정 (GET 방식)
         ResponseEntity<Map<String, Object>> userInfoResponse = new ResponseEntity<>(googleUserInfo, HttpStatus.OK);
-        given(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(new ParameterizedTypeReference<Map<String, Object>>() {})))
+        given(restTemplate.exchange(
+                eq("https://www.googleapis.com/oauth2/v3/userinfo"),
+                eq(HttpMethod.GET),
+                any(),
+                any(ParameterizedTypeReference.class)))
                 .willReturn(userInfoResponse);
 
-        // 3. 서비스 로직 Mock
+        // 3. 나머지 Mock 설정 (동일)
         User mockUser = User.builder().id(1L).email("test@gmail.com").role("ROLE_USER").build();
-        given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser, true));
+        UserAuthResultDto authResult = new UserAuthResultDto(mockUser, true);
+
+        given(userService.joinOrUpdate(any())).willReturn(authResult);
         given(jwtUtil.generateAccessToken(any(), any(), any())).willReturn("jwt_access");
         given(jwtUtil.generateRefreshToken(any(), any())).willReturn("jwt_refresh");
         given(redisTemplate.opsForValue()).willReturn(valueOperations);

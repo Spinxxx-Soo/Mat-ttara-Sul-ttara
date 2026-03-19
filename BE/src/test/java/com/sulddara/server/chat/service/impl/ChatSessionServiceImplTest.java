@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -135,6 +136,8 @@ class ChatSessionServiceImplTest {
                 .userId(userId)
                 .title("test chat")
                 .status("ACTIVE")
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
 
         Slice<ChatSessions> slice = new SliceImpl<>(List.of(session), pageable, true);
