@@ -16,49 +16,58 @@ interface UseMarkersProps {
 }
 
 export const useMarkers = ({ mapInstance, places, selectedPlaceId, onMarkerClick }: UseMarkersProps) => {
-  // 생성된 마커 인스턴스들을 보관
-  const markersRef = useRef<NaverMarkerInstance[]>([]);
+  // placeId -> marker 맵 참조
+  const markersRef = useRef<Record<number, NaverMarkerInstance>>({});
 
+  // 1. 마커 생성 및 제거 (mapInstance, places가 변경될 때만 실행)
   useEffect(() => {
-    // 지도 인스턴스가 없거나 window.naver가 아직 로드되지 않은 경우 무시
     if (!mapInstance || !window.naver?.maps) return;
 
-    // 1. 기존 마커들 삭제 (초기화)
-    markersRef.current.forEach((marker) => marker.setMap(null));
-    markersRef.current = [];
+    // 기존 마커 전체 제거
+    Object.values(markersRef.current).forEach((marker) => marker.setMap(null));
+    markersRef.current = {};
 
-    // 2. 새로운 장소 배열로 마커 생성
-    const newMarkers = places.map((place) => {
+    const newMarkersMap: Record<number, NaverMarkerInstance> = {};
+
+    places.forEach((place) => {
       const position = new window.naver.maps.LatLng(place.position.lat, place.position.lng);
-      const isSelected = place.id === selectedPlaceId;
-
-      // TODO: 추후 커스텀 마커 이미지 적용 (195번 티켓 범주)
-      // 현재는 선택 여부에 따라 기본 마커의 색상/크기를 다르게 보이는 용도로 zIndex만 조정
+      
       const markerOptions: any = {
         position,
         map: mapInstance,
-        zIndex: isSelected ? 100 : 1,
+        zIndex: 1, // 초기값 설정, 선택 상태 변경 effect에서 관리
       };
 
       const marker = new window.naver.maps.Marker(markerOptions);
 
-      // 마커 클릭 이벤트 등록
       if (onMarkerClick) {
         window.naver.maps.Event.addListener(marker, 'click', () => {
           onMarkerClick(place, marker);
         });
       }
 
-      return marker;
+      newMarkersMap[place.id] = marker;
     });
 
-    markersRef.current = newMarkers;
+    markersRef.current = newMarkersMap;
 
-    // cleanup: 언마운트 시 모든 마커 지도에서 제거
     return () => {
-      markersRef.current.forEach((marker) => marker.setMap(null));
+      Object.values(markersRef.current).forEach((marker) => marker.setMap(null));
     };
-  }, [mapInstance, places, selectedPlaceId, onMarkerClick]);
+  }, [mapInstance, places, onMarkerClick]);
 
+  // 2. 선택 상태 표시 갱신 (selectedPlaceId가 변경될 때만 실행)
+  useEffect(() => {
+    Object.entries(markersRef.current).forEach(([placeIdStr, marker]) => {
+      const placeId = Number(placeIdStr);
+      const isSelected = placeId === selectedPlaceId;
+      // TODO: 추후 커스텀 이미지로 교체할 수 있는 영역
+      marker.setZIndex(isSelected ? 100 : 1);
+    });
+  }, [selectedPlaceId, places]); 
+  // places 의존성 추가: 새로운 places가 fetch되어 새로 마커가 그려진 직후에도 선택 상태를 반영하기 위함.
+
+  // 컴포넌트 측에서 직접 제어할 수 있도록 맵 반환
   return { markers: markersRef.current };
 };
+
