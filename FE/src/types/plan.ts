@@ -24,9 +24,10 @@ export interface PlanUIModel {
 }
 
 /**
- * 플랜 목록 응답 UI 모델
+ * 플랜 목록 응답 UI 모델 (S14P21B205-132: 커서 기반 대응)
  */
 export interface PlanListUIModel {
   plans: PlanUIModel[];
-  totalCount: number;
+  nextCursor: string | number | null;
+  hasNext: boolean;
 }

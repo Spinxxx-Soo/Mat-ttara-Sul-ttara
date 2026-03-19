@@ -15,6 +15,7 @@ export const placeApi = {
     getNearbyPlaces: async (params: NearbyPlacesParams): Promise<ApiPaginationResponse<Place>> => {
         const { data } = await apiClient.get<ApiPaginationResponse<Place>>('/api/places/nearby', {
             params,
+            meta: { dedupe: 'replace-prev' },
         });
         return data;
     },
@@ -44,7 +45,8 @@ export const placeApi = {
         if (params.lng !== undefined) queryParams.append('lng', params.lng.toString());
 
         const { data } = await apiClient.get<PlaceSearchResponse>(
-            `/api/v1/places/search?${queryParams.toString()}`
+            `/api/v1/places/search?${queryParams.toString()}`,
+            { meta: { dedupe: 'replace-prev' } }
         );
         return data;
     },
