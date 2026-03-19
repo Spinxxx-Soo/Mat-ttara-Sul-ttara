@@ -1,5 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import LoadingState from '@/components/ui/LoadingState';
+import ErrorState from '@/components/ui/ErrorState';
+import EmptyState from '@/components/ui/EmptyState';
 import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
 
 const MyPlan = () => {
@@ -62,35 +65,20 @@ const MyPlan = () => {
           {/* Plans List */}
           <div className="grid gap-6">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
-                <p className="text-slate-500">일정을 불러오는 중입니다...</p>
-              </div>
+              <LoadingState message="일정을 불러오는 중입니다..." />
             ) : isError ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-red-50 dark:bg-red-950/20 rounded-3xl border border-dashed border-red-200 dark:border-red-900/30">
-                <span className="material-symbols-outlined text-6xl text-red-400 mb-4">error</span>
-                <p className="text-red-600 dark:text-red-400 font-medium">일정을 불러오는 중 오류가 발생했습니다.</p>
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="mt-4 px-6 py-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-xl hover:bg-red-200 transition-colors font-semibold"
-                >
-                  다시 시도
-                </button>
-              </div>
+              <ErrorState
+                title="일정을 불러오는 중 오류가 발생했습니다."
+                onRetry={() => window.location.reload()}
+              />
             ) : plans.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-                <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-700 mb-4">
-                  calendar_today
-                </span>
-                <p className="text-slate-500 font-medium mb-1">등록된 여행 계획이 없습니다.</p>
-                <p className="text-slate-400 text-sm mb-6">첫 번째 맛집 여행 계획을 만들어보세요!</p>
-                <button
-                  onClick={handleCreatePlan}
-                  className="px-6 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-primary hover:text-white transition-all font-semibold"
-                >
-                  플랜 만들기
-                </button>
-              </div>
+              <EmptyState
+                icon="calendar_today"
+                title="등록된 여행 계획이 없습니다."
+                message="첫 번째 맛집 여행 계획을 만들어보세요!"
+                actionText="플랜 만들기"
+                onAction={handleCreatePlan}
+              />
             ) : (
               plans.map((plan) => (
                 <div
