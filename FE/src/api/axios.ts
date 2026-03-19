@@ -133,7 +133,7 @@ apiClient.interceptors.response.use(
 
     // 1. 요청 취소(ERR_CANCELED)는 로그나 토스트 없이 조용히 무시
     if (axios.isCancel(error) || error.code === 'ERR_CANCELED') {
-      return new Promise(() => {}); // 진행 중인 프로미스를 절대 종료하지 않거나, 적절히 catch에서 처리되도록 유도
+      return Promise.reject(error);
     }
 
     // 2. Pending Request Clear

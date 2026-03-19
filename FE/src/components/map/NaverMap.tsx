@@ -111,13 +111,17 @@ export default function NaverMap({
       }
     }
     
+  }, [coordinates, sdkLoaded, mapInstance, setCenter]);
+
+  // 마커 언마운트 시 정리 (깜빡임 방지용 분리)
+  useEffect(() => {
     return () => {
       if (locationMarkerRef.current) {
         locationMarkerRef.current.setMap(null);
         locationMarkerRef.current = null;
       }
     };
-  }, [coordinates, sdkLoaded, mapInstance, setCenter]);
+  }, []);
 
   // 장소 마커 표시 및 업데이트 (S14P21B205-194, 195, 196)
   useEffect(() => {
