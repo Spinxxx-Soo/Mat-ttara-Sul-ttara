@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useGoogleLogin } from '@react-oauth/google'
+import { useQueryClient } from '@tanstack/react-query'
 import { socialLogin } from '@/api/authApi'
+import { queryKeys } from '@/hooks/queries/queryKeys'
 import { useAuthStore } from '@/stores/authStore'
 import { getNaverLoginUrl, getNaverCodeFromUrl } from '@/lib/naverLogin'
 import Button from '@/components/ui/Button'
@@ -10,9 +12,16 @@ import appLogoImage from '@/assets/logo.png'
 
 const Login = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { setAuth } = useAuthStore()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const resetAuthQueries = () => {
+    queryClient.removeQueries({ queryKey: queryKeys.user.all })
+    queryClient.removeQueries({ queryKey: queryKeys.plan.all })
+    queryClient.removeQueries({ queryKey: queryKeys.chat.all })
+  }
 
   // URL에서 네이버 인증 코드 확인
   useEffect(() => {
@@ -31,6 +40,7 @@ const Login = () => {
       const loginResponse = await socialLogin('google', response.code)
 
       // 토큰 및 신규 유저 여부 저장
+      resetAuthQueries()
       setAuth(
         loginResponse.accessToken,
         loginResponse.refreshToken,
@@ -86,6 +96,7 @@ const Login = () => {
       const loginResponse = await socialLogin('naver', code)
 
       // 토큰 및 신규 유저 여부 저장
+      resetAuthQueries()
       setAuth(
         loginResponse.accessToken,
         loginResponse.refreshToken,
