@@ -1,12 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import CopyLinkButton from '@/components/CopyLinkButton';
 import Button from '@/components/ui/Button';
 import NaverMap from '@/components/map/NaverMap';
 import { useAuthStore } from '@/stores/authStore';
-import { PlanUIModel } from '@/types/plan';
 // TODO: Home.tsx의 plans 섹션은 개발 테스트용 임시 코드입니다. 실제 플랜 목록은 /my-plan 페이지 참고.
+import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
 import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces';
 import { useMarkers } from '@/hooks/useMarkers';
 import { useInfoWindow } from '@/hooks/useInfoWindow';
@@ -22,16 +21,8 @@ const REFETCH_THRESHOLD_METERS = 100;
 export default function Home() {
   const { isLoggedIn, logout } = useAuthStore();
 
-  // TODO: 개발 테스트용 임시 polling 코드. 실제 플랜 API는 planApi.ts 참고.
-  const { data: plans, isLoading } = useQuery<Partial<PlanUIModel>[]>({
-    queryKey: ['plans'],
-    queryFn: async () => {
-      return [
-        { id: '1', title: 'Plan A', memo: 'MVP 첫 번째 플랜' },
-      ];
-    },
-    refetchInterval: 10000,
-  });
+  const { data: plansData, isPending: isPlansLoading } = usePlansQuery();
+  const plans = plansData?.plans || [];
 
   const [mapInst, setMapInst] = useState<NaverMapInstance | null>(null);
   
@@ -150,14 +141,16 @@ export default function Home() {
 
       <main className="space-y-12">
         <section>
-          <h2 className="text-xl font-semibold mb-4 text-gray-700">React Query + Polling</h2>
-          {isLoading ? (
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">전체 플랜 목록</h2>
+          {isPlansLoading ? (
             <p className="text-gray-500">데이터를 불러오는 중입니다...</p>
+          ) : plans.length === 0 ? (
+            <p className="text-gray-500 italic">등록된 플랜이 없습니다.</p>
           ) : (
             <ul className="list-disc pl-5 space-y-2">
-              {plans?.map((plan) => (
+              {plans.map((plan) => (
                 <li key={plan.id} className="text-gray-800">
-                  <span className="font-semibold">{plan.title}</span> - {plan.memo}
+                  <span className="font-semibold">{plan.title}</span> - {plan.memo || '메모 없음'}
                 </li>
               ))}
             </ul>

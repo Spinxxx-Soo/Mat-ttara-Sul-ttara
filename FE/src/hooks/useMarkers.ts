@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PlaceMarkerData } from '@/types/map';
 import type { NaverMapInstance, NaverMarkerInstance } from '@/types/naver.d';
 
@@ -16,8 +16,10 @@ interface UseMarkersProps {
 }
 
 export const useMarkers = ({ mapInstance, places, selectedPlaceId, onMarkerClick }: UseMarkersProps) => {
-  // placeId -> marker 맵 참조
+  // placeId -> marker 맵 참조 (성능 및 클린업용)
   const markersRef = useRef<Record<number, NaverMarkerInstance>>({});
+  // 리액티브하게 반환하기 위한 상태 (S14P21B205-212 피드백 반영: P1 정보창 동기화)
+  const [markers, setMarkers] = useState<Record<number, NaverMarkerInstance>>({});
 
   // 1. 마커 생성 및 제거 (mapInstance, places가 변경될 때만 실행)
   useEffect(() => {
@@ -50,6 +52,7 @@ export const useMarkers = ({ mapInstance, places, selectedPlaceId, onMarkerClick
     });
 
     markersRef.current = newMarkersMap;
+    setMarkers(newMarkersMap);
 
     return () => {
       Object.values(markersRef.current).forEach((marker) => marker.setMap(null));
@@ -67,7 +70,7 @@ export const useMarkers = ({ mapInstance, places, selectedPlaceId, onMarkerClick
   }, [selectedPlaceId, places]); 
   // places 의존성 추가: 새로운 places가 fetch되어 새로 마커가 그려진 직후에도 선택 상태를 반영하기 위함.
 
-  // 컴포넌트 측에서 직접 제어할 수 있도록 맵 반환
-  return { markers: markersRef.current };
+  // 컴포넌트 측에서 직접 제어할 수 있도록 맵 반환 (상태 기반으로 변경하여 리렌더링 유발)
+  return { markers };
 };
 

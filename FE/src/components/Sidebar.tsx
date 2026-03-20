@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { logout } from '@/api/authApi'
+import { usePlanStore } from '@/stores/planStore'
 
 interface SidebarProps {
   className?: string
@@ -10,6 +11,7 @@ const Sidebar = ({ className = '' }: SidebarProps) => {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout: logoutStore } = useAuthStore()
+  const { selectedPlan } = usePlanStore()
   
   const handleLogout = async () => {
     try {
@@ -81,8 +83,16 @@ const Sidebar = ({ className = '' }: SidebarProps) => {
         </div>
       </div>
       
-      {/* 사용자 프로필 및 로그아웃 */}
+      {/* 사용자 프로필 및 선택된 플랜 정보 */}
       <div className="flex flex-col items-center gap-4 w-full px-2">
+        {selectedPlan && (
+          <div className="flex flex-col items-center gap-1 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="bg-primary/10 p-2 rounded-xl border border-primary/20 text-primary text-center">
+              <span className="material-symbols-outlined text-xl block">assignment</span>
+              <span className="text-[9px] font-bold block truncate max-w-[60px]">{selectedPlan.title}</span>
+            </div>
+          </div>
+        )}
         <button className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-orange-100 dark:from-primary/30 dark:to-orange-900/30 overflow-hidden border-2 border-primary/30 hover:border-primary transition-all shadow-md hover:shadow-lg">
           <img
             className="w-full h-full object-cover"
