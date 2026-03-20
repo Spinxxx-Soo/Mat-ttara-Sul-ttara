@@ -24,6 +24,8 @@ export const AuthInitializer = ({ children }: PropsWithChildren) => {
     enabled: shouldSyncUser,
   });
 
+  const { logout } = useAuthStore();
+
   if (!hasHydrated) {
     return (
       <FullScreenShell>
@@ -51,9 +53,14 @@ export const AuthInitializer = ({ children }: PropsWithChildren) => {
       <FullScreenShell>
         <ErrorState
           title="사용자 정보를 불러오지 못했습니다."
-          message="잠시 후 다시 시도하거나 다시 로그인해주세요."
+          message="세션이 만료되었거나 일시적인 오류일 수 있습니다."
           onRetry={() => {
             void refetch();
+          }}
+          // 피드백 반영: 로그아웃을 통한 재로그인 유도
+          actionLabel="다시 로그인하기"
+          onAction={() => {
+            logout();
           }}
           className="w-full max-w-md"
         />
