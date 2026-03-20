@@ -9,12 +9,14 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
 @Entity
 @SQLRestriction("deleted_at IS NULL")
+@SQLDelete(sql = "UPDATE plan_details SET deleted_at = NOW() WHERE id = ?")
 @Table(name = "plan_details", indexes = {
     @Index(name = "idx_plan_details_plan_seq", columnList = "plan_id, seq_no")
 })
@@ -48,6 +50,7 @@ public class PlanDetailEntity {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
+    @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
     public PlanDetailEntity(Place place, Integer seqNo, String recommendReason) {
@@ -59,7 +62,10 @@ public class PlanDetailEntity {
         this.recommendReason = recommendReason;
     }
 
-    void setPlan(PlanEntity plan) {
+    void assignPlan(PlanEntity plan) {
+        if (this.plan != null && plan != null) {
+            throw new IllegalStateException("PlanDetail belongs to another Plan.");
+        }
         this.plan = plan;
     }
 

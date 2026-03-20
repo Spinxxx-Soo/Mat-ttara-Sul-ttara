@@ -47,7 +47,7 @@ public class UserPreference {
     this.gender = gender;
   }
 
-  void setUser(UserEntity user) {
+  void boundToUser(UserEntity user) {
     this.user = user;
   }
 

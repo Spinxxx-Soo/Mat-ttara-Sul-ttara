@@ -97,9 +97,12 @@ public class UserEntity {
     }
 
     public void updatePreference(UserPreference preference) {
+        if (this.preference != null) {
+            this.preference.boundToUser(null);
+        }
         this.preference = preference;
         if (preference != null) {
-            preference.setUser(this);
+            preference.boundToUser(this);
         }
     }
 

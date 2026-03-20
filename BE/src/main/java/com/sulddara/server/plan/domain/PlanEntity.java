@@ -11,6 +11,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.SQLDelete;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.List;
 
 @Entity
 @SQLRestriction("deleted_at IS NULL")
+@SQLDelete(sql = "UPDATE plans SET deleted_at = NOW() WHERE id = ?")
 @Table(name = "plans")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -61,6 +63,7 @@ public class PlanEntity {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
+    @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
     public PlanEntity(
@@ -91,7 +94,12 @@ public class PlanEntity {
 
     public void addDetail(PlanDetailEntity detail) {
         this.details.add(detail);
-        detail.setPlan(this);
+        detail.assignPlan(this);
+    }
+
+    public void removeDetail(PlanDetailEntity detail) {
+        this.details.remove(detail);
+        detail.assignPlan(null);
     }
 
     public void update(
