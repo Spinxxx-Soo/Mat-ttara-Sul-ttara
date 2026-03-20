@@ -58,8 +58,8 @@ export const AuthInitializer = ({ children }: PropsWithChildren) => {
             void refetch();
           }}
           // 피드백 반영: 로그아웃을 통한 재로그인 유도
-          actionLabel="다시 로그인하기"
-          onAction={() => {
+          secondaryActionText="다시 로그인하기"
+          onSecondaryAction={() => {
             logout();
           }}
           className="w-full max-w-md"
