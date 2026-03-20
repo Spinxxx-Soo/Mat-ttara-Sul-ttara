@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import { useEffect, type PropsWithChildren } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import ErrorState from '@/components/ui/ErrorState';
@@ -15,7 +15,27 @@ const FullScreenShell = ({ children }: PropsWithChildren) => (
 );
 
 export const AuthInitializer = ({ children }: PropsWithChildren) => {
-  const { hasHydrated, isLoggedIn, lastUserSyncAt, user } = useAuthStore();
+  const { hasHydrated, isLoggedIn, lastUserSyncAt, user, setUser } = useAuthStore();
+
+  // 개발 환경 전용 인증 바이패스 설정 및 Mock 데이터 주입
+  useEffect(() => {
+    const isAuthBypass = 
+      import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === 'true';
+
+    if (isAuthBypass && hasHydrated && !isLoggedIn) {
+      console.warn('[DEV] Auth Bypass active: Injecting mock user data');
+      setUser({
+        userId: 9999,
+        email: 'dev-tester@matsul.com',
+        name: '개발용_테스터',
+        bio: '인증 바이패스 모드입니다.',
+        createdAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+      });
+      // Note: setTokens는 호출하지 않음 (isLoggedIn: true 상태로 만들지 않음)
+      // ProtectedRoute에서도 isAuthBypass 체크를 통해 통과시키므로 안전합니다.
+    }
+  }, [hasHydrated, isLoggedIn, setUser]);
 
   const shouldSyncUser =
     hasHydrated && isLoggedIn && (!user || isUserDataStale(lastUserSyncAt));

@@ -8,7 +8,11 @@ import LoadingState from '@/components/ui/LoadingState';
 export const PublicRoute = () => {
   const { hasHydrated, isLoggedIn } = useAuthStore();
 
-  if (!hasHydrated) {
+  // 개발 환경 전용 인증 바이패스 설정
+  const isAuthBypass = 
+    import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === 'true';
+
+  if (!hasHydrated && !isAuthBypass) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark px-4 py-6">
         <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-xl items-center justify-center">
@@ -21,7 +25,7 @@ export const PublicRoute = () => {
     );
   }
 
-  if (isLoggedIn) {
+  if (isLoggedIn && !isAuthBypass) {
     return <Navigate to="/" replace />;
   }
 
