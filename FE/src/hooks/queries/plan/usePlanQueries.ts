@@ -1,5 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { planApi } from '@/api/planApi';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { mapPlanToUI, mapPlanListToUI } from '@/utils/mappers/planMapper';
@@ -14,6 +13,22 @@ export const usePlansQuery = (cursor?: string | number, size = 10) => {
     queryFn: () => planApi.getPlans(cursor, size),
     select: mapPlanListToUI,
     placeholderData: (previousData) => previousData,
+  });
+};
+
+/**
+ * 플랜 목록 무한 스크롤 쿼리 (S14P21B205-212 피드백 반영: P1 리스트 누적 처리)
+ */
+export const useInfinitePlansQuery = (size = 10) => {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.plan.list(), 'infinite', size],
+    queryFn: ({ pageParam }) => planApi.getPlans(pageParam as string | number | undefined, size),
+    initialPageParam: undefined as string | number | undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.nextCursor : undefined),
+    select: (data) => ({
+      pages: data.pages.map(mapPlanListToUI),
+      pageParams: data.pageParams,
+    }),
   });
 };
 
@@ -34,13 +49,11 @@ export const usePlanDetailQuery = (planId: string) => {
  */
 export const useCreatePlanMutation = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   return useMutation({
     mutationFn: (data: CreatePlanRequest) => planApi.createPlan(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.plan.list() });
-      navigate('/my-plan');
     },
   });
 };
@@ -50,13 +63,11 @@ export const useCreatePlanMutation = () => {
  */
 export const useDeletePlanMutation = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   return useMutation({
     mutationFn: (planId: string | number) => planApi.deletePlan(planId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.plan.list() });
-      navigate('/my-plan');
     },
   });
 };
