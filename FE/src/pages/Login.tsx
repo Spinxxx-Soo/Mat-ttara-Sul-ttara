@@ -110,7 +110,7 @@ const Login = () => {
   }
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
+    <div className="relative h-screen w-full overflow-y-auto">
       <style>{`
         @keyframes landingFadeUp {
           0% { opacity: 0; transform: translate3d(0, 14px, 0); filter: blur(8px); }
