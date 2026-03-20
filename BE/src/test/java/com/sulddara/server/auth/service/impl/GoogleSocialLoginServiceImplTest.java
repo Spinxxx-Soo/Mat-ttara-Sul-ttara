@@ -74,7 +74,7 @@ class GoogleSocialLoginServiceImplTest {
         // 3. 서비스 로직 Mock
         UserEntity mockUser = UserEntityFixture.createUserWithId(1L);
         ReflectionTestUtils.setField(mockUser, "email", "test@gmail.com");
-        given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser, true));
+        given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser.getId(), mockUser.getEmail(), mockUser.getRole(), true));
         given(jwtUtil.generateAccessToken(any(), any(), any())).willReturn("jwt_access");
         given(jwtUtil.generateRefreshToken(any(), any())).willReturn("jwt_refresh");
         given(redisTemplate.opsForValue()).willReturn(valueOperations);

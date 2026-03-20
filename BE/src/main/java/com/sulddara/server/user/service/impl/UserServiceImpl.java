@@ -87,7 +87,12 @@ public class UserServiceImpl implements UserService {
                 .map(user -> {
                     user.updateName(userInfo.getName());
                     user.updateLastLoginAt(LocalDateTime.now());
-                    return new UserAuthResultDto(user, false);
+                    return new UserAuthResultDto(
+                            user.getId(),
+                            user.getEmail(),
+                            user.getRole(),
+                            false
+                    );
                 })
                 .orElseGet(() -> {
                     UserEntity newUser = new UserEntity(
@@ -100,7 +105,13 @@ public class UserServiceImpl implements UserService {
                             "ROLE_USER"
                     );
                     newUser.updateLastLoginAt(LocalDateTime.now());
-                    return new UserAuthResultDto(userRepository.save(newUser), true);
+                    UserEntity savedUser = userRepository.save(newUser);
+                    return new UserAuthResultDto(
+                            savedUser.getId(),
+                            savedUser.getEmail(),
+                            savedUser.getRole(),
+                            true
+                    );
                 });
     }
 }

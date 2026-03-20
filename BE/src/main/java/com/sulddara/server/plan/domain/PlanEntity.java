@@ -10,11 +10,14 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@SQLRestriction("deleted_at IS NULL")
 @Table(name = "plans")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

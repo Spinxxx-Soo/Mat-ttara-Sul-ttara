@@ -79,7 +79,7 @@ class NaverSocialLoginServiceImplTest {
         // 3. 서비스 로직 Mock
         UserEntity mockUser = UserEntityFixture.createUserWithId(1L);
         ReflectionTestUtils.setField(mockUser, "email", "test@naver.com");
-        given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser, false));
+        given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser.getId(), mockUser.getEmail(), mockUser.getRole(), false));
         given(jwtUtil.generateAccessToken(any(), any(), any())).willReturn("jwt_access");
         given(jwtUtil.generateRefreshToken(any(), any())).willReturn("jwt_refresh");
         given(redisTemplate.opsForValue()).willReturn(valueOperations);

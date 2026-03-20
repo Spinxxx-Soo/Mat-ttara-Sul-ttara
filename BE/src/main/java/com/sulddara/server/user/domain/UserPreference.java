@@ -47,7 +47,7 @@ public class UserPreference {
     this.gender = gender;
   }
 
-  public void setUser(UserEntity user) {
+  void setUser(UserEntity user) {
     this.user = user;
   }
 

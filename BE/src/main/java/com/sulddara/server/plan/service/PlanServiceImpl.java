@@ -145,7 +145,7 @@ public class PlanServiceImpl implements PlanService {
         requestDto.memo()
     );
 
-    plan.getDetails().forEach(PlanDetailEntity::softDelete);
+    plan.getDetails().clear();
 
     if (requestDto.details() != null) {
       for (PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.details()) {

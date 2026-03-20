@@ -47,10 +47,10 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
 
         UserAuthResultDto user = userService.joinOrUpdate(userInfo);
 
-        String jwtAccessToken = jwtUtil.generateAccessToken(user.user().getId(), user.user().getEmail(), user.user().getRole());
-        String jwtRefreshToken = jwtUtil.generateRefreshToken(user.user().getId(), user.user().getEmail());
+        String jwtAccessToken = jwtUtil.generateAccessToken(user.userId(), user.email(), user.role());
+        String jwtRefreshToken = jwtUtil.generateRefreshToken(user.userId(), user.email());
 
-        String email = user.user().getEmail();
+        String email = user.email();
         if (email != null && jwtRefreshToken != null) {
             redisTemplate.opsForValue().set(
                     "refresh:" + email,
