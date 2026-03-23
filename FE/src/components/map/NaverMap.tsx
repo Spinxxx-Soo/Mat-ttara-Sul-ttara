@@ -1,6 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMap } from '@/hooks/useMap';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { useInfoWindow } from '@/hooks/useInfoWindow';
+import { usePlaceDetail } from '@/hooks/queries/place/usePlaces';
+import { createPlaceInfoCardHtml } from '@/components/map/PlaceInfoCard';
 import type { Coordinates } from '@/types/map';
 import type { Place } from '@/types/api';
 import type { NaverMapInstance, NaverMarkerInstance } from '@/types/naver.d';
@@ -37,11 +40,50 @@ export default function NaverMap({
 }: NaverMapProps) {
   const defaultCenter: Coordinates = { lat, lng };
 
-  const { mapRef, mapInstance, sdkLoaded, sdkError, setCenter } = useMap({ defaultCenter });
+  const { mapRef, mapInstance, mapReady, sdkLoaded, sdkError, setCenter } = useMap({ defaultCenter });
   const { coordinates, errorType } = useGeolocation(false);
   const locationMarkerRef = useRef<NaverMarkerInstance | null>(null);
   const placesMarkersRef = useRef<Map<number, NaverMarkerInstance>>(new Map());
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 핀 클릭 시 말풍선 카드 (가게 상세 정보)
+  const [infoPlaceId, setInfoPlaceId] = useState<number | null>(null);
+  const infoMarkerRef = useRef<NaverMarkerInstance | null>(null);
+  const { data: placeDetail, isLoading: isPlaceDetailLoading } = usePlaceDetail(
+    infoPlaceId ?? 0,
+    !!infoPlaceId
+  );
+  const { openInfoWindow, closeInfoWindow } = useInfoWindow(
+    mapReady && mapInstance.current ? mapInstance.current : null
+  );
+
+  // 닫기 버튼용 전역 함수 등록 (PlaceInfoCard HTML에서 호출)
+  useEffect(() => {
+    (window as unknown as { __closePlaceInfo?: () => void }).__closePlaceInfo = closeInfoWindow;
+    return () => {
+      delete (window as unknown as { __closePlaceInfo?: () => void }).__closePlaceInfo;
+    };
+  }, [closeInfoWindow]);
+
+  // 가게 상세 로드 시 말풍선 카드 표시/갱신
+  useEffect(() => {
+    if (!infoPlaceId || !infoMarkerRef.current || !mapReady) return;
+
+    const basicPlace = places.find((p) => p.placeId === infoPlaceId);
+    const placeToShow = placeDetail ?? basicPlace ?? null;
+    const content = createPlaceInfoCardHtml(
+      placeToShow,
+      isPlaceDetailLoading && !basicPlace
+    );
+    openInfoWindow(infoMarkerRef.current, content);
+  }, [
+    infoPlaceId,
+    placeDetail,
+    isPlaceDetailLoading,
+    places,
+    mapReady,
+    openInfoWindow,
+  ]);
 
   // 지도 인스턴스가 준비되면 외부로 전달 및 이벤트 등록
   useEffect(() => {
@@ -165,6 +207,8 @@ export default function NaverMap({
         });
 
         window.naver.maps.Event.addListener(marker, 'click', () => {
+          infoMarkerRef.current = marker;
+          setInfoPlaceId(place.placeId);
           onPlaceClick?.(place);
         });
 

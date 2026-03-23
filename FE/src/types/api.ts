@@ -138,6 +138,13 @@ export interface UpdatePlanRequest {
 }
 
 // --- 장소 (Place) ---
+
+/** 장소 상세 조회 응답의 영업시간 구조 */
+export interface PlaceOpeningHours {
+  today?: string; // "18:00 - 01:00"
+  weekly?: Array<{ day: string; time: string }>;
+}
+
 export interface Place {
   placeId: number;
   name: string;
@@ -147,9 +154,12 @@ export interface Place {
   lng: number;
   rating?: number;
   recommendReason?: string; // 추천 장소 조회시
-  openingHours?: Record<string, any> | string;
+  openingHours?: PlaceOpeningHours | Record<string, unknown> | string;
   imageUrl?: string; // 가게 검색 응답에 포함
-  category?: string; // 가게 검색 응답에 포함
+  imageUrls?: string[]; // 장소 상세 조회 응답에 포함
+  category?: string;
+  description?: string; // 장소 상세 조회 응답에 포함
+  url?: string; // 네이버 지도 링크
 }
 
 export interface PlaceSearchRequest {

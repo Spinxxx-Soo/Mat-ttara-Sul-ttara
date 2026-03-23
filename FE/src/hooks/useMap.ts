@@ -19,6 +19,7 @@ interface UseMapOptions {
 interface UseMapReturn {
   mapRef: React.RefObject<HTMLDivElement>;
   mapInstance: React.MutableRefObject<NaverMapInstance | null>;
+  mapReady: boolean;
   viewport: MapViewport;
   sdkLoaded: boolean;
   sdkError: string | null;
@@ -37,6 +38,7 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
 
   const [sdkLoaded, setSdkLoaded] = useState<boolean>(isNaverMapLoaded());
   const [sdkError, setSdkError] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
   const [viewport, setViewport] = useState<MapViewport>({
     center: defaultCenter,
     zoom: defaultZoom,
@@ -59,10 +61,16 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
       center: new window.naver.maps.LatLng(defaultCenter.lat, defaultCenter.lng),
       zoom: defaultZoom,
     });
+    setMapReady(true);
 
     return () => {
       // 최초 생성한 지도 인스턴스를 해제해 내부 이벤트와 DOM 참조를 정리한다.
-      mapInstance.current?.destroy();
+      setMapReady(false);
+      try {
+        mapInstance.current?.destroy();
+      } catch {
+        // 인증 실패 등으로 지도 내부가 깨진 상태에서 destroy 시 예외 무시
+      }
       mapInstance.current = null;
     };
     // defaultCenter/defaultZoom은 지도 최초 생성 시점의 초기값으로만 사용한다.
@@ -86,6 +94,7 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
   return {
     mapRef,
     mapInstance,
+    mapReady,
     viewport,
     sdkLoaded,
     sdkError,
