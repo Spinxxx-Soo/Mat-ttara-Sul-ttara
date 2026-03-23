@@ -142,14 +142,16 @@ export interface Place {
   placeId: number;
   name: string;
   address: string;
-  phone?: string;
+  phone?: string | null;
   lat: number;
   lng: number;
-  rating?: number;
-  recommendReason?: string; // 추천 장소 조회시
-  openingHours?: Record<string, any> | string;
-  imageUrl?: string; // 가게 검색 응답에 포함
-  category?: string; // 가게 검색 응답에 포함
+  rating?: number | null;
+  recommendReason?: string | null; // 추천 장소 조회시
+  openingHours?: Record<string, any> | string | null;
+  imageUrl?: string | null; // 가게 검색 응답에 포함
+  category?: string | null; // 가게 검색 응답에 포함
+  /** 크롤링으로 보강된 데이터인지 여부 */
+  isEnriched?: boolean;
 }
 
 export interface PlaceSearchRequest {
