@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import List
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
@@ -7,24 +8,44 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from apps.domain.chat.client import OpenAIClient
 
 
-SUMMARY_TRIGGER_MESSAGE_COUNT = 12
+@dataclass(frozen=True)
+class SummaryPolicy:
+    min_messages_before_summary: int = 12
+    refresh_every_n_messages: int = 4
+    keep_recent_messages: int = 6
 
 
 class SummaryService:
     """
     summary 로직 분리:
     - summary refresh 여부 판단
+    - 요약 대상 메시지 선택
     - 메시지 요약 생성
     - 메시지 리스트를 요약용 텍스트로 변환
     """
 
-    def __init__(self, client: OpenAIClient):
+    def __init__(self, client: OpenAIClient, policy: SummaryPolicy | None = None):
         self.client = client
+        self.policy = policy or SummaryPolicy()
 
     def should_refresh_summary(self, messages: List[BaseMessage]) -> bool:
-        if len(messages) < SUMMARY_TRIGGER_MESSAGE_COUNT:
+        message_count = len(messages)
+
+        if message_count < self.policy.min_messages_before_summary:
             return False
-        return len(messages) % 4 == 0
+
+        return message_count % self.policy.refresh_every_n_messages == 0
+
+    def get_messages_to_summarize(self, messages: List[BaseMessage]) -> List[BaseMessage]:
+        """
+        최근 N개는 그대로 남기고, 그 이전 메시지만 요약 대상으로 반환
+        """
+        keep_recent = self.policy.keep_recent_messages
+
+        if len(messages) <= keep_recent:
+            return []
+
+        return messages[:-keep_recent]
 
     def messages_to_text(self, messages: List[BaseMessage]) -> str:
         lines: list[str] = []
@@ -42,7 +63,7 @@ class SummaryService:
         *,
         messages: List[BaseMessage],
         existing_summary: str,
-        thread_id: str,  # thread_id는 기존 프롬프트 흐름 호환용(현재 로직에서는 직접 사용하지 않음)
+        thread_id: str,
     ) -> str:
         if not messages:
             return existing_summary
@@ -75,4 +96,3 @@ class SummaryService:
             .get("content", existing_summary or "")
             .strip()
         )
-
