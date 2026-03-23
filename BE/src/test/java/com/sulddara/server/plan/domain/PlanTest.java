@@ -1,22 +1,28 @@
 package com.sulddara.server.plan.domain;
 
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.user.domain.UserEntity;
+import com.sulddara.server.common.fixture.UserEntityFixture;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import com.sulddara.server.common.fixture.PlanEntityFixture;
+import com.sulddara.server.common.fixture.UserEntityFixture;
 
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("Plan 엔티티 유닛 테스트")
+@DisplayName("PlanEntity 엔티티 유닛 테스트")
 class PlanTest {
 
     @Test
     @DisplayName("플랜 정보 업데이트 - 새로운 값으로 필드가 정상 변경된다")
     void update_validData_updatesFields() {
         // Given
-        User user = User.builder().build();
-        Plan plan = new Plan(user, "원본 제목", 100000L, 4, LocalDateTime.now(), "회식", "메모", "token");
+        UserEntity user = UserEntityFixture.createDefaultUser();
+        PlanEntity plan = PlanEntityFixture.createDefaultPlan(user);
+        ReflectionTestUtils.setField(plan, "title", "원본 제목");
+        ReflectionTestUtils.setField(plan, "totalBudget", 100000L);
         
         String newTitle = "수정된 제목";
         LocalDateTime newTime = LocalDateTime.now().plusDays(1);
@@ -41,8 +47,8 @@ class PlanTest {
     @DisplayName("소프트 삭제 - deletedAt 필드가 설정된다")
     void softDelete_setsDeletedAt() {
         // Given
-        User user = User.builder().build();
-        Plan plan = new Plan(user, "제목", 100000L, 4, LocalDateTime.now(), "회식", "메모", "token");
+        UserEntity user = UserEntityFixture.createDefaultUser();
+        PlanEntity plan = PlanEntityFixture.createDefaultPlan(user);
         assertThat(plan.getDeletedAt()).isNull();
 
         // When

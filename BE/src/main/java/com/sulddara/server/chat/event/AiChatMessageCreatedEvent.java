@@ -1,4 +1,4 @@
-package com.sulddara.server.share.event;
+package com.sulddara.server.chat.event;
 
 import com.sulddara.server.chat.ai.controller.request.SessionState;
 import com.sulddara.server.sse.payload.AiResponsePayload;

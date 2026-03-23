@@ -52,13 +52,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         return new CustomOAuth2User(
                 new DefaultOAuth2User(
-                        Collections.singleton(new SimpleGrantedAuthority(user.user().getRole())),
+                        Collections.singleton(new SimpleGrantedAuthority(user.role())),
                         response,
                         "id"
                 ),
-                user.user().getId(),
-                user.user().getEmail(),
-                user.user().getRole()
+                user.userId(),
+                user.email(),
+                user.role()
         );
     }
 }

@@ -30,10 +30,10 @@ import com.sulddara.server.chat.domain.ChatSessions;
 import com.sulddara.server.chat.domain.enums.RoleType;
 import com.sulddara.server.chat.repository.ChatMessagesRepository;
 import com.sulddara.server.chat.repository.ChatSessionRepository;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
-import com.sulddara.server.share.event.ChatMessageCreatedEvent;
-import com.sulddara.server.share.event.ChatMessageUpdatedEvent;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
+import com.sulddara.server.chat.event.ChatMessageCreatedEvent;
+import com.sulddara.server.chat.event.ChatMessageUpdatedEvent;
 
 @ExtendWith(MockitoExtension.class)
 class ChatServiceImplTest {

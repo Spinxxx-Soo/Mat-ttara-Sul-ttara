@@ -72,8 +72,8 @@ class NaverPlaceSearchServiceImplTest {
     }
 
     @Test
-    @DisplayName("searchPlaces - 외부 API 통신 장애 시 빈 결과를 반환한다 (Graceful Degradation)")
-    void searchPlaces_restClientException_returnsEmptyDto() {
+    @DisplayName("searchPlaces - 외부 API 통신 장애 시 ExternalServiceException이 발생한다")
+    void searchPlaces_restClientException_throwsExternalServiceException() {
         // given
         String keyword = "장애발생";
         int display = 5;
@@ -87,11 +87,9 @@ class NaverPlaceSearchServiceImplTest {
                 eq(NaverLocalSearchResponseDto.class)
         )).willThrow(new RestClientException("Connection Timeout"));
 
-        // when
-        NaverLocalSearchResponseDto result = naverPlaceSearchService.searchPlaces(keyword, display, start, sort);
-
-        // then
-        assertThat(result).isNotNull();
-        assertThat(result.getItems()).isEmpty();
+        // when & then
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> 
+            naverPlaceSearchService.searchPlaces(keyword, display, start, sort))
+            .isInstanceOf(com.sulddara.server.global.error.exception.ExternalServiceException.class);
     }
 }

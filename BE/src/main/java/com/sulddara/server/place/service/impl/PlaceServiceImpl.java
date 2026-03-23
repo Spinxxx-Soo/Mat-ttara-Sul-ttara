@@ -1,7 +1,7 @@
 package com.sulddara.server.place.service.impl;
 
 import com.sulddara.server.place.document.PlaceDocument;
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
@@ -67,9 +67,9 @@ public class PlaceServiceImpl implements PlaceService {
                 String cleanTitle = stripHtmlTags(item.getTitle());
                 String externalId = item.getMapx() + item.getMapy();
 
-                Optional<Place> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(PROVIDER_NAVER, externalId);
-                Long placeId = localPlaceOpt.map(Place::getId).orElse(null);
-                Boolean isOpen = localPlaceOpt.map(Place::getIsOpen).orElse(true);
+                Optional<PlaceEntity> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(PROVIDER_NAVER, externalId);
+                Long placeId = localPlaceOpt.map(PlaceEntity::getId).orElse(null);
+                Boolean isOpen = localPlaceOpt.map(PlaceEntity::getIsOpen).orElse(true);
 
                 // ⚠️ Fix: Naver TM128(KATEC) 평면 좌표 -> WGS84 위경도 변환
                 Double itemMapX = parseDoubleSafely(item.getMapx());
@@ -101,7 +101,7 @@ public class PlaceServiceImpl implements PlaceService {
                         .lat(itemLat)
                         .lng(itemLng)
                         .rating(rating)
-                        .imageUrl(localPlaceOpt.map(Place::getImageUrl).orElse(null))
+                        .imageUrl(localPlaceOpt.map(PlaceEntity::getImageUrl).orElse(null))
                         .category(item.getCategory())
                         .isOpen(isOpen)
                         .reviewCount(reviewCount)
@@ -175,17 +175,17 @@ public class PlaceServiceImpl implements PlaceService {
     // --- DTO 변환 메서드 ---
 
     private PlaceSearchResponseDto.PlaceItemDto toPlaceItemDto(PlaceDocument doc) {
-        Optional<Place> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(
+        Optional<PlaceEntity> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(
                 doc.getProvider(), doc.getExternalPlaceId());
 
         return PlaceSearchResponseDto.PlaceItemDto.builder()
-                .placeId(localPlaceOpt.map(Place::getId).orElse(null))
+                .placeId(localPlaceOpt.map(PlaceEntity::getId).orElse(null))
                 .name(doc.getName())
                 .address(doc.getAddress())
                 .lat(doc.getLat())
                 .lng(doc.getLng())
                 .rating(0.0)
-                .imageUrl(localPlaceOpt.map(Place::getImageUrl).orElse(doc.getImageUrl()))
+                .imageUrl(localPlaceOpt.map(PlaceEntity::getImageUrl).orElse(doc.getImageUrl()))
                 .category(doc.getCategory())
                 .isOpen(doc.getIsOpen() != null ? doc.getIsOpen() : true)
                 .reviewCount(0)
