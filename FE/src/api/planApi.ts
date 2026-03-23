@@ -1,5 +1,11 @@
 import { apiClient } from '@/api/axios';
-import type { Plan, ApiCursorPaginationResponse } from '@/types/api';
+import type { 
+  Plan, 
+  PlanDetail, 
+  ApiCursorPaginationResponse, 
+  CreatePlanRequest, 
+  UpdatePlanRequest 
+} from '@/types/api';
 
 /**
  * 플랜 관련 API (S14P21B205-213)
@@ -18,15 +24,15 @@ export const planApi = {
   /**
    * 플랜 상세 조회 (S14P21B205-213)
    */
-  getPlanDetail: async (planId: string | number): Promise<Plan> => {
-    const { data } = await apiClient.get<Plan>(`/api/v1/plans/${planId}`);
+  getPlanDetail: async (planId: string | number): Promise<PlanDetail> => {
+    const { data } = await apiClient.get<PlanDetail>(`/api/v1/plans/${planId}`);
     return data;
   },
 
   /**
    * 플랜 생성
    */
-  createPlan: async (planData: Partial<Plan>): Promise<Plan> => {
+  createPlan: async (planData: CreatePlanRequest): Promise<Plan> => {
     const { data } = await apiClient.post<Plan>('/api/v1/plans', planData);
     return data;
   },
@@ -34,7 +40,7 @@ export const planApi = {
   /**
    * 플랜 수정
    */
-  updatePlan: async (planId: string | number, planData: Partial<Plan>): Promise<Plan> => {
+  updatePlan: async (planId: string | number, planData: UpdatePlanRequest): Promise<Plan> => {
     const { data } = await apiClient.patch<Plan>(`/api/v1/plans/${planId}`, planData);
     return data;
   },

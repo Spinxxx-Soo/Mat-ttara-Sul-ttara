@@ -62,7 +62,7 @@ class PlanServiceImplTest {
     // Given
     Long userId = 1L;
     User user = User.builder()
-        .oauthId("google_123")
+        .providerId("google_123")
         .provider("GOOGLE")
         .name("테스트유저")
         .email("test@test.com")
@@ -123,7 +123,7 @@ class PlanServiceImplTest {
     // Given
     Long userId = 1L;
     User user = User.builder()
-        .oauthId("google_123")
+        .providerId("google_123")
         .provider("GOOGLE")
         .name("테스트유저")
         .email("test@test.com")
@@ -192,7 +192,7 @@ class PlanServiceImplTest {
     Long userId = 1L;
     Long invalidPlaceId = 999L;
     User user = User.builder()
-        .oauthId("google_123")
+        .providerId("google_123")
         .provider("GOOGLE")
         .name("테스트유저")
         .email("test@test.com")

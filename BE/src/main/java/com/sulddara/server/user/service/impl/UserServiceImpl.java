@@ -79,7 +79,7 @@ public class UserServiceImpl implements UserService {
         if (userInfo.getProviderId() == null || userInfo.getProvider() == null) {
             throw new BaseException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return userRepository.findByProviderAndOauthId(
+        return userRepository.findByProviderAndProviderId(
                         userInfo.getProvider().toString(),
                         userInfo.getProviderId()
                 )
@@ -90,7 +90,7 @@ public class UserServiceImpl implements UserService {
                 })
                 .orElseGet(() -> {
                     User newUser = User.builder()
-                            .oauthId(userInfo.getProviderId())
+                            .providerId(userInfo.getProviderId())
                             .provider(userInfo.getProvider().toString())
                             .email(userInfo.getEmail())
                             .name(userInfo.getName())

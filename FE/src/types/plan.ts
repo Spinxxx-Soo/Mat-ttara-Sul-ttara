@@ -14,13 +14,24 @@ export interface PlanUIModel {
   memo: string;
   createdAt: string;
   updatedAt: string;
+  thumbnailUrl: string;
+
+  // 장소 정보 추가 (S14P21B205-213)
+  places?: {
+    placeId: number;
+    name: string;
+    address: string;
+    category?: string;
+    lat: number;
+    lng: number;
+    seqNo: number;
+  }[];
 
   // UI 전용 가공 필드
   formattedDate: string;
   formattedBudget: string;
   status: 'upcoming' | 'completed';
   daysUntil?: number;
-  thumbnailUrl: string;
 }
 
 /**

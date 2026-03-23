@@ -22,7 +22,7 @@ public class User {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String oauthId;
+    private String providerId;
 
     @Column(nullable = false)
     private String provider; // e.g., KAKAO, GOOGLE

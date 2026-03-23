@@ -1,9 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { planApi } from '@/api/planApi';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { mapPlanToUI, mapPlanListToUI } from '@/utils/mappers/planMapper';
-import { CreatePlanRequest } from '@/types/api';
+import { CreatePlanRequest, UpdatePlanRequest } from '@/types/api';
 
 /**
  * 플랜 목록 조회 쿼리 - UI 모델로 변환 (S14P21B205-132: 커서 기반)
@@ -14,6 +13,22 @@ export const usePlansQuery = (cursor?: string | number, size = 10) => {
     queryFn: () => planApi.getPlans(cursor, size),
     select: mapPlanListToUI,
     placeholderData: (previousData) => previousData,
+  });
+};
+
+/**
+ * 플랜 목록 무한 스크롤 쿼리 (S14P21B205-212 피드백 반영: P1 리스트 누적 처리)
+ */
+export const useInfinitePlansQuery = (size = 10) => {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.plan.list(), 'infinite', size],
+    queryFn: ({ pageParam }) => planApi.getPlans(pageParam as string | number | undefined, size),
+    initialPageParam: undefined as string | number | undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.nextCursor : undefined),
+    select: (data) => ({
+      pages: data.pages.map(mapPlanListToUI),
+      pageParams: data.pageParams,
+    }),
   });
 };
 
@@ -34,13 +49,29 @@ export const usePlanDetailQuery = (planId: string) => {
  */
 export const useCreatePlanMutation = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   return useMutation({
     mutationFn: (data: CreatePlanRequest) => planApi.createPlan(data),
     onSuccess: () => {
+      // 목록 캐시 무효화 (S14P21B205-259)
       queryClient.invalidateQueries({ queryKey: queryKeys.plan.list() });
-      navigate('/my-plan');
+    },
+  });
+};
+
+/**
+ * 플랜 수정 Mutation (S14P21B205-133, 264)
+ */
+export const useUpdatePlanMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ planId, data }: { planId: string | number; data: UpdatePlanRequest }) => 
+      planApi.updatePlan(planId, data),
+    onSuccess: (_, variables) => {
+      // 목록 및 특정 상세 캐시 무효화 (S14P21B205-259)
+      queryClient.invalidateQueries({ queryKey: queryKeys.plan.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.plan.detail(variables.planId.toString()) });
     },
   });
 };
@@ -50,13 +81,13 @@ export const useCreatePlanMutation = () => {
  */
 export const useDeletePlanMutation = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   return useMutation({
     mutationFn: (planId: string | number) => planApi.deletePlan(planId),
-    onSuccess: () => {
+    onSuccess: (_, planId) => {
+      // 목록 캐시 무효화 및 삭제된 상세 캐시 제거
       queryClient.invalidateQueries({ queryKey: queryKeys.plan.list() });
-      navigate('/my-plan');
+      queryClient.removeQueries({ queryKey: queryKeys.plan.detail(planId.toString()) });
     },
   });
 };
