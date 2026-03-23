@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
-import NaverMap from '@/components/map/NaverMap'
+import KakaoMap from '@/components/map/KakaoMap'
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
 import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
@@ -78,10 +78,10 @@ const Main = () => {
       </aside>
 
       <main className="relative min-h-0 min-w-0 flex-1">
-        <NaverMap
+        <KakaoMap
           className="h-full w-full"
-          lat={currentLat}
-          lng={currentLng}
+          lat={mapCenter.lat}
+          lng={mapCenter.lng}
           places={restaurants}
           selectedPlaceId={selectedPlaceId}
           onPlaceClick={handlePlaceClick}

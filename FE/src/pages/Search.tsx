@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import Sidebar from '../components/Sidebar'
-import NaverMap from '@/components/map/NaverMap'
+import KakaoMap from '@/components/map/KakaoMap'
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import { useSearchPlaces } from '@/hooks/queries/place/usePlaces'
@@ -214,7 +214,7 @@ const Search = () => {
       </aside>
 
       <main className="relative min-h-0 min-w-0 flex-1">
-        <NaverMap
+        <KakaoMap
           className="h-full w-full"
           lat={mapCenter.lat}
           lng={mapCenter.lng}

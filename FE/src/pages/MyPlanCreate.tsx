@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
-import NaverMap from '@/components/map/NaverMap'
-import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
+import KakaoMap from '@/components/map/KakaoMap'
+import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces'
 import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocationStore, FALLBACK_LOCATION } from '@/stores/locationStore'
+import { hasNullFields } from '@/lib/placeUtils'
 import { Place } from '@/types/api'
 import toast from 'react-hot-toast'
 
@@ -29,6 +30,7 @@ const MyPlanCreate = () => {
     true
   )
   const { mutate: createPlan, isPending: isCreating } = useCreatePlanMutation()
+  const { mutate: enrichPlace } = useEnrichPlace()
 
   // 폼 상태
   const [title, setTitle] = useState('')
@@ -50,6 +52,11 @@ const MyPlanCreate = () => {
   }, [])
 
   const handlePlaceClick = (place: Place) => {
+    // Lazy Loading: 정보가 부족하면 크롤링 요청
+    if (hasNullFields(place)) {
+      enrichPlace(place.placeId)
+    }
+
     setSelectedPlaces(prev => {
       const exists = prev.find(p => p.placeId === place.placeId)
       if (exists) {
@@ -263,7 +270,7 @@ const MyPlanCreate = () => {
 
         {/* 오른쪽: 지도 영역 */}
         <section className="flex-1 relative">
-           <NaverMap 
+           <KakaoMap 
             places={places}
             selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.placeId}
             onPlaceClick={handlePlaceClick}
