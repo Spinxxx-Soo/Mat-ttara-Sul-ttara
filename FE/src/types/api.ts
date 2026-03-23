@@ -160,6 +160,19 @@ export interface Place {
   category?: string;
   description?: string; // 장소 상세 조회 응답에 포함
   url?: string; // 네이버 지도 링크
+  /** AI 추천 등에서만 사용 (선택) */
+  tags?: string[];
+}
+
+/** GET /api/v1/places/recommend · SSE 연동 시 AiChatResponse.places 와 동일 스키마 */
+export interface RecommendedPlace {
+  placeId: number;
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  recommendReason?: string | null;
+  tags?: string[] | null;
 }
 
 export interface PlaceSearchRequest {
@@ -211,6 +224,8 @@ export interface ChatMessage {
   content: string;
   createdAt: string;
   updatedAt?: string;
+  /** AI 응답에 포함된 추천 장소 (백엔드 명세에 따라 선택) */
+  recommendedPlaces?: Place[];
 }
 
 // Request 타입들
@@ -245,6 +260,8 @@ export interface SendMessageResponse {
   role: 'USER' | 'ASSISTANT' | 'SYSTEM' | string;
   content: string;
   createdAt: string;
+  /** 메시지 전송 직후 응답에만 포함될 수 있음 */
+  recommendedPlaces?: Place[];
 }
 
 export interface GetMessagesRequest {
@@ -266,4 +283,17 @@ export interface UpdateMessageResponse {
   messageId: number;
   content: string;
   updatedAt: string;
+}
+
+/** SSE `ai_response` 이벤트 data (백엔드 AiResponsePayload 와 동일) */
+export interface AiSseResponsePayload {
+  sessionId: number;
+  messageId: number;
+  userId: number;
+  role: string;
+  content: string;
+  /** 예: FOLLOW_UP, RECOMMENDATION */
+  type?: string;
+  title?: string | null;
+  sentAtEpochMs: number;
 }

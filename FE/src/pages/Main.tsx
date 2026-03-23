@@ -4,6 +4,8 @@ import ChatWidget from '@/components/chat/ChatWidget'
 import NaverMap from '@/components/map/NaverMap'
 import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
+import { useChatMapStore } from '@/stores/chatMapStore'
+import { mergeByPlaceId } from '@/stores/chatMapStore'
 import type { Place } from '@/types/api'
 
 // ==========================================
@@ -43,6 +45,12 @@ const Main = () => {
     return restaurants.filter(r => r.category === selectedCategory)
   }, [restaurants, selectedCategory])
 
+  // AI 챗봇 추천 장소 + 주변 맛집 병합 (지도 핀·말풍선 상세 동일 동작)
+  const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
+  const mapPlaces = useMemo(() => {
+    return mergeByPlaceId(filteredRestaurants, aiRecommendedPlaces)
+  }, [filteredRestaurants, aiRecommendedPlaces])
+
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
     // 리스트에서 클릭 시 스크롤 되도록 유도하는 등의 UX 처리는 필요 시 추가
@@ -65,7 +73,7 @@ const Main = () => {
             className="w-full h-full"
             lat={currentLat}
             lng={currentLng}
-            places={filteredRestaurants}
+            places={mapPlaces}
             selectedPlaceId={selectedPlaceId}
             onPlaceClick={handlePlaceClick}
             onIdle={handleMapIdle}
@@ -117,8 +125,8 @@ const Main = () => {
                 <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-sm font-medium text-slate-400">최적의 맛집을 찾는 중...</p>
               </div>
-            ) : filteredRestaurants.length > 0 ? (
-              filteredRestaurants.map((place) => (
+            ) : mapPlaces.length > 0 ? (
+              mapPlaces.map((place) => (
                 <div
                   key={place.placeId}
                   onClick={() => handlePlaceClick(place)}

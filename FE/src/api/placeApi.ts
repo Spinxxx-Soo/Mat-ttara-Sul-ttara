@@ -5,7 +5,13 @@
 // React Query와의 조합은 src/hooks/queries/place/에서 이루어집니다.
 
 import { apiClient } from '@/api/axios';
-import type { Place, ApiPaginationResponse, PlaceSearchRequest, PlaceSearchResponse } from '@/types/api';
+import type {
+  Place,
+  ApiPaginationResponse,
+  PlaceSearchRequest,
+  PlaceSearchResponse,
+  RecommendedPlace,
+} from '@/types/api';
 import type { NearbyPlacesParams } from '@/types/map';
 
 export const placeApi = {
@@ -50,4 +56,19 @@ export const placeApi = {
         );
         return data;
     },
+
+  /**
+   * 채팅 세션 기준 AI 추천 장소 목록 (SSE 수신 후 갱신용)
+   * GET /api/v1/places/recommend?sessionId=
+   */
+  getRecommendedPlaces: async (sessionId: string | number): Promise<RecommendedPlace[]> => {
+    const { data } = await apiClient.get<RecommendedPlace[] | { content: RecommendedPlace[] }>(
+      '/api/v1/places/recommend',
+      {
+        params: { sessionId: String(sessionId) },
+      }
+    );
+    if (Array.isArray(data)) return data;
+    return data.content ?? [];
+  },
 };
