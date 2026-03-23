@@ -2,16 +2,17 @@ import { Link } from 'react-router-dom';
 
 import CopyLinkButton from '@/components/CopyLinkButton';
 import Button from '@/components/ui/Button';
-import NaverMap from '@/components/map/NaverMap';
+import KakaoMap from '@/components/map/KakaoMap';
 import { useAuthStore } from '@/stores/authStore';
 // TODO: Home.tsx의 plans 섹션은 개발 테스트용 임시 코드입니다. 실제 플랜 목록은 /my-plan 페이지 참고.
 import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
-import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces';
+import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces';
 import { useMarkers } from '@/hooks/useMarkers';
 import { useInfoWindow } from '@/hooks/useInfoWindow';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { mapPlacesToMarkerDataList } from '@/lib/placeMapper';
-import type { NaverMapInstance } from '@/types/naver.d';
+import { hasNullFields } from '@/lib/placeUtils';
+import type { KakaoMapInstance } from '@/types/kakao.d';
 import type { Coordinates, PlaceMarkerData } from '@/types/map';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { calculateDistance } from '@/utils/geoUtils';
@@ -24,15 +25,17 @@ export default function Home() {
   const { data: plansData, isPending: isPlansLoading } = usePlansQuery();
   const plans = plansData?.plans || [];
 
-  const [mapInst, setMapInst] = useState<NaverMapInstance | null>(null);
+  const [mapInst, setMapInst] = useState<KakaoMapInstance | null>(null);
   
   // API 재조회 기준 중심점
   const [fetchCenter, setFetchCenter] = useState<Coordinates>({ lat: 37.3595704, lng: 127.105399 });
 
-  const { data: places, isLoading: isPlacesLoading } = useNearbyPlaces(
+  const { data: places = [], isLoading: isPlacesLoading } = useNearbyPlaces(
     { lat: fetchCenter.lat, lng: fetchCenter.lng, radius: 1000 },
     !!mapInst
   );
+
+  const { mutate: enrichPlace } = useEnrichPlace();
 
   const mappedPlaces = useMemo(() => {
     return mapPlacesToMarkerDataList(places || []);
@@ -53,19 +56,25 @@ export default function Home() {
 
   const { openInfoWindow, closeInfoWindow } = useInfoWindow(mapInst);
 
-  const handleMarkerClick = useCallback((place: PlaceMarkerData, marker: any) => {
-    setSelectedPlaceId(place.id);
+  const handleMarkerClick = useCallback((placeData: PlaceMarkerData, marker: any) => {
+    setSelectedPlaceId(placeData.id);
+
+    // Lazy Loading: 원본 Place 객체를 찾아 null 여부 확인
+    const originalPlace = places.find(p => p.placeId === placeData.id);
+    if (originalPlace && hasNullFields(originalPlace)) {
+      enrichPlace(originalPlace.placeId);
+    }
 
     const content = `
       <div style="padding:12px; min-width:150px; font-family:sans-serif;">
-        <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:bold;">${place.name}</h3>
-        <p style="margin:0; font-size:12px; color:#666;">별점: ${place.rating || 'N/A'}</p>
-        <p style="margin:4px 0 0 0; font-size:12px; color:#999; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${place.address}</p>
-        <a href="/places/${place.id}" style="display:inline-block; margin-top:8px; font-size:12px; color:#3b82f6; text-decoration:none;">자세히 보기 &rarr;</a>
+        <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:bold;">${placeData.name}</h3>
+        <p style="margin:0; font-size:12px; color:#666;">별점: ${placeData.rating || 'N/A'}</p>
+        <p style="margin:4px 0 0 0; font-size:12px; color:#999; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${placeData.address}</p>
+        <a href="/places/${placeData.id}" style="display:inline-block; margin-top:8px; font-size:12px; color:#3b82f6; text-decoration:none;">자세히 보기 &rarr;</a>
       </div>
     `;
     openInfoWindow(marker, content);
-  }, [openInfoWindow]);
+  }, [openInfoWindow, places, enrichPlace]);
 
   const { markers } = useMarkers({
     mapInstance: mapInst,
@@ -94,34 +103,40 @@ export default function Home() {
 
   useEffect(() => {
     if (geoCoords && mapInst) {
-      mapInst.setCenter(new window.naver.maps.LatLng(geoCoords.lat, geoCoords.lng));
+      mapInst.setCenter(new window.kakao.maps.LatLng(geoCoords.lat, geoCoords.lng));
       setFetchCenter(geoCoords); // 지오로케이션 이동 시 재조회를 위해 fetchCenter도 갱신
     }
   }, [geoCoords, mapInst]);
 
   // 리스트 아이템 클릭 시
-  const handleListItemClick = useCallback((place: PlaceMarkerData) => {
-    setSelectedPlaceId(place.id);
+  const handleListItemClick = useCallback((placeData: PlaceMarkerData) => {
+    setSelectedPlaceId(placeData.id);
+    
+    // Lazy Loading: 원본 Place 객체를 찾아 null 여부 확인
+    const originalPlace = places.find(p => p.placeId === placeData.id);
+    if (originalPlace && hasNullFields(originalPlace)) {
+      enrichPlace(originalPlace.placeId);
+    }
+
     if (mapInst) {
       // 해당 마커 위치로 카메라 부드럽게 이동
-      mapInst.panTo(new window.naver.maps.LatLng(place.position.lat, place.position.lng));
+      mapInst.panTo(new window.kakao.maps.LatLng(placeData.position.lat, placeData.position.lng));
       
       // 마커 객체를 찾아 정보창 열기
-      const targetMarker = markers[place.id];
+      const targetMarker = markers[placeData.id];
       if (targetMarker) {
-        // useInfoWindow 에서 사용하는 동일한 content 포맷 생성
         const content = `
           <div style="padding:12px; min-width:150px; font-family:sans-serif;">
-            <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:bold;">${place.name}</h3>
-            <p style="margin:0; font-size:12px; color:#666;">별점: ${place.rating || 'N/A'}</p>
-            <p style="margin:4px 0 0 0; font-size:12px; color:#999; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${place.address}</p>
-            <a href="/places/${place.id}" style="display:inline-block; margin-top:8px; font-size:12px; color:#3b82f6; text-decoration:none;">자세히 보기 &rarr;</a>
+            <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:bold;">${placeData.name}</h3>
+            <p style="margin:0; font-size:12px; color:#666;">별점: ${placeData.rating || 'N/A'}</p>
+            <p style="margin:4px 0 0 0; font-size:12px; color:#999; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${placeData.address}</p>
+            <a href="/places/${placeData.id}" style="display:inline-block; margin-top:8px; font-size:12px; color:#3b82f6; text-decoration:none;">자세히 보기 &rarr;</a>
           </div>
         `;
         openInfoWindow(targetMarker, content);
       }
     }
-  }, [mapInst, markers, openInfoWindow]);
+  }, [mapInst, markers, openInfoWindow, places, enrichPlace]);
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
@@ -194,7 +209,7 @@ export default function Home() {
 
             {/* 우측 지도 뷰 */}
             <div className="relative w-full md:w-2/3 h-full">
-              <NaverMap 
+              <KakaoMap 
                 onMapReady={setMapInst} 
                 onIdle={handleMapIdle} 
                 onClick={handleMapClick}
