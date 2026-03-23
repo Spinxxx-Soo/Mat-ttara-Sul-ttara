@@ -5,6 +5,7 @@ import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import { useSearchPlaces } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
+import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 
 // ==========================================
@@ -71,6 +72,13 @@ const Search = () => {
 
   const openReviewFromDetail = () => {
     if (!selectedPlace) return
+
+    const reviewsEnabled = import.meta.env.VITE_REVIEWS_ENABLED === 'true'
+    if (!reviewsEnabled) {
+      toast.error('리뷰 기능은 준비 중입니다.')
+      return
+    }
+
     setReviewPanel({
       placeId: selectedPlace.placeId,
       placeName: selectedPlace.name,
