@@ -8,6 +8,7 @@ import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
 import com.sulddara.server.place.exception.PlaceNotFoundException;
 import com.sulddara.server.place.exception.ReviewNotFoundException;
 import com.sulddara.server.place.exception.ReviewPermissionDeniedException;
+import com.sulddara.server.global.error.exception.DuplicateResourceException;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.ReviewRepository;
 import com.sulddara.server.user.domain.UserEntity;
@@ -42,6 +43,10 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponseDto createReview(Long userId, Long placeId, ReviewCreateRequestDto request) {
+        if (reviewRepository.existsByPlaceIdAndUserId(placeId, userId)) {
+            throw new DuplicateResourceException("해당 장소에 이미 리뷰를 작성했습니다.");
+        }
+
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
         
@@ -68,6 +73,10 @@ public class ReviewService {
         ReviewEntity review = reviewRepository.findById(reviewId)
                 .orElseThrow(ReviewNotFoundException::new);
 
+        if (!review.getPlace().getId().equals(placeId)) {
+            throw new ReviewNotFoundException();
+        }
+
         validateReviewOwnership(review, userId);
 
         review.update(request.rating(), request.content());
@@ -83,6 +92,10 @@ public class ReviewService {
 
         ReviewEntity review = reviewRepository.findById(reviewId)
                 .orElseThrow(ReviewNotFoundException::new);
+
+        if (!review.getPlace().getId().equals(placeId)) {
+            throw new ReviewNotFoundException();
+        }
 
         validateReviewOwnership(review, userId);
 

@@ -5,7 +5,9 @@ import com.sulddara.server.place.domain.ReviewEntity;
 import com.sulddara.server.place.dto.ReviewCreateRequestDto;
 import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
+import com.sulddara.server.place.exception.ReviewNotFoundException;
 import com.sulddara.server.place.exception.ReviewPermissionDeniedException;
+import com.sulddara.server.global.error.exception.DuplicateResourceException;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.ReviewRepository;
 import com.sulddara.server.user.domain.UserEntity;
@@ -98,6 +100,21 @@ class ReviewServiceTest {
     }
 
     @Test
+    @DisplayName("createReview_duplicateReview_throwsDuplicateResourceException")
+    void createReview_duplicateReview_throwsDuplicateResourceException() {
+        // given
+        Long userId = 1L;
+        Long placeId = 2L;
+        ReviewCreateRequestDto request = new ReviewCreateRequestDto(4, "Nice!");
+
+        given(reviewRepository.existsByPlaceIdAndUserId(placeId, userId)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> reviewService.createReview(userId, placeId, request))
+                .isInstanceOf(DuplicateResourceException.class);
+    }
+
+    @Test
     @DisplayName("updateReview_unauthorizedUser_throwsReviewPermissionDeniedException")
     void updateReview_unauthorizedUser_throwsReviewPermissionDeniedException() {
         // given
@@ -111,6 +128,7 @@ class ReviewServiceTest {
         UserEntity owner = new UserEntity("o@test.com", "owner", "bio", "img", com.sulddara.server.user.domain.enums.SocialType.NAVER, "123", "ROLE_USER");
         ReflectionTestUtils.setField(owner, "id", ownerId);
         PlaceEntity place = new PlaceEntity("NAVER", "ext3", "Place3", "Addr3", 37.0, 127.0);
+        ReflectionTestUtils.setField(place, "id", placeId);
 
         ReviewEntity review = new ReviewEntity(place, owner, 5, "Original");
         ReflectionTestUtils.setField(review, "id", reviewId);
@@ -122,5 +140,59 @@ class ReviewServiceTest {
         // when & then
         assertThatThrownBy(() -> reviewService.updateReview(requesterId, placeId, reviewId, request))
                 .isInstanceOf(ReviewPermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("updateReview_placeIdMismatch_throwsReviewNotFoundException")
+    void updateReview_placeIdMismatch_throwsReviewNotFoundException() {
+        // given
+        Long userId = 1L;
+        Long correctPlaceId = 2L;
+        Long mismatchPlaceId = 3L;
+        Long reviewId = 10L;
+
+        given(placeRepository.existsById(mismatchPlaceId)).willReturn(true);
+
+        UserEntity user = new UserEntity("test@test.com", "user", "bio", "img", com.sulddara.server.user.domain.enums.SocialType.NAVER, "123", "ROLE_USER");
+        ReflectionTestUtils.setField(user, "id", userId);
+        PlaceEntity correctPlace = new PlaceEntity("NAVER", "ext2", "Place2", "Addr2", 37.0, 127.0);
+        ReflectionTestUtils.setField(correctPlace, "id", correctPlaceId);
+
+        ReviewEntity review = new ReviewEntity(correctPlace, user, 5, "Original");
+        ReflectionTestUtils.setField(review, "id", reviewId);
+
+        given(reviewRepository.findById(reviewId)).willReturn(Optional.of(review));
+
+        ReviewUpdateRequestDto request = new ReviewUpdateRequestDto(3, "Changed");
+
+        // when & then
+        assertThatThrownBy(() -> reviewService.updateReview(userId, mismatchPlaceId, reviewId, request))
+                .isInstanceOf(ReviewNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("deleteReview_placeIdMismatch_throwsReviewNotFoundException")
+    void deleteReview_placeIdMismatch_throwsReviewNotFoundException() {
+        // given
+        Long userId = 1L;
+        Long correctPlaceId = 2L;
+        Long mismatchPlaceId = 3L;
+        Long reviewId = 10L;
+
+        given(placeRepository.existsById(mismatchPlaceId)).willReturn(true);
+
+        UserEntity user = new UserEntity("test@test.com", "user", "bio", "img", com.sulddara.server.user.domain.enums.SocialType.NAVER, "123", "ROLE_USER");
+        ReflectionTestUtils.setField(user, "id", userId);
+        PlaceEntity correctPlace = new PlaceEntity("NAVER", "ext2", "Place2", "Addr2", 37.0, 127.0);
+        ReflectionTestUtils.setField(correctPlace, "id", correctPlaceId);
+
+        ReviewEntity review = new ReviewEntity(correctPlace, user, 5, "Original");
+        ReflectionTestUtils.setField(review, "id", reviewId);
+
+        given(reviewRepository.findById(reviewId)).willReturn(Optional.of(review));
+
+        // when & then
+        assertThatThrownBy(() -> reviewService.deleteReview(userId, mismatchPlaceId, reviewId))
+                .isInstanceOf(ReviewNotFoundException.class);
     }
 }

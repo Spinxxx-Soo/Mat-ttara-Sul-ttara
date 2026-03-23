@@ -17,9 +17,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "reviews", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"place_id", "user_id"})
-})
+@Table(name = "reviews")
 @EntityListeners(AuditingEntityListener.class)
 @SQLRestriction("deleted_at IS NULL")
 @SQLDelete(sql = "UPDATE reviews SET deleted_at = NOW() WHERE review_id = ?")
