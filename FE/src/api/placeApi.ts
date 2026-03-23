@@ -5,7 +5,17 @@
 // React Query와의 조합은 src/hooks/queries/place/에서 이루어집니다.
 
 import { apiClient } from '@/api/axios';
-import type { Place, ApiPaginationResponse, PlaceSearchRequest, PlaceSearchResponse } from '@/types/api';
+import type {
+  Place,
+  ApiPaginationResponse,
+  PlaceSearchRequest,
+  PlaceSearchResponse,
+  PlaceReviewsResponse,
+  RecommendedPlace,
+  CreateReviewRequest,
+  UpdateReviewRequest,
+  Review,
+} from '@/types/api';
 import type { NearbyPlacesParams } from '@/types/map';
 
 export const placeApi = {
@@ -51,12 +61,86 @@ export const placeApi = {
         return data;
     },
 
-    /**
-     * 부족한 장소 정보를 크롤링으로 보강 요청
-     * S14P21B205-LazyLoading 전략 반영
-     */
-    enrichPlaceData: async (placeId: number): Promise<Place> => {
-        const { data } = await apiClient.post<Place>(`/api/v1/places/${placeId}/enrich`);
-        return data;
-    },
+  /**
+   * 채팅 세션 기준 AI 추천 장소 목록 (SSE 수신 후 갱신용)
+   * GET /api/v1/places/recommend?sessionId=
+   */
+  getRecommendedPlaces: async (
+    sessionId: string | number,
+  ): Promise<RecommendedPlace[]> => {
+    const { data } = await apiClient.get<RecommendedPlace[] | { content: RecommendedPlace[] }>(
+      '/api/v1/places/recommend',
+      {
+        params: { sessionId: String(sessionId) },
+      },
+    );
+
+    if (Array.isArray(data)) return data;
+    return data.content ?? [];
+  },
+
+  /**
+   * 부족한 장소 정보를 크롤링으로 보강 요청
+   */
+  enrichPlaceData: async (placeId: number): Promise<Place> => {
+    const { data } = await apiClient.post<Place>(`/api/v1/places/${placeId}/enrich`);
+    return data;
+  },
+
+  /**
+   * 가게별 리뷰 목록 조회
+   * GET /api/v1/places/{placeId}/reviews?page=&size=
+   */
+  getPlaceReviews: async (
+    placeId: number,
+    page: number,
+    size: number
+  ): Promise<PlaceReviewsResponse> => {
+    const { data } = await apiClient.get<PlaceReviewsResponse>(
+      `/api/v1/places/${placeId}/reviews`,
+      {
+        params: { page, size },
+      }
+    );
+    return data;
+  },
+
+  /**
+   * 리뷰 등록
+   * POST /api/v1/places/{placeId}/reviews
+   */
+  createPlaceReview: async (
+    placeId: number,
+    body: CreateReviewRequest
+  ): Promise<Review> => {
+    const { data } = await apiClient.post<Review>(
+      `/api/v1/places/${placeId}/reviews`,
+      body
+    );
+    return data;
+  },
+
+  /**
+   * 리뷰 수정
+   * PATCH /api/v1/places/{placeId}/reviews/{reviewId}
+   */
+  updatePlaceReview: async (
+    placeId: number,
+    reviewId: number,
+    body: UpdateReviewRequest
+  ): Promise<Review> => {
+    const { data } = await apiClient.patch<Review>(
+      `/api/v1/places/${placeId}/reviews/${reviewId}`,
+      body
+    );
+    return data;
+  },
+
+  /**
+   * 리뷰 삭제
+   * DELETE /api/v1/places/{placeId}/reviews/{reviewId}
+   */
+  deletePlaceReview: async (placeId: number, reviewId: number): Promise<void> => {
+    await apiClient.delete(`/api/v1/places/${placeId}/reviews/${reviewId}`);
+  },
 };
