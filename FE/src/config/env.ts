@@ -18,6 +18,8 @@ export const envConfig = {
 
     // 지도
     naverMapClientId: getEnvVar('VITE_NAVER_MAP_CLIENT_ID'),
+    kakaoMapJsKey: getEnvVar('VITE_KAKAO_MAP_JS_KEY'),
+    kakaoJsKey: getEnvVar('VITE_KAKAO_JS_KEY'),
 
     // OAuth
     googleClientId: getEnvVar('VITE_GOOGLE_CLIENT_ID'),
