@@ -78,4 +78,13 @@ public class Place {
         this.lat = lat;
         this.lng = lng;
     }
+
+    public void updateDetails(String imageUrl, String description, String openingHours, String phone, String url) {
+        if (imageUrl != null) this.imageUrl = imageUrl;
+        if (description != null) this.description = description;
+        if (openingHours != null) this.openingHours = openingHours;
+        if (phone != null) this.phone = phone;
+        if (url != null) this.url = url;
+        this.lastUpdatedAt = LocalDateTime.now();
+    }
 }
