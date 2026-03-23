@@ -305,16 +305,3 @@ export interface UpdateMessageResponse {
   content: string;
   updatedAt: string;
 }
-
-/** SSE `ai_response` 이벤트 data (백엔드 AiResponsePayload 와 동일) */
-export interface AiSseResponsePayload {
-  sessionId: number;
-  messageId: number;
-  userId: number;
-  role: string;
-  content: string;
-  /** 예: FOLLOW_UP, RECOMMENDATION */
-  type?: string;
-  title?: string | null;
-  sentAtEpochMs: number;
-}
