@@ -17,9 +17,7 @@ export const mapPlaceToMarkerData = (place: Place): PlaceMarkerData => {
     address: place.address,
     phone: place.phone,
     rating: place.rating,
-    
-    // 추가적인 마커 시각 디자인을 위한 필드 매핑이 필요하면 여기에 추가
-    // (예: 카테고리에 따른 아이콘 속성 반환 등)
+    isEnriched: place.isEnriched,
   };
 };
 
