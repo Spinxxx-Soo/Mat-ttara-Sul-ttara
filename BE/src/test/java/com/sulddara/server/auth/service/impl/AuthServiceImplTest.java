@@ -2,10 +2,13 @@ package com.sulddara.server.auth.service.impl;
 
 import com.sulddara.server.auth.controller.response.TokenResponse;
 import com.sulddara.server.auth.jwt.JwtUtil;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.EntityNotFoundException;
-import com.sulddara.server.share.error.exception.UnauthorizedException;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.user.exception.UserNotFoundException;
+import com.sulddara.server.place.exception.PlaceNotFoundException;
+import com.sulddara.server.global.error.exception.UnauthorizedException;
+import com.sulddara.server.user.domain.UserEntity;
+import com.sulddara.server.common.fixture.UserEntityFixture;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.sulddara.server.user.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.DisplayName;
@@ -66,7 +69,9 @@ class AuthServiceImplTest {
             given(claims.getSubject()).willReturn(email);
             given(claims.get("userId", Long.class)).willReturn(userId);
 
-            User user = User.builder().id(userId).email(email).role(role).build();
+            UserEntity user = UserEntityFixture.createUserWithId(userId);
+            ReflectionTestUtils.setField(user, "email", email);
+            ReflectionTestUtils.setField(user, "role", role);
 
             given(jwtUtil.validateToken(refreshToken)).willReturn(true);
             given(jwtUtil.getClaims(refreshToken)).willReturn(claims);
@@ -139,7 +144,7 @@ class AuthServiceImplTest {
 
             // when & then
             assertThatThrownBy(() -> authService.refresh(refreshToken))
-                    .isInstanceOf(EntityNotFoundException.class)
+                    .isInstanceOf(UserNotFoundException.class)
                     .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
         }
     }

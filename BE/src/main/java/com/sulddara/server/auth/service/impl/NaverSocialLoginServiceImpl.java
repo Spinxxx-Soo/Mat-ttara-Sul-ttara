@@ -1,9 +1,9 @@
 package com.sulddara.server.auth.service.impl;
 
 import com.sulddara.server.auth.controller.response.LoginResponse;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
-import com.sulddara.server.share.error.exception.UnauthorizedException;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
+import com.sulddara.server.global.error.exception.UnauthorizedException;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.auth.jwt.JwtUtil;
 import com.sulddara.server.auth.jwt.NaverUserInfo;
@@ -47,10 +47,10 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
 
         UserAuthResultDto user = userService.joinOrUpdate(userInfo);
 
-        String jwtAccessToken = jwtUtil.generateAccessToken(user.user().getId(), user.user().getEmail(), user.user().getRole());
-        String jwtRefreshToken = jwtUtil.generateRefreshToken(user.user().getId(), user.user().getEmail());
+        String jwtAccessToken = jwtUtil.generateAccessToken(user.userId(), user.email(), user.role());
+        String jwtRefreshToken = jwtUtil.generateRefreshToken(user.userId(), user.email());
 
-        String email = user.user().getEmail();
+        String email = user.email();
         if (email != null && jwtRefreshToken != null) {
             redisTemplate.opsForValue().set(
                     "refresh:" + email,

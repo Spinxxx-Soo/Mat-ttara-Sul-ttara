@@ -78,6 +78,16 @@ export interface OnboardingRequest {
   gender: string;
 }
 
+export interface UserPreference {
+  prefId: number;
+  userId: number;
+  usageType: string;
+  ageGroup: string;
+  gender: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- 플랜 (Plan) ---
 export interface Plan {
   planId: number;
@@ -87,8 +97,16 @@ export interface Plan {
   totalBudget: number;
   planType: string;
   memo?: string;
+  thumbnailUrl?: string; // 추가: 목록에서 보여줄 이미지
   createdAt: string;
   updatedAt?: string;
+}
+
+/**
+ * 플랜 상세 응답 (S14P21B205-213)
+ */
+export interface PlanDetail extends Plan {
+  details: PlanPlace[];
 }
 
 export interface PlanPlace {
@@ -116,6 +134,7 @@ export interface UpdatePlanRequest {
   totalBudget?: number;
   planType?: string;
   memo?: string;
+  details?: { placeId: number; seqNo: number }[]; // 수정 시에도 장소 목록 수정 가능하도록 추가
 }
 
 // --- 장소 (Place) ---
@@ -123,14 +142,16 @@ export interface Place {
   placeId: number;
   name: string;
   address: string;
-  phone?: string;
+  phone?: string | null;
   lat: number;
   lng: number;
-  rating?: number;
-  recommendReason?: string; // 추천 장소 조회시
-  openingHours?: Record<string, any> | string;
-  imageUrl?: string; // 가게 검색 응답에 포함
-  category?: string; // 가게 검색 응답에 포함
+  rating?: number | null;
+  recommendReason?: string | null; // 추천 장소 조회시
+  openingHours?: Record<string, any> | string | null;
+  imageUrl?: string | null; // 가게 검색 응답에 포함
+  category?: string | null; // 가게 검색 응답에 포함
+  /** 크롤링으로 보강된 데이터인지 여부 */
+  isEnriched?: boolean;
 }
 
 export interface PlaceSearchRequest {

@@ -1,49 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PlaceMarkerData } from '@/types/map';
-import type { NaverMapInstance, NaverMarkerInstance } from '@/types/naver.d';
+import type { KakaoMapInstance, KakaoMarkerInstance } from '@/types/kakao.d';
 
 // ==========================================
-// S14P21B205-194: 장소 마커 표시 및 관리 훅
-// S14P21B205-195: 마커 데이터 타입(PlaceMarkerData)으로 변경
-// S14P21B205-196: 마커 선택 상태 처리
+// S14P21B205-194: 장소 마커 표시 및 관리 훅 (Kakao Maps 버전)
 // ==========================================
 
 interface UseMarkersProps {
-  mapInstance: NaverMapInstance | null;
+  mapInstance: KakaoMapInstance | null;
   places: PlaceMarkerData[];
   selectedPlaceId?: number | null;
-  onMarkerClick?: (place: PlaceMarkerData, marker: NaverMarkerInstance) => void;
+  onMarkerClick?: (place: PlaceMarkerData, marker: KakaoMarkerInstance) => void;
 }
 
 export const useMarkers = ({ mapInstance, places, selectedPlaceId, onMarkerClick }: UseMarkersProps) => {
   // placeId -> marker 맵 참조 (성능 및 클린업용)
-  const markersRef = useRef<Record<number, NaverMarkerInstance>>({});
-  // 리액티브하게 반환하기 위한 상태 (S14P21B205-212 피드백 반영: P1 정보창 동기화)
-  const [markers, setMarkers] = useState<Record<number, NaverMarkerInstance>>({});
+  const markersRef = useRef<Record<number, KakaoMarkerInstance>>({});
+  // 리액티브하게 반환하기 위한 상태
+  const [markers, setMarkers] = useState<Record<number, KakaoMarkerInstance>>({});
 
   // 1. 마커 생성 및 제거 (mapInstance, places가 변경될 때만 실행)
   useEffect(() => {
-    if (!mapInstance || !window.naver?.maps) return;
+    if (!mapInstance || !window.kakao?.maps) return;
+
+    const kakao = window.kakao;
 
     // 기존 마커 전체 제거
     Object.values(markersRef.current).forEach((marker) => marker.setMap(null));
     markersRef.current = {};
 
-    const newMarkersMap: Record<number, NaverMarkerInstance> = {};
+    const newMarkersMap: Record<number, KakaoMarkerInstance> = {};
 
     places.forEach((place) => {
-      const position = new window.naver.maps.LatLng(place.position.lat, place.position.lng);
+      const position = new kakao.maps.LatLng(place.position.lat, place.position.lng);
       
-      const markerOptions: any = {
+      const marker = new kakao.maps.Marker({
         position,
         map: mapInstance,
-        zIndex: 1, // 초기값 설정, 선택 상태 변경 effect에서 관리
-      };
-
-      const marker = new window.naver.maps.Marker(markerOptions);
+        zIndex: 1,
+      });
 
       if (onMarkerClick) {
-        window.naver.maps.Event.addListener(marker, 'click', () => {
+        kakao.maps.event.addListener(marker, 'click', () => {
           onMarkerClick(place, marker);
         });
       }
@@ -64,13 +62,12 @@ export const useMarkers = ({ mapInstance, places, selectedPlaceId, onMarkerClick
     Object.entries(markersRef.current).forEach(([placeIdStr, marker]) => {
       const placeId = Number(placeIdStr);
       const isSelected = placeId === selectedPlaceId;
-      // TODO: 추후 커스텀 이미지로 교체할 수 있는 영역
-      marker.setZIndex(isSelected ? 100 : 1);
+      // Z-Index로 선택 상태 강조
+      marker.setZIndex(isSelected ? 10 : 1);
+      
+      // TODO: 선택 시 마커 이미지를 변경하고 싶다면 marker.setImage() 사용 가능
     });
   }, [selectedPlaceId, places]); 
-  // places 의존성 추가: 새로운 places가 fetch되어 새로 마커가 그려진 직후에도 선택 상태를 반영하기 위함.
 
-  // 컴포넌트 측에서 직접 제어할 수 있도록 맵 반환 (상태 기반으로 변경하여 리렌더링 유발)
   return { markers };
 };
-
