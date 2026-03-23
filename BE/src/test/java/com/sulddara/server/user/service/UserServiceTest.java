@@ -3,7 +3,7 @@ package com.sulddara.server.user.service;
 import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.common.fixture.UserEntityFixture;
 import org.springframework.test.util.ReflectionTestUtils;
-import com.sulddara.server.user.domain.UserPreference;
+import com.sulddara.server.user.domain.UserPreferenceEntity;
 import com.sulddara.server.user.dto.UserPreferenceRequestDto;
 import com.sulddara.server.user.dto.UserPreferenceResponseDto;
 import com.sulddara.server.user.dto.UserProfileResponseDto;
@@ -96,7 +96,7 @@ class UserServiceTest {
         .usageType("사적").ageGroup("20대").gender("남성").build();
 
     given(userRepository.findById(1L)).willReturn(Optional.of(user));
-    given(userMapper.toPreferenceResponse(any(UserPreference.class))).willReturn(expectedDto);
+    given(userMapper.toPreferenceResponse(any(UserPreferenceEntity.class))).willReturn(expectedDto);
 
     // when
     UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, requestDto);
@@ -113,7 +113,7 @@ class UserServiceTest {
     // given
     UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", 1L);
-    UserPreference oldPreference = new UserPreference("사적", "20대", "남성");
+    UserPreferenceEntity oldPreference = new UserPreferenceEntity("사적", "20대", "남성");
     ReflectionTestUtils.setField(user, "preference", oldPreference);
 
     UserPreferenceRequestDto updateDto = new UserPreferenceRequestDto("공적", "30대", "여성");
@@ -122,7 +122,7 @@ class UserServiceTest {
         .usageType("공적").ageGroup("30대").gender("여성").build();
 
     given(userRepository.findById(1L)).willReturn(Optional.of(user));
-    given(userMapper.toPreferenceResponse(any(UserPreference.class))).willReturn(expectedDto);
+    given(userMapper.toPreferenceResponse(any(UserPreferenceEntity.class))).willReturn(expectedDto);
 
     // when
     UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, updateDto);

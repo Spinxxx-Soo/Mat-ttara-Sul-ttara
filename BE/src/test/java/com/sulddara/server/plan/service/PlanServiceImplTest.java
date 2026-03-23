@@ -1,6 +1,6 @@
 package com.sulddara.server.plan.service;
 
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.plan.domain.PlanEntity;
 import com.sulddara.server.common.fixture.PlanEntityFixture;
@@ -67,7 +67,7 @@ class PlanServiceImplTest {
     UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    Place place = new Place("NAVER", "ext_1", "맛집", "서울시 강남구", 37.5, 127.0);
+    PlaceEntity place = new PlaceEntity("NAVER", "ext_1", "맛집", "서울시 강남구", 37.5, 127.0);
     ReflectionTestUtils.setField(place, "id", 10L);
 
     PlanCreateRequestDto requestDto = new PlanCreateRequestDto(

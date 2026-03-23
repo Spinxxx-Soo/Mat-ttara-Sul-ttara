@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
-public class UserPreference {
+public class UserPreferenceEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,7 +41,7 @@ public class UserPreference {
   @LastModifiedDate
   private LocalDateTime updatedAt;
 
-  public UserPreference(String usageType, String ageGroup, String gender) {
+  public UserPreferenceEntity(String usageType, String ageGroup, String gender) {
     this.usageType = usageType;
     this.ageGroup = ageGroup;
     this.gender = gender;

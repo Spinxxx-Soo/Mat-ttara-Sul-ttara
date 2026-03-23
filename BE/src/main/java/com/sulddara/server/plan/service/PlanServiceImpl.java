@@ -2,7 +2,7 @@ package com.sulddara.server.plan.service;
 
 import com.sulddara.server.global.error.ErrorCode;
 import com.sulddara.server.global.error.exception.ForbiddenException;
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.exception.PlaceNotFoundException;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.plan.domain.PlanEntity;
@@ -52,7 +52,7 @@ public class PlanServiceImpl implements PlanService {
 
     if (requestDto.details() != null) {
       for (PlanCreateRequestDto.PlanDetailRequestDto detailDto : requestDto.details()) {
-        Place place = placeRepository.findById(detailDto.placeId())
+        PlaceEntity place = placeRepository.findById(detailDto.placeId())
             .orElseThrow(PlaceNotFoundException::new);
 
         PlanDetailEntity detail = new PlanDetailEntity(place, detailDto.seqNo(), null);
@@ -149,7 +149,7 @@ public class PlanServiceImpl implements PlanService {
 
     if (requestDto.details() != null) {
       for (PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.details()) {
-        Place place = placeRepository.findById(detailDto.placeId())
+        PlaceEntity place = placeRepository.findById(detailDto.placeId())
             .orElseThrow(PlaceNotFoundException::new);
         PlanDetailEntity detail = new PlanDetailEntity(place, detailDto.seqNo(), detailDto.recommendReason());
         plan.addDetail(detail);

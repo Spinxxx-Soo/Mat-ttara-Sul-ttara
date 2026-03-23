@@ -1,7 +1,7 @@
 package com.sulddara.server.plan.domain;
 
 import com.sulddara.server.global.error.exception.InvalidRequestException;
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.place.domain.PlaceEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -35,7 +35,7 @@ public class PlanDetailEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "place_id", nullable = false)
-    private Place place;
+    private PlaceEntity place;
 
     @Column(name = "seq_no", nullable = false)
     private Integer seqNo;
@@ -53,7 +53,7 @@ public class PlanDetailEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    public PlanDetailEntity(Place place, Integer seqNo, String recommendReason) {
+    public PlanDetailEntity(PlaceEntity place, Integer seqNo, String recommendReason) {
         validatePlace(place);
         validateSeqNo(seqNo);
         
@@ -73,7 +73,7 @@ public class PlanDetailEntity {
         this.deletedAt = LocalDateTime.now();
     }
 
-    private void validatePlace(Place place) {
+    private void validatePlace(PlaceEntity place) {
         if (place == null) {
             throw new InvalidRequestException("place must not be null");
         }

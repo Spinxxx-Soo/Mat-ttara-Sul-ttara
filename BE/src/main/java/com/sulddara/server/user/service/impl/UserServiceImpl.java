@@ -6,7 +6,7 @@ import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.auth.jwt.OAuth2UserInfo;
 import com.sulddara.server.user.dto.*;
 import com.sulddara.server.user.domain.UserEntity;
-import com.sulddara.server.user.domain.UserPreference;
+import com.sulddara.server.user.domain.UserPreferenceEntity;
 import com.sulddara.server.user.domain.enums.SocialType;
 import com.sulddara.server.user.repository.UserRepository;
 import com.sulddara.server.user.mapper.UserMapper;
@@ -47,16 +47,16 @@ public class UserServiceImpl implements UserService {
         UserEntity user = getUserOrThrow(userId);
 
         if (user.getPreference() == null) {
-            UserPreference newPreference = new UserPreference(
-                    requestDto.getUsageType(),
-                    requestDto.getAgeGroup(),
-                    requestDto.getGender());
+            UserPreferenceEntity newPreference = new UserPreferenceEntity(
+                    requestDto.usageType(),
+                    requestDto.ageGroup(),
+                    requestDto.gender());
             user.updatePreference(newPreference);
         } else {
             user.getPreference().updatePreferences(
-                    requestDto.getUsageType(),
-                    requestDto.getAgeGroup(),
-                    requestDto.getGender());
+                    requestDto.usageType(),
+                    requestDto.ageGroup(),
+                    requestDto.gender());
         }
 
         return userMapper.toPreferenceResponse(user.getPreference());

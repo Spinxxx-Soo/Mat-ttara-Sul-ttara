@@ -46,7 +46,7 @@ public class UserEntity {
     private LocalDateTime lastLoginAt;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private UserPreference preference;
+    private UserPreferenceEntity preference;
 
     @CreatedDate
     @Column(updatable = false)
@@ -96,7 +96,7 @@ public class UserEntity {
         this.lastLoginAt = lastLoginAt;
     }
 
-    public void updatePreference(UserPreference preference) {
+    public void updatePreference(UserPreferenceEntity preference) {
         if (this.preference != null) {
             this.preference.boundToUser(null);
         }

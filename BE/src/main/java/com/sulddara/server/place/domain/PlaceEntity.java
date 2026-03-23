@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
-public class Place {
+public class PlaceEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -69,7 +69,7 @@ public class Place {
   @LastModifiedDate
   private LocalDateTime lastUpdatedAt;
 
-  public Place(String provider, String externalPlaceId, String name,
+  public PlaceEntity(String provider, String externalPlaceId, String name,
       String address, Double lat, Double lng) {
     this.provider = provider;
     this.externalPlaceId = externalPlaceId;

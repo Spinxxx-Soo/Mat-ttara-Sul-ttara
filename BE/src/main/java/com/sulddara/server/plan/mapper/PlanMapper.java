@@ -1,6 +1,6 @@
 package com.sulddara.server.plan.mapper;
 
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.plan.domain.PlanEntity;
 import com.sulddara.server.plan.domain.PlanDetailEntity;
 import com.sulddara.server.plan.dto.PlaceSummaryDto;
@@ -37,7 +37,7 @@ public class PlanMapper {
         .build();
   }
 
-  public PlaceSummaryDto toPlaceSummary(Place place) {
+  public PlaceSummaryDto toPlaceSummary(PlaceEntity place) {
     return PlaceSummaryDto.builder()
         .placeId(place.getId())
         .name(place.getName())
