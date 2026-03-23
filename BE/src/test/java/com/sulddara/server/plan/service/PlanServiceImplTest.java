@@ -16,6 +16,8 @@ import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.common.fixture.UserEntityFixture;
 import org.springframework.test.util.ReflectionTestUtils;
 import com.sulddara.server.user.exception.UserNotFoundException;
+import com.sulddara.server.place.exception.PlaceNotFoundException;
+import com.sulddara.server.plan.exception.PlanNotFoundException;
 import com.sulddara.server.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,7 +25,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -174,8 +175,7 @@ class PlanServiceImplTest {
 
     // When & Then
     assertThatThrownBy(() -> planService.createPlan(invalidUserId, requestDto))
-        .isInstanceOf(UserNotFoundException.class)
-        .hasMessageContaining(String.valueOf(invalidUserId));
+        .isInstanceOf(UserNotFoundException.class);
 
     verify(planRepository, never()).save(any(PlanEntity.class));
   }
@@ -204,8 +204,7 @@ class PlanServiceImplTest {
 
     // When & Then
     assertThatThrownBy(() -> planService.createPlan(userId, requestDto))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(String.valueOf(invalidPlaceId));
+        .isInstanceOf(PlaceNotFoundException.class);
 
     verify(planRepository, never()).save(any(PlanEntity.class));
   }
@@ -398,7 +397,7 @@ class PlanServiceImplTest {
 
     // When & Then
     assertThatThrownBy(() -> planService.getSharedPlanDetail(invalidToken))
-        .isInstanceOf(IllegalArgumentException.class);
+        .isInstanceOf(PlanNotFoundException.class);
   }
 
   // ========== updatePlan 테스트 ==========

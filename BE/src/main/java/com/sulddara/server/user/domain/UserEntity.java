@@ -35,10 +35,10 @@ public class UserEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private SocialType socialType;
+    private SocialType provider;
 
     @Column(nullable = false)
-    private String socialId;
+    private String providerId;
 
     @Column(nullable = false)
     private String role;
@@ -60,22 +60,22 @@ public class UserEntity {
             String name,
             String bio,
             String profileImageUrl,
-            SocialType socialType,
-            String socialId,
+            SocialType provider,
+            String providerId,
             String role
     ) {
         validateEmail(email);
         validateName(name);
-        validateSocialType(socialType);
-        validateSocialId(socialId);
+        validateSocialType(provider);
+        validateSocialId(providerId);
         validateRole(role);
 
         this.email = email;
         this.name = name;
         this.bio = bio;
         this.profileImageUrl = profileImageUrl;
-        this.socialType = socialType;
-        this.socialId = socialId;
+        this.provider = provider;
+        this.providerId = providerId;
         this.role = role;
     }
 

@@ -1,0 +1,213 @@
+
+> matsul-front@0.0.0 lint
+> eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0
+
+
+/home/iidx/2nd/FE/src/api/authApi.ts
+  1:1  error  There should be at least one empty line between import groups      import/order
+  2:1  error  `@/types/api` type import should occur before import of `./axios`  import/order
+
+/home/iidx/2nd/FE/src/api/axios.ts
+    1:1   error  There should be at least one empty line between import groups                import/order
+    4:1   error  There should be at least one empty line between import groups                import/order
+    4:1   error  `@/config/env` import should occur before import of `@/stores/authStore`     import/order
+    5:1   error  `react-hot-toast` import should occur before import of `@/stores/authStore`  import/order
+   26:37  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+   29:27  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+   34:23  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+   70:18  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+   71:18  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+   92:18  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+   94:30  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  108:39  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  132:45  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  152:67  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  166:27  error  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  177:26  error  Promise executor functions should not be async                               no-async-promise-executor
+
+/home/iidx/2nd/FE/src/app/App.tsx
+   2:1  error  `@tanstack/react-query` import should occur before import of `react`           import/order
+   3:1  error  `@tanstack/react-query-devtools` import should occur before import of `react`  import/order
+   4:1  error  `@react-oauth/google` import should occur before import of `react`             import/order
+  10:1  error  `@/app/router` import should occur before import of `@/config/env`             import/order
+
+/home/iidx/2nd/FE/src/components/CopyLinkButton.tsx
+  1:1  error  There should be at least one empty line between import groups  import/order
+
+/home/iidx/2nd/FE/src/components/Sidebar.tsx
+  2:1  error  There should be at least one empty line between import groups                          import/order
+  2:1  error  `@tanstack/react-query` import should occur before import of `react-router-dom`        import/order
+  4:1  error  `@/hooks/queries/queryKeys` import should occur before import of `@/stores/authStore`  import/order
+  5:1  error  `@/api/authApi` import should occur before import of `@/stores/authStore`              import/order
+
+/home/iidx/2nd/FE/src/components/auth/ProtectedRoute.tsx
+  1:1  error  There should be at least one empty line between import groups                             import/order
+  3:1  error  `@/components/ui/LoadingState` import should occur before import of `@/stores/authStore`  import/order
+
+/home/iidx/2nd/FE/src/components/auth/PublicRoute.tsx
+  1:1  error  There should be at least one empty line between import groups                             import/order
+  3:1  error  `@/components/ui/LoadingState` import should occur before import of `@/stores/authStore`  import/order
+
+/home/iidx/2nd/FE/src/components/chat/ChatWidget.tsx
+   1:1  error    There should be at least one empty line between import groups                                                                                                                                      import/order
+   3:1  error    `@/hooks/queries/chat/useChat` import should occur before import of `@/stores/authStore`                                                                                                           import/order
+  63:9  warning  The 'messages' logical expression could make the dependencies of useEffect Hook (at line 86) change on every render. To fix this, wrap the initialization of 'messages' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/home/iidx/2nd/FE/src/components/map/Map.tsx
+  38:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/components/map/NaverMap.tsx
+   1:1   error  There should be at least one empty line between import groups                   import/order
+   3:1   error  `@/hooks/useGeolocation` import should occur before import of `@/hooks/useMap`  import/order
+   5:1   error  `@/types/api` type import should occur before type import of `@/types/map`      import/order
+  56:22  error  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  75:85  error  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/hooks/queries/chat/useChat.ts
+   6:1   error  There should be at least one empty line between import groups  import/order
+  93:31  error  'sessionId' is defined but never used                          @typescript-eslint/no-unused-vars
+
+/home/iidx/2nd/FE/src/hooks/queries/place/usePlaces.ts
+   6:1  error  There should be at least one empty line between import groups               import/order
+  11:1  error  `@/types/api` type import should occur before type import of `@/types/map`  import/order
+
+/home/iidx/2nd/FE/src/hooks/queries/plan/usePlanQueries.ts
+  2:1  error  There should be at least one empty line between import groups                    import/order
+  6:1  error  `@/types/api` import should occur before import of `@/utils/mappers/planMapper`  import/order
+
+/home/iidx/2nd/FE/src/hooks/queries/queryKeys.ts
+  7:1  error  `@/types/map` type import should occur after type import of `@/types/api`  import/order
+
+/home/iidx/2nd/FE/src/hooks/queries/user/useUser.ts
+  2:1  error  `@tanstack/react-query` import should occur before import of `react`              import/order
+  5:1  error  `@/api/userApi` import should occur before import of `@/hooks/queries/queryKeys`  import/order
+
+/home/iidx/2nd/FE/src/hooks/useGeolocation.ts
+  1:1  error  There should be at least one empty line between import groups                     import/order
+  3:1  error  `@/stores/locationStore` import should occur before type import of `@/types/map`  import/order
+
+/home/iidx/2nd/FE/src/hooks/useInfoWindow.ts
+   1:1   error  There should be at least one empty line between import groups  import/order
+  15:32  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/hooks/useMap.ts
+   1:1  error    There should be at least one empty line between import groups                                                                                                   import/order
+  70:6  warning  React Hook useEffect has missing dependencies: 'defaultCenter.lat', 'defaultCenter.lng', and 'defaultZoom'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/iidx/2nd/FE/src/hooks/useMarkers.ts
+   1:1   error  There should be at least one empty line between import groups  import/order
+  35:28  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/lib/apiUtils.ts
+  1:1  error  There should be at least one empty line between import groups  import/order
+
+/home/iidx/2nd/FE/src/lib/kakao.ts
+   8:3  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  10:5  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  12:5  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/home/iidx/2nd/FE/src/lib/naverMap.ts
+  11:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/lib/ws.ts
+   3:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/main.tsx
+  2:1  error  There should be at least one empty line between import groups  import/order
+
+/home/iidx/2nd/FE/src/pages/Home.tsx
+   6:1   error    `@/components/map/NaverMap` import should occur before import of `@/components/ui/Button`                           import/order
+  10:1   error    `@/hooks/queries/place/usePlaces` import should occur before import of `@/stores/authStore`                         import/order
+  11:1   error    `@/hooks/useMarkers` import should occur before import of `@/stores/authStore`                                      import/order
+  12:1   error    `@/hooks/useInfoWindow` import should occur before import of `@/stores/authStore`                                   import/order
+  13:1   error    `@/hooks/useGeolocation` import should occur before import of `@/stores/authStore`                                  import/order
+  14:1   error    `@/lib/placeMapper` import should occur before import of `@/stores/authStore`                                       import/order
+  15:1   error    `@/types/naver.d` type import should occur before import of `@/types/plan`                                          import/order
+  16:1   error    There should be at least one empty line between import groups                                                       import/order
+  16:1   error    `@/types/map` type import should occur before import of `@/types/plan`                                              import/order
+  17:1   error    There should be at least one empty line between import groups                                                       import/order
+  17:1   error    `react` import should occur before import of `react-router-dom`                                                     import/order
+  61:6   warning  React Hook useEffect has a missing dependency: 'closeInfoWindow'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  65:74  error    Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/pages/Login.tsx
+    2:1   error    `react` import should occur before import of `react-router-dom`                                                         import/order
+    3:1   error    `@react-oauth/google` import should occur before import of `react-router-dom`                                           import/order
+    4:1   error    There should be at least one empty line between import groups                                                           import/order
+    4:1   error    `@tanstack/react-query` import should occur before import of `react-router-dom`                                         import/order
+    8:1   error    `@/lib/naverLogin` import should occur before import of `@/stores/authStore`                                            import/order
+    9:1   error    `@/components/ui/Button` import should occur before import of `@/hooks/queries/queryKeys`                               import/order
+   30:6   warning  React Hook useEffect has a missing dependency: 'handleNaverCallback'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   54:19  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  113:19  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/pages/Main.tsx
+  1:1  error  There should be at least one empty line between import groups                           import/order
+  2:1  error  `@/components/Sidebar` import should occur after import of `@/components/map/NaverMap`  import/order
+
+/home/iidx/2nd/FE/src/pages/MyPlan.tsx
+  2:1  error  There should be at least one empty line between import groups                                      import/order
+  3:1  error  There should be at least one empty line between import groups                                      import/order
+  3:1  error  `../components/Sidebar` import should occur after import of `@/hooks/queries/plan/usePlanQueries`  import/order
+  4:1  error  `@/components/ui/LoadingState` import should occur after import of `@/components/ui/EmptyState`    import/order
+  5:1  error  `@/components/ui/ErrorState` import should occur after import of `@/components/ui/EmptyState`      import/order
+
+/home/iidx/2nd/FE/src/pages/MyPlanCreate.tsx
+   2:1  error  There should be at least one empty line between import groups                                       import/order
+   3:1  error  There should be at least one empty line between import groups                                       import/order
+   4:1  error  `@/components/map/NaverMap` import should occur before import of `../components/Sidebar`            import/order
+   5:1  error  `@/hooks/queries/place/usePlaces` import should occur before import of `../components/Sidebar`      import/order
+   6:1  error  `@/hooks/queries/plan/usePlanQueries` import should occur before import of `../components/Sidebar`  import/order
+   7:1  error  `@/stores/authStore` import should occur before import of `../components/Sidebar`                   import/order
+   8:1  error  `@/stores/locationStore` import should occur before import of `../components/Sidebar`               import/order
+   9:1  error  There should be at least one empty line between import groups                                       import/order
+   9:1  error  `@/types/api` import should occur before import of `../components/Sidebar`                          import/order
+  10:1  error  `react-hot-toast` import should occur before import of `react-router-dom`                           import/order
+
+/home/iidx/2nd/FE/src/pages/MyPlanDetail.tsx
+  2:1  error  There should be at least one empty line between import groups                                       import/order
+  2:1  error  `react` import should occur before import of `react-router-dom`                                     import/order
+  3:1  error  There should be at least one empty line between import groups                                       import/order
+  4:1  error  `@/components/ui/LoadingState` import should occur before import of `../components/Sidebar`         import/order
+  5:1  error  `@/components/ui/ErrorState` import should occur before import of `../components/Sidebar`           import/order
+  6:1  error  There should be at least one empty line between import groups                                       import/order
+  6:1  error  `@/hooks/queries/plan/usePlanQueries` import should occur before import of `../components/Sidebar`  import/order
+  7:1  error  `react-hot-toast` import should occur before import of `react-router-dom`                           import/order
+
+/home/iidx/2nd/FE/src/pages/Onboarding.tsx
+  3:1  error  `react-hot-toast` import should occur before import of `react-router-dom`  import/order
+
+/home/iidx/2nd/FE/src/pages/Search.tsx
+  1:1  error  There should be at least one empty line between import groups                   import/order
+  2:1  error  There should be at least one empty line between import groups                   import/order
+  2:1  error  `../components/Sidebar` import should occur after type import of `@/types/api`  import/order
+
+/home/iidx/2nd/FE/src/pages/Settings.tsx
+  6:1  error  `@/hooks/queries/user/useUser` import should occur before import of `@/hooks/queries/user/useUserMutations`  import/order
+  7:1  error  There should be at least one empty line between import groups                                                import/order
+
+/home/iidx/2nd/FE/src/stores/authStore.ts
+  2:1  error  There should be at least one empty line between import groups  import/order
+
+/home/iidx/2nd/FE/src/types/api.ts
+  141:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/types/naver.d.ts
+  32:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/iidx/2nd/FE/src/utils/mappers/planMapper.ts
+  2:1  error  There should be at least one empty line between import groups  import/order
+  3:1  error  `dayjs` import should occur before import of `@/types/api`     import/order
+
+/home/iidx/2nd/FE/vite.config.ts
+  2:1  error  There should be at least one empty line between import groups       import/order
+  2:1  error  `@vitejs/plugin-react` import should occur before import of `vite`  import/order
+  3:1  error  `path` import should occur before import of `vite`                  import/order
+
+✖ 129 problems (125 errors, 4 warnings)
+  93 errors and 0 warnings potentially fixable with the `--fix` option.
+

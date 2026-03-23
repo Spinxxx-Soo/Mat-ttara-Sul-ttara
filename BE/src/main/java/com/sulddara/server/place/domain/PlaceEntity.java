@@ -12,70 +12,70 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "places", uniqueConstraints = {
-    @UniqueConstraint(columnNames = { "provider", "external_place_id" })
+        @UniqueConstraint(columnNames = {"provider", "external_place_id"})
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
 public class PlaceEntity {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  @Column(nullable = false)
-  private String provider;
+    @Column(nullable = false)
+    private String provider;
 
-  @Column(name = "external_place_id", nullable = false)
-  private String externalPlaceId;
+    @Column(name = "external_place_id", nullable = false)
+    private String externalPlaceId;
 
-  @Column(nullable = false)
-  private String name;
+    @Column(nullable = false)
+    private String name;
 
-  private String address;
+    private String address;
 
-  @Column(length = 500)
-  private String imageUrl;
+    @Column(length = 500)
+    private String imageUrl;
 
-  @Column(length = 100)
-  private String category;
+    @Column(length = 100)
+    private String category;
 
-  @Column(nullable = false)
-  private Boolean isOpen = true;
+    @Column(nullable = false)
+    private Boolean isOpen = true;
 
-  @Column(nullable = false)
-  private Double lat;
+    @Column(nullable = false)
+    private Double lat;
 
-  @Column(nullable = false)
-  private Double lng;
+    @Column(nullable = false)
+    private Double lng;
 
-  private String url;
+    private String url;
 
-  @Column(length = 20)
-  private String phone;
+    @Column(length = 20)
+    private String phone;
 
-  @Column(columnDefinition = "TEXT")
-  private String openingHours;
+    @Column(columnDefinition = "TEXT")
+    private String openingHours;
 
-  @Column(columnDefinition = "TEXT")
-  private String description;
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
-  private LocalDateTime lastStatusCheckedAt;
+    private LocalDateTime lastStatusCheckedAt;
 
-  @CreatedDate
-  @Column(updatable = false)
-  private LocalDateTime createdAt;
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
 
-  @LastModifiedDate
-  private LocalDateTime lastUpdatedAt;
+    @LastModifiedDate
+    private LocalDateTime lastUpdatedAt;
 
-  public PlaceEntity(String provider, String externalPlaceId, String name,
-      String address, Double lat, Double lng) {
-    this.provider = provider;
-    this.externalPlaceId = externalPlaceId;
-    this.name = name;
-    this.address = address;
-    this.lat = lat;
-    this.lng = lng;
-  }
+    public PlaceEntity(String provider, String externalPlaceId, String name,
+                       String address, Double lat, Double lng) {
+        this.provider = provider;
+        this.externalPlaceId = externalPlaceId;
+        this.name = name;
+        this.address = address;
+        this.lat = lat;
+        this.lng = lng;
+    }
 }

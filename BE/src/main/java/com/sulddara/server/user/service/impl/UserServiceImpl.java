@@ -80,7 +80,7 @@ public class UserServiceImpl implements UserService {
             throw new BaseException(ErrorCode.INVALID_INPUT_VALUE);
         }
         SocialType socialType = SocialType.valueOf(userInfo.getProvider().toString().toUpperCase());
-        return userRepository.findBySocialTypeAndSocialId(
+        return userRepository.findByProviderAndProviderId(
                         socialType,
                         userInfo.getProviderId()
                 )

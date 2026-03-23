@@ -24,7 +24,7 @@ export const queryKeys = {
     plan: {
         all: ['plan'] as const,
         list: () => [...queryKeys.plan.all, 'list'] as const,
-        detail: (planId: number) =>
+        detail: (planId: string) =>
             [...queryKeys.plan.all, 'detail', planId] as const,
     },
 

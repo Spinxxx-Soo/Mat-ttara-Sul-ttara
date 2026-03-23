@@ -4,7 +4,7 @@ import com.sulddara.server.auth.controller.response.TokenResponse;
 import com.sulddara.server.auth.jwt.JwtUtil;
 import com.sulddara.server.auth.service.AuthService;
 import com.sulddara.server.global.error.ErrorCode;
-import com.sulddara.server.global.error.exception.EntityNotFoundException;
+import com.sulddara.server.user.exception.UserNotFoundException;
 import com.sulddara.server.global.error.exception.UnauthorizedException;
 import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.user.repository.UserRepository;
@@ -56,7 +56,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(UserNotFoundException::new);
 
         String newAccessToken = jwtUtil.generateAccessToken(user.getId(), user.getEmail(), user.getRole());
 

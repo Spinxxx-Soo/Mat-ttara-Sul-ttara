@@ -13,12 +13,21 @@ export interface PageInfo {
 }
 
 /**
- * 페이지네이션(리스트) 형태의 공통 응답 제네릭 포맷
+ * 페이지번호(Offset) 기반의 공통 응답 제네릭 포맷
  */
 export interface ApiPaginationResponse<T> {
   content: T[];
   pageInfo: PageInfo;
-  averageRating?: number; // 리뷰 리스트 등에서 사용될 수 있는 부가 속성
+  averageRating?: number;
+}
+
+/**
+ * 커서(Cursor) 기반의 공통 응답 제네릭 포맷 (S14P21B205-132)
+ */
+export interface ApiCursorPaginationResponse<T> {
+  content: T[];
+  nextCursor: string | number | null;
+  hasNext: boolean;
 }
 
 /**
@@ -69,6 +78,16 @@ export interface OnboardingRequest {
   gender: string;
 }
 
+export interface UserPreference {
+  prefId: number;
+  userId: number;
+  usageType: string;
+  ageGroup: string;
+  gender: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- 플랜 (Plan) ---
 export interface Plan {
   planId: number;
@@ -78,8 +97,16 @@ export interface Plan {
   totalBudget: number;
   planType: string;
   memo?: string;
+  thumbnailUrl?: string; // 추가: 목록에서 보여줄 이미지
   createdAt: string;
   updatedAt?: string;
+}
+
+/**
+ * 플랜 상세 응답 (S14P21B205-213)
+ */
+export interface PlanDetail extends Plan {
+  details: PlanPlace[];
 }
 
 export interface PlanPlace {
@@ -107,6 +134,7 @@ export interface UpdatePlanRequest {
   totalBudget?: number;
   planType?: string;
   memo?: string;
+  details?: { placeId: number; seqNo: number }[]; // 수정 시에도 장소 목록 수정 가능하도록 추가
 }
 
 // --- 장소 (Place) ---

@@ -1,173 +1,179 @@
-import { useState } from 'react'
-import Sidebar from '../components/Sidebar'
-import ChatWidget from '../components/chat/ChatWidget'
+import { useState, useMemo } from 'react'
+import Sidebar from '@/components/Sidebar'
+import ChatWidget from '@/components/chat/ChatWidget'
+import NaverMap from '@/components/map/NaverMap'
+import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
+import { useLocationStore } from '@/stores/locationStore'
+import type { Place } from '@/types/api'
 
-interface RestaurantPin {
-  id: string
-  name: string
-  lat: number
-  lng: number
-  isOpen: boolean
-  address: string
-  hours: string
-}
+// ==========================================
+// S14P21B205-128: 지도 초기화와 현재 위치 표시
+// S14P21B205-129: 지도와 장소 데이터 연동 구현
+// S14P21B205-197: 리스트-마커 연계 동작 구현
+// S14P21B205-198: 지도 중심 기반 재조회 (onIdle 연계)
+// ==========================================
 
 const Main = () => {
-  const [selectedPin, setSelectedPin] = useState<string | null>(null)
-  const [ratings, setRatings] = useState<Record<string, number>>({})
+  const [selectedCategory, setSelectedCategory] = useState('전체')
+  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
+  
+  // 현재 내 위치 (store)
+  const { lat: storeLat, lng: storeLng } = useLocationStore()
+  const currentLat = storeLat ?? 37.5665 // 서울 (또는 FALLBACK_LOCATION)
+  const currentLng = storeLng ?? 126.9780
+  
+  // 지도의 현재 중심 (재조회용)
+  const [mapCenter, setMapCenter] = useState({ lat: currentLat, lng: currentLng })
+  
+  // 지도의 현재 줌 (기본값 15)
+  const [zoom, setZoom] = useState(15)
 
-  // TODO: 실제 지도 API 연동 (네이버 지도 또는 카카오맵)
-  const restaurants: RestaurantPin[] = [
-    {
-      id: '1',
-      name: '만선호프',
-      lat: 37.5665,
-      lng: 126.9928,
-      isOpen: true,
-      address: '서울 중구 을지로13길 19',
-      hours: '오늘 17:00 - 24:00',
-    },
-    {
-      id: '2',
-      name: '시선 이자카야',
-      lat: 37.4979,
-      lng: 127.0276,
-      isOpen: true,
-      address: '서울 강남구 테헤란로 222',
-      hours: '오늘 18:00 - 02:00',
-    },
-  ]
+  // 주변 장소 데이터 조회 (실제 API 연동)
+  const { data: restaurants = [], isLoading } = useNearbyPlaces({
+    lat: mapCenter.lat,
+    lng: mapCenter.lng,
+    radius: zoom > 14 ? 1000 : 2000 // 줌 레벨에 따라 검색 반경 조절 (zoom 활용)
+  }, true)
 
-  const handleRatingChange = (id: string, value: number) => {
-    setRatings((prev) => ({ ...prev, [id]: value }))
+  const categories = ['전체', '한식', '일식', '중식', '양식', '카페', '술집']
+
+  // 카테고리 필터링 (클라이언트 사이드)
+  const filteredRestaurants = useMemo(() => {
+    if (selectedCategory === '전체') return restaurants
+    return restaurants.filter(r => r.category === selectedCategory)
+  }, [restaurants, selectedCategory])
+
+  const handlePlaceClick = (place: Place) => {
+    setSelectedPlaceId(place.placeId)
+    // 리스트에서 클릭 시 스크롤 되도록 유도하는 등의 UX 처리는 필요 시 추가
+  }
+
+  const handleMapIdle = (center: { lat: number, lng: number }, currentZoom: number) => {
+    // 지도가 이동하여 멈췄을 때 중심 좌표 업데이트 -> useNearbyPlaces 재발생
+    setMapCenter(center)
+    setZoom(currentZoom)
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50 font-sans">
       <Sidebar />
-      <ChatWidget />
-      <main className="flex-1 relative bg-slate-100 dark:bg-slate-900">
-        {/* Map Background - TODO: 실제 지도 API로 교체 */}
-        <div
-          className="absolute inset-0 z-0 bg-cover bg-center"
-          style={{
-            backgroundImage: "url('/mock-map.png')",
-            filter: 'brightness(0.98) contrast(1.02)',
-          }}
-        >
-          {/* Map Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-900/5" />
-
-          {/* Map Pins + Inline Cards */}
-          {restaurants.map((place, index) => {
-            const currentRating = ratings[place.id] || 0
-            const isSelected = selectedPin === place.id
-
-            return (
-              <div
-                key={place.id}
-                className={`absolute cursor-pointer transition-transform ${isSelected ? 'scale-110 z-20' : 'z-10'
-                  }`}
-                style={{
-                  left: `${25 + index * 35}%`,
-                  top: `${35 + index * 25}%`,
-                }}
-              >
-                <div className="relative flex flex-col items-center">
-                  {/* 카드: 핀 위에 표시 */}
-                  {isSelected && (
-                    <div className="mb-3 min-w-[260px] max-w-xs rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                            {place.name}
-                          </h3>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                            {place.hours}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPin(null)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-base">close</span>
-                        </button>
-                      </div>
-
-                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-2">
-                        {place.address}
-                      </p>
-
-                      {/* 별점 선택 */}
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => handleRatingChange(place.id, star)}
-                            className="p-0.5"
-                          >
-                            <span
-                              className="material-symbols-outlined text-sm"
-                              style={{
-                                fontVariationSettings:
-                                  star <= currentRating ? "'FILL' 1" : "'FILL' 0",
-                                color: star <= currentRating ? '#f59e0b' : '#e5e7eb',
-                              }}
-                            >
-                              star
-                            </span>
-                          </button>
-                        ))}
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-1">
-                          {currentRating > 0 ? `${currentRating}.0 / 5` : '별점을 선택해 주세요'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 핀 아이콘 (원 + 아래 꼬리) */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPin(place.id)}
-                    className="relative flex flex-col items-center group"
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xl border-2 border-white transition-transform ${isSelected ? 'bg-primary scale-110' : 'bg-primary group-hover:scale-110'
-                        }`}
-                    >
-                      <span className="material-symbols-outlined text-xl text-white">
-                        restaurant
-                      </span>
-                    </div>
-                    {/* 꼬리: 검색 화면과 동일한 스타일 */}
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rotate-45 border-r-2 border-b-2 border-white" />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Map Controls */}
-        <div className="absolute bottom-8 right-8 flex flex-col gap-3 z-20">
-          <button className="w-14 h-14 bg-white dark:bg-slate-900 rounded-2xl shadow-xl flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-200 border border-slate-200 dark:border-slate-700">
-            <span className="material-symbols-outlined text-2xl">my_location</span>
-          </button>
-          <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700">
-            <button className="w-14 h-14 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-200">
-              <span className="material-symbols-outlined text-xl">add</span>
-            </button>
-            <button className="w-14 h-14 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-200">
-              <span className="material-symbols-outlined text-xl">remove</span>
+      
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Map Section (S14P21B205-128, 129) */}
+        <section className="flex-1 relative">
+          <NaverMap 
+            className="w-full h-full"
+            lat={currentLat}
+            lng={currentLng}
+            places={filteredRestaurants}
+            selectedPlaceId={selectedPlaceId}
+            onPlaceClick={handlePlaceClick}
+            onIdle={handleMapIdle}
+          />
+          
+          {/* 하단 플로팅 오버레이 (버튼 등) */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
+            <button className="px-6 py-2.5 bg-white text-slate-700 rounded-full shadow-xl font-bold hover:bg-slate-50 transition-all border border-slate-100 flex items-center gap-2 group">
+              <span className="material-symbols-outlined text-[20px] group-hover:rotate-180 transition-transform duration-500">refresh</span>
+              이 주변 맛집 재검색
             </button>
           </div>
-          <button className="w-14 h-14 bg-white dark:bg-slate-900 rounded-2xl shadow-xl flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-200 border border-slate-200 dark:border-slate-700">
-            <span className="material-symbols-outlined text-xl">layers</span>
-          </button>
-        </div>
+        </section>
+
+        {/* Places List Sidebar (S14P21B205-197) */}
+        <aside className="w-[400px] h-full bg-white border-l border-slate-200 flex flex-col shadow-[-4px_0_15px_rgba(0,0,0,0.05)] z-20">
+          <div className="p-6 border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">explore</span>
+                주변 맛집 발견
+              </h2>
+              <button className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors">
+                <span className="material-symbols-outlined text-[22px]">tune</span>
+              </button>
+            </div>
+
+            {/* Category Pills */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-300 ${
+                    selectedCategory === category
+                      ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-105'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center h-40 space-y-4">
+                <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm font-medium text-slate-400">최적의 맛집을 찾는 중...</p>
+              </div>
+            ) : filteredRestaurants.length > 0 ? (
+              filteredRestaurants.map((place) => (
+                <div
+                  key={place.placeId}
+                  onClick={() => handlePlaceClick(place)}
+                  className={`group bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer ${
+                    selectedPlaceId === place.placeId
+                      ? 'border-primary ring-2 ring-primary/20 shadow-xl scale-[1.02]'
+                      : 'border-slate-100 hover:border-slate-300 hover:shadow-lg'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className={`font-black tracking-tight transition-colors ${
+                        selectedPlaceId === place.placeId ? 'text-primary' : 'text-slate-800 group-hover:text-primary'
+                      }`}>
+                        {place.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{place.category || '음식점'}</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg">
+                      <span className="material-symbols-outlined text-amber-400 text-[16px] fill-amber-400">
+                        star
+                      </span>
+                      <span className="text-xs font-black text-amber-700">{place.rating || '0.0'}</span>
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-slate-500 mb-4 line-clamp-1 flex items-center gap-1.5 font-medium">
+                    <span className="material-symbols-outlined text-[18px] text-slate-300">location_on</span>
+                    {place.address}
+                  </p>
+                  
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+                    <span className="text-[11px] px-2.5 py-1 rounded-full font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      영업 중
+                    </span>
+                    <button className="text-slate-400 group-hover:text-primary p-1 rounded-full hover:bg-primary/5 transition-all">
+                      <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 text-center p-8 bg-white/50 rounded-3xl border-2 border-dashed border-slate-200">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                   <span className="material-symbols-outlined text-slate-300 text-[32px]">no_meals</span>
+                </div>
+                <h4 className="font-bold text-slate-700 mb-1">장소가 없습니다</h4>
+                <p className="text-slate-400 text-xs leading-relaxed">지도를 이동하거나 다른 카테고리를<br/>선택해 보세요.</p>
+              </div>
+            )}
+          </div>
+        </aside>
       </main>
+
+      <ChatWidget />
     </div>
   )
 }
