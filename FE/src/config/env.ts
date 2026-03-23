@@ -19,6 +19,8 @@ export const envConfig = {
     // 지도
     kakaoMapJsKey: getEnvVar('VITE_KAKAO_MAP_JS_KEY'),
     kakaoJsKey: getEnvVar('VITE_KAKAO_JS_KEY'),
+    // (호환용) Naver Map 관련 코드가 남아있을 때 타입체크를 통과시키기 위한 값
+    naverMapClientId: getEnvVar('VITE_NAVER_MAP_CLIENT_ID'),
 
     // OAuth
     googleClientId: getEnvVar('VITE_GOOGLE_CLIENT_ID'),

@@ -138,7 +138,6 @@ export interface UpdatePlanRequest {
 }
 
 // --- 장소 (Place) ---
-
 /** 장소 상세 조회 응답의 영업시간 구조 */
 export interface PlaceOpeningHours {
   today?: string; // "18:00 - 01:00"
@@ -175,20 +174,25 @@ export interface RecommendedPlace {
   address: string;
   rating?: number | null;
   recommendReason?: string | null;
-  openingHours?: Record<string, any> | string | null;
+  openingHours?: PlaceOpeningHours | Record<string, unknown> | string | null;
   imageUrl?: string | null;
   category?: string | null;
   tags?: string[] | null;
-  /** 크롤링으로 보강된 데이터인지 여부 */
   isEnriched?: boolean;
 }
 
+/** SSE `ai_response` 이벤트 data (백엔드 AiResponsePayload 요약) */
+export interface AiSseResponsePayload {
+  sessionId?: string | number | null;
+  [key: string]: unknown;
+}
+
 export interface PlaceSearchRequest {
-  keyword: string;  // 필수
-  lat?: number;     // 선택
-  lng?: number;     // 선택
-  page: number;     // 필수
-  size: number;     // 필수
+  keyword: string; // 필수
+  lat?: number;
+  lng?: number;
+  page: number; // 필수
+  size: number; // 필수
 }
 
 export interface PlaceSearchResponse {
@@ -201,10 +205,19 @@ export interface Review {
   reviewId: number;
   placeId?: number;
   userId?: number;
+  /** GET /places/{id}/reviews 목록에 포함될 수 있음 */
+  userName?: string;
   rating: number;
   content: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+/** 가게별 리뷰 목록 조회 응답 (GET /api/v1/places/{placeId}/reviews) */
+export interface PlaceReviewsResponse {
+  content: Review[];
+  pageInfo: PageInfo;
+  averageRating?: number;
 }
 
 export interface CreateReviewRequest {
