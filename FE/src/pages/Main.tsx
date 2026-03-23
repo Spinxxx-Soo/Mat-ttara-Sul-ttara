@@ -8,6 +8,7 @@ import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
+import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 
 // ==========================================
 // 레이아웃: [사이드바] | [AI 플래너 ↔ 리뷰] | [지도]
@@ -45,9 +46,14 @@ const Main = () => {
     return restaurants.filter((r) => r.category === selectedCategory)
   }, [restaurants, selectedCategory])
 
+  const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
+  const mapPlaces = useMemo(() => {
+    return mergeByPlaceId(filteredRestaurants, aiRecommendedPlaces)
+  }, [filteredRestaurants, aiRecommendedPlaces])
+
   const selectedPlace = useMemo(
-    () => filteredRestaurants.find((p) => p.placeId === selectedPlaceId) ?? null,
-    [filteredRestaurants, selectedPlaceId]
+    () => mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null,
+    [mapPlaces, selectedPlaceId]
   )
 
   const handlePlaceClick = (place: Place) => {
@@ -86,10 +92,10 @@ const Main = () => {
   // 카테고리 변경/추천 변화로 선택 장소가 목록에서 사라지면 상세 카드만 닫음
   useEffect(() => {
     if (selectedPlaceId == null) return
-    if (!filteredRestaurants.some((p) => p.placeId === selectedPlaceId)) {
+    if (!mapPlaces.some((p) => p.placeId === selectedPlaceId)) {
       setSelectedPlaceId(null)
     }
-  }, [filteredRestaurants, selectedPlaceId])
+  }, [mapPlaces, selectedPlaceId])
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-slate-50 font-sans">
@@ -146,8 +152,8 @@ const Main = () => {
                 <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                 <p className="text-sm font-medium text-slate-400">최적의 맛집을 찾는 중...</p>
               </div>
-            ) : filteredRestaurants.length > 0 ? (
-              filteredRestaurants.map((place) => (
+            ) : mapPlaces.length > 0 ? (
+              mapPlaces.map((place) => (
                 <div
                   key={place.placeId}
                   role="button"
@@ -226,7 +232,7 @@ const Main = () => {
             className="h-full w-full"
             lat={mapCenter.lat}
             lng={mapCenter.lng}
-            places={filteredRestaurants}
+            places={mapPlaces}
             selectedPlaceId={selectedPlaceId}
             onPlaceClick={handlePlaceClick}
             onIdle={handleMapIdle}

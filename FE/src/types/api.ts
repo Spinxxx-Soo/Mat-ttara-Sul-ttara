@@ -138,18 +138,53 @@ export interface UpdatePlanRequest {
 }
 
 // --- 장소 (Place) ---
+/** 장소 상세 조회 응답의 영업시간 구조 */
+export interface PlaceOpeningHours {
+  today?: string; // "18:00 - 01:00"
+  weekly?: Array<{ day: string; time: string }>;
+}
+
 export interface Place {
   placeId: number;
   name: string;
   address: string;
-  phone?: string;
+  phone?: string | null;
   lat: number;
   lng: number;
-  rating?: number;
-  recommendReason?: string;
-  openingHours?: Record<string, unknown> | string;
-  imageUrl?: string;
-  category?: string;
+  rating?: number | null;
+  recommendReason?: string | null; // 추천 장소 조회시
+  openingHours?: PlaceOpeningHours | Record<string, unknown> | string | null;
+  imageUrl?: string | null; // 가게 검색 응답에 포함
+  imageUrls?: string[] | null; // 장소 상세 조회 응답에 포함
+  category?: string | null;
+  description?: string | null; // 장소 상세 조회 응답에 포함
+  url?: string | null; // 지도 링크(백엔드 스키마에 따름)
+  /** AI 추천 등에서만 사용 (선택) */
+  tags?: string[] | null;
+  /** 크롤링으로 보강된 데이터인지 여부 */
+  isEnriched?: boolean;
+}
+
+/** GET /api/v1/places/recommend · SSE 연동 시 추천 장소 스키마 */
+export interface RecommendedPlace {
+  placeId: number;
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  rating?: number | null;
+  recommendReason?: string | null;
+  openingHours?: PlaceOpeningHours | Record<string, unknown> | string | null;
+  imageUrl?: string | null;
+  category?: string | null;
+  tags?: string[] | null;
+  isEnriched?: boolean;
+}
+
+/** SSE `ai_response` 이벤트 data (백엔드 AiResponsePayload 요약) */
+export interface AiSseResponsePayload {
+  sessionId?: string | number | null;
+  [key: string]: unknown;
 }
 
 export interface PlaceSearchRequest {

@@ -11,6 +11,7 @@ import type {
   PlaceSearchRequest,
   PlaceSearchResponse,
   PlaceReviewsResponse,
+  RecommendedPlace,
   CreateReviewRequest,
   UpdateReviewRequest,
   Review,
@@ -59,6 +60,32 @@ export const placeApi = {
         );
         return data;
     },
+
+  /**
+   * 채팅 세션 기준 AI 추천 장소 목록 (SSE 수신 후 갱신용)
+   * GET /api/v1/places/recommend?sessionId=
+   */
+  getRecommendedPlaces: async (
+    sessionId: string | number,
+  ): Promise<RecommendedPlace[]> => {
+    const { data } = await apiClient.get<RecommendedPlace[] | { content: RecommendedPlace[] }>(
+      '/api/v1/places/recommend',
+      {
+        params: { sessionId: String(sessionId) },
+      },
+    );
+
+    if (Array.isArray(data)) return data;
+    return data.content ?? [];
+  },
+
+  /**
+   * 부족한 장소 정보를 크롤링으로 보강 요청
+   */
+  enrichPlaceData: async (placeId: number): Promise<Place> => {
+    const { data } = await apiClient.post<Place>(`/api/v1/places/${placeId}/enrich`);
+    return data;
+  },
 
   /**
    * 가게별 리뷰 목록 조회
