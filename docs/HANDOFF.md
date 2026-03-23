@@ -75,6 +75,7 @@ This project is a restaurant recommendation and plan management service.
 - `BE/src/main/resources/application-local.yml` contains hardcoded local secrets and credentials. Do not treat it as portable setup. Prefer env vars from `BE/.env`.
 - Root `.env.local` is gitignored and machine-local. Do not rely on it for shared onboarding.
 - Backend local infra expects MySQL on `3306`, Redis on `6379`, Elasticsearch on `9200`.
+- `BE/docker-compose.yml` previously reinstalled the Elasticsearch `analysis-nori` plugin on every container start, which caused `sulddara-elasticsearch` to exit with code 1 after the first successful boot. The compose command is now idempotent and skips reinstall when the plugin already exists.
 
 ## Practical Defaults
 
@@ -104,6 +105,11 @@ This project is a restaurant recommendation and plan management service.
 3. Reconcile `AI/README.md` with the current code and either restore or remove `init_db.py` references.
 4. Decide whether the frontend standard package manager is `npm` or `pnpm`, then align docs and lockfiles.
 5. Keep this file current whenever branch status, env requirements, or startup flow changes.
+
+## Recent Verification
+
+- Confirmed `docker compose up -d --force-recreate elasticsearch` now leaves `sulddara-elasticsearch` running and `curl http://localhost:9200` responds successfully.
+- Confirmed backend starts with `cd BE && set -a && source .env && set +a && ./gradlew bootRun --args='--spring.profiles.active=local'`.
 
 ## If You Are The Next Agent
 
