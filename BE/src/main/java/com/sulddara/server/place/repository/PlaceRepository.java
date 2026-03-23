@@ -12,8 +12,7 @@ import java.util.Optional;
 @Repository
 public interface PlaceRepository extends JpaRepository<Place, Long> {
   @Query(value = "SELECT p.id FROM places p " +
-          "WHERE ST_Distance_Sphere(point(p.lng, p.lat), point(:lng, :lat)) <= 1000 " +
-          "AND p.is_open = true", nativeQuery = true)
+          "WHERE ST_Distance_Sphere(point(p.lng, p.lat), point(:lng, :lat)) <= 1000 ", nativeQuery = true)
   List<Long> findIdsByLocation(@Param("lat") Double lat, @Param("lng") Double lng);
 
   Optional<Place> findByProviderAndExternalPlaceId(String provider, String externalPlaceId);

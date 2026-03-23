@@ -26,13 +26,13 @@ public class NaverPlaceSearchServiceImpl implements ExternalPlaceSearchService {
 
     private final RestTemplate restTemplate;
 
-    @Value("${external.naver.local-search.url}")
+    @Value("${spring.external.naver.local-search.url}")
     private String naverSearchUrl;
 
-    @Value("${external.naver.local-search.client-id}")
+    @Value("${spring.external.naver.local-search.client-id}")
     private String clientId;
 
-    @Value("${external.naver.local-search.client-secret}")
+    @Value("${spring.external.naver.local-search.client-secret}")
     private String clientSecret;
 
     @Override

@@ -17,6 +17,7 @@ import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import com.sulddara.server.place.service.PlaceService;
+import com.sulddara.server.s3.service.S3Service;
 import com.sulddara.server.share.error.ErrorCode;
 import com.sulddara.server.share.error.exception.BaseException;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,7 @@ public class PlaceServiceImpl implements PlaceService {
     private final ObjectMapper objectMapper;
     private final RedisTemplate<String, String> redisTemplate;
     private final WebClient webClient;
+    private final S3Service s3Service;
 
     @Override
     @Transactional(readOnly = true)
@@ -283,16 +285,24 @@ public class PlaceServiceImpl implements PlaceService {
     private double rad2deg(double rad) { return (rad * 180 / Math.PI); }
 
     @Override
+    @Transactional
     public PlaceDetailResponse getPlaceDetail(Long placeId) {
         Place place = placeRepository.findById(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
 
-        PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
+        if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
+            String s3Url = s3Service.uploadFromExternalUrl(place.getOriginImgUrl());
+            if (s3Url != null) {
+                place.updateImageUrl(s3Url);
+            }
+        }
 
         // webclient로 데이터가 null일 경우 ai한테 크롤링 로직 호출
         if(isMissingData(place)) {
             fetchAndEnrichData(place);
         }
+
+        PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
 
         // rating 불러오는 로직 필요!!!!
         return PlaceDetailResponse.builder()
@@ -304,7 +314,7 @@ public class PlaceServiceImpl implements PlaceService {
                 .lng(place.getLng())
                 .category(place.getCategory())
                 .description(place.getDescription())
-                .imageUrls(List.of(place.getImageUrl()))
+                .imageUrls(place.getImageUrl() != null ? List.of(place.getImageUrl()) : List.of())
                 .openingHours(openingHours)
                 .url(place.getUrl())
                 .build();
@@ -319,7 +329,6 @@ public class PlaceServiceImpl implements PlaceService {
         }
     }
 
-    @Transactional
     private void fetchAndEnrichData(Place place) {
         var request = AiEnrichRequest.builder()
                 .provider(place.getProvider())
@@ -349,7 +358,7 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     private boolean isMissingData(Place place) {
-        return place.getImageUrl() == null || place.getDescription() == null
+        return place.getDescription() == null
                 || place.getOpeningHours() == null || place.getPhone() == null
                 || place.getUrl() == null;
     }

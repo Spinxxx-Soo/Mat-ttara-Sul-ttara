@@ -10,6 +10,7 @@ import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
+import com.sulddara.server.s3.service.S3Service;
 import com.sulddara.server.share.error.exception.BaseException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.security.core.parameters.P;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
@@ -31,8 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceServiceImplTest {
@@ -54,6 +55,9 @@ class PlaceServiceImplTest {
 
     @Mock
     private ValueOperations<String, String> valueOperations;
+
+    @Mock
+    private S3Service s3Service;
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
@@ -185,5 +189,26 @@ class PlaceServiceImplTest {
         ReflectionTestUtils.setField(place, "openingHours", openingHours);
         ReflectionTestUtils.setField(place, "imageUrl", "https://test-image.com");
         return place;
+    }
+
+    @Test
+    @DisplayName("이미지가 없고 원본 URL이 있을 때 S3 업로드가 실행되어야 한다")
+    void shouldUploadToS3WhenImageIsNull() {
+        // Given
+        Long placeId = 1L;
+
+        Place place = new Place("GOOGLE", "ext_id_123", "맛술집", "서울 강남구", 37.5, 127.0);
+        ReflectionTestUtils.setField(place, "originImgUrl", "http://google.com/photo.jpg");
+        ReflectionTestUtils.setField(place, "id", placeId);
+
+        given(placeRepository.findById(placeId)).willReturn(Optional.of(place));
+        given(s3Service.uploadFromExternalUrl(anyString())).willReturn("http://my-s3.com/saved.jpg");
+
+        // When
+        placeService.getPlaceDetail(placeId);
+
+        // Then
+        verify(s3Service, times(1)).uploadFromExternalUrl(eq("http://google.com/photo.jpg"));
+        assertThat(place.getImageUrl()).isEqualTo("http://my-s3.com/saved.jpg");
     }
 }

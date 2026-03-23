@@ -37,6 +37,9 @@ public class Place {
     @Column(length = 500)
     private String imageUrl;
 
+    @Column(length = 500)
+    private String originImgUrl;
+
     @Column(length = 100)
     private String category;
 
@@ -77,6 +80,12 @@ public class Place {
         this.address = address;
         this.lat = lat;
         this.lng = lng;
+    }
+
+    public void updateImageUrl(String imageUrl) {
+        if (imageUrl != null) {
+            this.imageUrl = imageUrl;
+        }
     }
 
     public void updateDetails(String imageUrl, String description, String openingHours, String phone, String url) {
