@@ -1,5 +1,6 @@
 package com.sulddara.server.place.service.impl;
 
+import com.sulddara.server.global.error.exception.ExternalServiceException;
 import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import lombok.RequiredArgsConstructor;
@@ -64,19 +65,11 @@ public class NaverPlaceSearchServiceImpl implements ExternalPlaceSearchService {
 
             NaverLocalSearchResponseDto body = response.getBody();
             if (body == null) {
-                log.warn("Naver Local Search API returned null body for query: {}", query);
-                return emptyResponse();
+                throw new ExternalServiceException("네이버 지역 검색 API 응답 바디가 비어있습니다.");
             }
             return body;
         } catch (RestClientException e) {
-            log.error("Naver Local Search API call failed for query: {}", query, e);
-            return emptyResponse();
+            throw new ExternalServiceException("네이버 지역 검색 API 호출에 실패했습니다: " + query);
         }
-    }
-
-    private NaverLocalSearchResponseDto emptyResponse() {
-        NaverLocalSearchResponseDto empty = new NaverLocalSearchResponseDto();
-        // items가 null인 경우를 방지하기 위해 빈 리스트를 반환하도록 별도 생성자 대신 getter에서 처리
-        return empty;
     }
 }

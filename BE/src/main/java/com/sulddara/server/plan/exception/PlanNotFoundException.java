@@ -1,12 +1,11 @@
 package com.sulddara.server.plan.exception;
 
-public class PlanNotFoundException extends RuntimeException {
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
 
-  public PlanNotFoundException(String message) {
-    super(message);
-  }
+public class PlanNotFoundException extends BaseException {
 
-  public PlanNotFoundException(String message, Throwable cause) {
-    super(message, cause);
-  }
+    public PlanNotFoundException() {
+        super(ErrorCode.PLAN_NOT_FOUND);
+    }
 }
