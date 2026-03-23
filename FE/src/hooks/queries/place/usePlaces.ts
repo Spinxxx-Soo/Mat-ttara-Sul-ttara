@@ -62,3 +62,23 @@ export const useSearchPlaces = (
         },
     });
 };
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+/**
+ * 부족한 장소 정보를 크롤링으로 보강 요청하는 뮤테이션 훅
+ * S14P21B205-LazyLoading 전략 반영
+ */
+export const useEnrichPlace = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (placeId: number) => placeApi.enrichPlaceData(placeId),
+        onSuccess: (_, placeId) => {
+            // 상세 정보 쿼리 캐시 갱신
+            queryClient.invalidateQueries({ queryKey: queryKeys.place.detail(placeId) });
+            // 검색 결과나 주변 장소 목록에도 영향이 있을 수 있으므로 관련 쿼리 무효화
+            queryClient.invalidateQueries({ queryKey: queryKeys.place.all });
+        },
+    });
+};
