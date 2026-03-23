@@ -1,15 +1,15 @@
 package com.sulddara.server.place.exception;
 
 import com.sulddara.server.global.error.ErrorCode;
-import com.sulddara.server.global.error.exception.BusinessException;
+import com.sulddara.server.global.error.exception.BaseException;
 
-public class ReviewPermissionDeniedException extends BusinessException {
+public class ReviewPermissionDeniedException extends BaseException {
 
     public ReviewPermissionDeniedException() {
         super(ErrorCode.REVIEW_PERMISSION_DENIED);
     }
 
     public ReviewPermissionDeniedException(String message) {
-        super(message, ErrorCode.REVIEW_PERMISSION_DENIED);
+        super(ErrorCode.REVIEW_PERMISSION_DENIED, message);
     }
 }
