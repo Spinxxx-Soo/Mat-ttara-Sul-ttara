@@ -174,7 +174,7 @@ export default function Home() {
 
         <section>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-700">Naver Map Integration (주변 장소)</h2>
+            <h2 className="text-xl font-semibold text-gray-700">Kakao Map Integration (주변 장소)</h2>
             {isPlacesLoading && <span className="text-sm text-gray-400">검색 중...</span>}
           </div>
           <p className="text-sm text-gray-500 mb-4">지도를 움직여 새로운 장소를 탐색하세요. 마커나 리스트를 클릭하면 동기화됩니다.</p>

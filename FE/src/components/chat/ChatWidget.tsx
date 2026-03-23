@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
+import { useChatMapStore } from '@/stores/chatMapStore'
+import { useChatSessionSse } from '@/hooks/useChatSessionSse'
 import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
 import type { ChatMessage, ChatSession } from '@/types/api'
 
@@ -61,6 +63,21 @@ const ChatWidget = () => {
   })
 
   const messages: ChatMessage[] = messagesData?.content || []
+
+  const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
+
+  const prevSessionIdRef = useRef<string | null>(null)
+
+  // 세션 전환 시 지도용 추천 장소 초기화
+  useEffect(() => {
+    if (prevSessionIdRef.current !== sessionId) {
+      clearAiRecommendedPlaces()
+      prevSessionIdRef.current = sessionId || null
+    }
+  }, [sessionId, clearAiRecommendedPlaces])
+
+  /** SSE(ai_response) → GET /api/v1/places/recommend 로 추천 장소 동기화 */
+  useChatSessionSse(sessionId, !!user && !!sessionId)
 
   // 메시지 전송
   const sendMessageMutation = useSendMessage()

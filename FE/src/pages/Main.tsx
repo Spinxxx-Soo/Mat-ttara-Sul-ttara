@@ -1,10 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import KakaoMap from '@/components/map/KakaoMap'
 import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
+import { useChatMapStore } from '@/stores/chatMapStore'
+import { mergeByPlaceId } from '@/stores/chatMapStore'
 import { hasNullFields } from '@/lib/placeUtils'
+import { createPlaceInfoCardHtml } from '@/components/map/PlaceInfoCard'
 import type { Place } from '@/types/api'
 
 // ==========================================
@@ -48,6 +51,34 @@ const Main = () => {
     return restaurants.filter(r => r.category === selectedCategory)
   }, [restaurants, selectedCategory])
 
+  // AI 챗봇 추천 장소 + 주변 맛집 병합 (지도 핀·말풍선 상세 동일 동작)
+  const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
+  const mapPlaces = useMemo(() => {
+    return mergeByPlaceId(filteredRestaurants, aiRecommendedPlaces)
+  }, [filteredRestaurants, aiRecommendedPlaces])
+
+  const selectedPlace = useMemo(() => {
+    if (selectedPlaceId == null) return null
+    return mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null
+  }, [mapPlaces, selectedPlaceId])
+
+  // 선택된 장소가 현재 목록(mapPlaces)에서 사라지면 상세 오버레이를 닫아 고아 말풍선을 방지합니다.
+  useEffect(() => {
+    if (selectedPlaceId == null) return
+    if (selectedPlace == null) setSelectedPlaceId(null)
+  }, [selectedPlaceId, selectedPlace])
+
+  // 핀 클릭 후 필요한 정보가 들어오기 전에는 스켈레톤(로딩) 상태로 렌더링
+  const isDetailLoading = selectedPlace ? hasNullFields(selectedPlace) : false
+
+  useEffect(() => {
+    // 상세 카드(HTML) 내부 onclick에서 호출될 전역 콜백
+    window.__closePlaceInfo = () => setSelectedPlaceId(null)
+    return () => {
+      delete window.__closePlaceInfo
+    }
+  }, [])
+
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
     
@@ -75,11 +106,23 @@ const Main = () => {
             className="w-full h-full"
             lat={currentLat}
             lng={currentLng}
-            places={filteredRestaurants}
+            places={mapPlaces}
             selectedPlaceId={selectedPlaceId}
             onPlaceClick={handlePlaceClick}
             onIdle={handleMapIdle}
           />
+
+          {/* 핀 클릭 시 표시되는 상세정보 카드 */}
+          {selectedPlace != null && (
+            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30">
+              <div
+                // 카드 UI를 Kakao 커스텀 오버레이와 동일한 HTML로 렌더링
+                dangerouslySetInnerHTML={{
+                  __html: createPlaceInfoCardHtml(selectedPlace, isDetailLoading),
+                }}
+              />
+            </div>
+          )}
           
           {/* 하단 플로팅 오버레이 (버튼 등) */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
@@ -127,8 +170,8 @@ const Main = () => {
                 <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-sm font-medium text-slate-400">최적의 맛집을 찾는 중...</p>
               </div>
-            ) : filteredRestaurants.length > 0 ? (
-              filteredRestaurants.map((place) => (
+            ) : mapPlaces.length > 0 ? (
+              mapPlaces.map((place) => (
                 <div
                   key={place.placeId}
                   onClick={() => handlePlaceClick(place)}

@@ -17,7 +17,6 @@ export const envConfig = {
     apiBaseUrl: getEnvVar('VITE_API_BASE_URL', 'http://localhost:8080'),
 
     // 지도
-    naverMapClientId: getEnvVar('VITE_NAVER_MAP_CLIENT_ID'),
     kakaoMapJsKey: getEnvVar('VITE_KAKAO_MAP_JS_KEY'),
     kakaoJsKey: getEnvVar('VITE_KAKAO_JS_KEY'),
 
