@@ -22,6 +22,21 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
   useEffect(() => {
     if (!enabled || !sessionId || !accessToken) return;
 
+    // SSE 연결만 기다리면(connected 이벤트만 받고) 과거 추천이 복원되지 않을 수 있어
+    // 세션 전환 시점에 추천 장소를 1회 선조회해서 지도 핀을 즉시 복원합니다.
+    let cancelled = false;
+    const currentSessionId = sessionId;
+    (async () => {
+      try {
+        const recommended = await placeApi.getRecommendedPlaces(currentSessionId);
+        if (cancelled) return;
+        const mapped = recommended.map(recommendedPlaceToPlace);
+        setAiRecommendedPlaces(mapped);
+      } catch (e) {
+        console.warn('[chat-sse] getRecommendedPlaces(prefetch) failed', e);
+      }
+    })();
+
     const ac = new AbortController();
     abortRef.current = ac;
 
@@ -82,6 +97,7 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
     connect();
 
     return () => {
+      cancelled = true;
       ac.abort();
       abortRef.current = null;
     };

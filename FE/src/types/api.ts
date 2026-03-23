@@ -152,17 +152,18 @@ export interface Place {
   phone?: string | null;
   lat: number;
   lng: number;
-<<<<<<< HEAD
-  rating?: number;
-  recommendReason?: string; // 추천 장소 조회시
-  openingHours?: PlaceOpeningHours | Record<string, unknown> | string;
-  imageUrl?: string; // 가게 검색 응답에 포함
-  imageUrls?: string[]; // 장소 상세 조회 응답에 포함
-  category?: string;
-  description?: string; // 장소 상세 조회 응답에 포함
-  url?: string; // 네이버 지도 링크
+  rating?: number | null;
+  recommendReason?: string | null; // 추천 장소 조회시
+  openingHours?: PlaceOpeningHours | Record<string, unknown> | string | null;
+  imageUrl?: string | null; // 가게 검색 응답에 포함
+  imageUrls?: string[] | null; // 장소 상세 조회 응답에 포함
+  category?: string | null;
+  description?: string | null; // 장소 상세 조회 응답에 포함
+  url?: string | null; // 지도 링크(백엔드 스키마에 따름)
   /** AI 추천 등에서만 사용 (선택) */
-  tags?: string[];
+  tags?: string[] | null;
+  /** 크롤링으로 보강된 데이터인지 여부 */
+  isEnriched?: boolean;
 }
 
 /** GET /api/v1/places/recommend · SSE 연동 시 AiChatResponse.places 와 동일 스키마 */
@@ -172,17 +173,14 @@ export interface RecommendedPlace {
   lat: number;
   lng: number;
   address: string;
-  recommendReason?: string | null;
-  tags?: string[] | null;
-=======
   rating?: number | null;
-  recommendReason?: string | null; // 추천 장소 조회시
+  recommendReason?: string | null;
   openingHours?: Record<string, any> | string | null;
-  imageUrl?: string | null; // 가게 검색 응답에 포함
-  category?: string | null; // 가게 검색 응답에 포함
+  imageUrl?: string | null;
+  category?: string | null;
+  tags?: string[] | null;
   /** 크롤링으로 보강된 데이터인지 여부 */
   isEnriched?: boolean;
->>>>>>> origin/develop
 }
 
 export interface PlaceSearchRequest {

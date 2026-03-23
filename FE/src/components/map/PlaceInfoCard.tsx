@@ -3,7 +3,7 @@ import type { Place, PlaceOpeningHours } from '@/types/api';
 /**
  * 가게 상세 정보 카드 HTML 생성 (지도 마커 말풍선용)
  * - 핀 클릭 시 InfoWindow에 표시할 content 생성
- * - 닫기 버튼은 window.__closePlaceInfo() 호출 (NaverMap에서 등록)
+ * - 닫기 버튼은 window.__closePlaceInfo() 호출 (부모에서 등록)
  */
 export function createPlaceInfoCardHtml(
   place: Place | null,
@@ -48,7 +48,7 @@ export function createPlaceInfoCardHtml(
         <span>${rating > 0 ? rating.toFixed(1) : '별점을 선택해 주세요'}</span>
       </div>
       ${mainImage ? `<img src="${escapeHtml(mainImage)}" alt="${escapeHtml(place.name)}" style="width:100%; height:100px; object-fit:cover; border-radius:8px; margin-bottom:8px;" />` : ''}
-      ${showUrl ? `<a href="${escapeHtml(place.url!)}" target="_blank" rel="noopener" style="font-size:12px; color:#3b82f6;">네이버 지도에서 보기 →</a>` : ''}
+      ${showUrl ? `<a href="${escapeHtml(place.url!)}" target="_blank" rel="noopener" style="font-size:12px; color:#3b82f6;">지도에서 보기 →</a>` : ''}
     </div>
   `;
 }

@@ -4,7 +4,7 @@ import type { Place } from '@/types/api';
 /**
  * 메인(챗봇) 화면: AI가 추천한 장소를 지도에 표시하기 위한 상태
  * - ChatWidget에서 메시지/응답 기반으로 갱신
- * - Main에서 주변 맛집 목록과 병합해 NaverMap에 전달
+ * - Main에서 주변 맛집 목록과 병합해 KakaoMap에 전달
  */
 type SetPlaces = (places: Place[] | ((prev: Place[]) => Place[])) => void;
 

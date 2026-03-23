@@ -19,12 +19,7 @@ interface UseMapOptions {
 
 interface UseMapReturn {
   mapRef: React.RefObject<HTMLDivElement>;
-<<<<<<< HEAD
-  mapInstance: React.MutableRefObject<NaverMapInstance | null>;
-  mapReady: boolean;
-=======
   mapInstance: React.MutableRefObject<KakaoMapInstance | null>;
->>>>>>> origin/develop
   viewport: MapViewport;
   sdkLoaded: boolean;
   sdkError: string | null;
@@ -43,7 +38,6 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
 
   const [sdkLoaded, setSdkLoaded] = useState<boolean>(isKakaoMapLoaded());
   const [sdkError, setSdkError] = useState<string | null>(null);
-  const [mapReady, setMapReady] = useState(false);
   const [viewport, setViewport] = useState<MapViewport>({
     center: defaultCenter,
     zoom: defaultZoom,
@@ -62,23 +56,6 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
   useEffect(() => {
     if (!sdkLoaded || !mapRef.current || mapInstance.current) return;
 
-<<<<<<< HEAD
-    mapInstance.current = new window.naver.maps.Map(mapRef.current, {
-      center: new window.naver.maps.LatLng(defaultCenter.lat, defaultCenter.lng),
-      zoom: defaultZoom,
-    });
-    setMapReady(true);
-
-    return () => {
-      // 최초 생성한 지도 인스턴스를 해제해 내부 이벤트와 DOM 참조를 정리한다.
-      setMapReady(false);
-      try {
-        mapInstance.current?.destroy();
-      } catch {
-        // 인증 실패 등으로 지도 내부가 깨진 상태에서 destroy 시 예외 무시
-      }
-      mapInstance.current = null;
-=======
     const kakao = window.kakao;
     const options = {
       center: new kakao.maps.LatLng(defaultCenter.lat, defaultCenter.lng),
@@ -97,7 +74,6 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
       if (mapRef.current) {
         mapRef.current.innerHTML = '';
       }
->>>>>>> origin/develop
     };
   }, [sdkLoaded]);
 
@@ -119,7 +95,6 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
   return {
     mapRef,
     mapInstance,
-    mapReady,
     viewport,
     sdkLoaded,
     sdkError,
