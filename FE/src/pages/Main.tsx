@@ -6,11 +6,12 @@ import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import KakaoMap from '@/components/map/KakaoMap'
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
-import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
+import { useEnrichPlace, useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
+import { hasNullFields } from '@/lib/placeUtils'
 
 const Main = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
@@ -36,6 +37,9 @@ const Main = () => {
     true
   )
 
+  // 선택된 장소의 필수 정보가 비어있으면(=null fields) 보강 호출
+  const { mutate: enrichPlace } = useEnrichPlace()
+
   const categories = ['전체', '한식', '일식', '중식', '양식', '카페', '술집']
 
   const filteredRestaurants = useMemo(() => {
@@ -55,12 +59,22 @@ const Main = () => {
 
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
+
+    // Pin click으로 상세 카드 표시될 때, 정보가 비어있으면 보강 요청
+    if (hasNullFields(place)) {
+      enrichPlace(place.placeId)
+    }
   }
 
   // 리스트 클릭 시 목록/지도를 함께 동기화하기 위해 중심 이동도 수행
   const handleListPlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
     setMapCenter({ lat: place.lat, lng: place.lng })
+
+    // 리스트에서 선택해도 상세 카드에 바로 반영되도록 보강 요청
+    if (hasNullFields(place)) {
+      enrichPlace(place.placeId)
+    }
   }
 
   const handleMapIdle = (
