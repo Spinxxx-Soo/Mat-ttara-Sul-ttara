@@ -4,8 +4,6 @@ import { useChatMapStore } from '@/stores/chatMapStore'
 import { useChatSessionSse } from '@/hooks/useChatSessionSse'
 import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
 import type { ChatMessage, ChatSession } from '@/types/api'
-import { useChatMapStore } from '@/stores/chatMapStore'
-import { useChatSessionSse } from '@/hooks/useChatSessionSse'
 
 interface ChatWidgetProps {
   /** 부모가 너비를 잡을 때 `w-full`로 채움 (기본 400px 레이아웃) */
@@ -88,20 +86,6 @@ const ChatWidget = ({ className = '' }: ChatWidgetProps) => {
 
   // 메시지 전송
   const sendMessageMutation = useSendMessage()
-
-  // 세션 전환 시 지도용 추천 핀을 초기화하고, SSE로 다시 채우기
-  const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
-  const prevSessionIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (prevSessionIdRef.current !== sessionId) {
-      clearAiRecommendedPlaces()
-      prevSessionIdRef.current = sessionId || null
-    }
-  }, [sessionId, clearAiRecommendedPlaces])
-
-  // SSE(ai_response) -> GET /api/v1/places/recommend 로 지도 추천 동기화
-  useChatSessionSse(sessionId, !!user && !!sessionId)
 
   const handleSend = async () => {
     if (!input.trim() || !sessionId) return
