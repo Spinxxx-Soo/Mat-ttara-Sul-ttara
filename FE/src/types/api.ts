@@ -149,9 +149,10 @@ export interface Place {
   placeId: number;
   name: string;
   address: string;
-  phone?: string;
+  phone?: string | null;
   lat: number;
   lng: number;
+<<<<<<< HEAD
   rating?: number;
   recommendReason?: string; // 추천 장소 조회시
   openingHours?: PlaceOpeningHours | Record<string, unknown> | string;
@@ -173,6 +174,15 @@ export interface RecommendedPlace {
   address: string;
   recommendReason?: string | null;
   tags?: string[] | null;
+=======
+  rating?: number | null;
+  recommendReason?: string | null; // 추천 장소 조회시
+  openingHours?: Record<string, any> | string | null;
+  imageUrl?: string | null; // 가게 검색 응답에 포함
+  category?: string | null; // 가게 검색 응답에 포함
+  /** 크롤링으로 보강된 데이터인지 여부 */
+  isEnriched?: boolean;
+>>>>>>> origin/develop
 }
 
 export interface PlaceSearchRequest {

@@ -50,9 +50,10 @@ export interface NearbyPlacesParams {
 export interface PlaceMarkerData extends MapMarker {
     name: string;
     address: string;
-    phone?: string;
-    rating?: number;
+    phone?: string | null;
+    rating?: number | null;
     isOpen?: boolean;
+    isEnriched?: boolean;
 }
 
 // ------------------------------------------

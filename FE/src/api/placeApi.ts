@@ -57,6 +57,7 @@ export const placeApi = {
         return data;
     },
 
+<<<<<<< HEAD
   /**
    * 채팅 세션 기준 AI 추천 장소 목록 (SSE 수신 후 갱신용)
    * GET /api/v1/places/recommend?sessionId=
@@ -71,4 +72,14 @@ export const placeApi = {
     if (Array.isArray(data)) return data;
     return data.content ?? [];
   },
+=======
+    /**
+     * 부족한 장소 정보를 크롤링으로 보강 요청
+     * S14P21B205-LazyLoading 전략 반영
+     */
+    enrichPlaceData: async (placeId: number): Promise<Place> => {
+        const { data } = await apiClient.post<Place>(`/api/v1/places/${placeId}/enrich`);
+        return data;
+    },
+>>>>>>> origin/develop
 };

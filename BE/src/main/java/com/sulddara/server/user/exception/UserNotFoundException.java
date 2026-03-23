@@ -1,12 +1,11 @@
 package com.sulddara.server.user.exception;
 
-public class UserNotFoundException extends RuntimeException {
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
 
-  public UserNotFoundException(String message) {
-    super(message);
-  }
+public class UserNotFoundException extends BaseException {
 
-  public UserNotFoundException(String message, Throwable cause) {
-    super(message, cause);
-  }
+    public UserNotFoundException() {
+        super(ErrorCode.USER_NOT_FOUND);
+    }
 }

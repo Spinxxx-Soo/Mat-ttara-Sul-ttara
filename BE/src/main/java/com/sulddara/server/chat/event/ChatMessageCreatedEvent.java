@@ -1,4 +1,4 @@
-package com.sulddara.server.share.event;
+package com.sulddara.server.chat.event;
 
 public record ChatMessageCreatedEvent(
         long sessionId,

@@ -1,7 +1,9 @@
 package com.sulddara.server.user.service;
 
-import com.sulddara.server.user.domain.User;
-import com.sulddara.server.user.domain.UserPreference;
+import com.sulddara.server.user.domain.UserEntity;
+import com.sulddara.server.common.fixture.UserEntityFixture;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.sulddara.server.user.domain.UserPreferenceEntity;
 import com.sulddara.server.user.dto.UserPreferenceRequestDto;
 import com.sulddara.server.user.dto.UserPreferenceResponseDto;
 import com.sulddara.server.user.dto.UserProfileResponseDto;
@@ -41,41 +43,27 @@ class UserServiceTest {
   @DisplayName("사용자 프로필 조회 테스트")
   void getUserProfileTest() {
     // given
-    User user = User.builder()
-            .providerId("google_12345")
-            .provider("GOOGLE")
-            .name("Test User")
-            .email("test@google.com")
-            .bio("Hello, I'm a test user")
-            .role("ROLE_USER")
-            .build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", 1L);
 
     UserProfileResponseDto expectedDto = UserProfileResponseDto.builder()
-        .userId(1L).name("Test User").email("test@google.com").build();
+        .userId(1L).name("Test UserEntity").email("test@google.com").build();
 
     given(userRepository.findById(anyLong())).willReturn(Optional.of(user));
-    given(userMapper.toProfileResponse(any(User.class))).willReturn(expectedDto);
+    given(userMapper.toProfileResponse(any(UserEntity.class))).willReturn(expectedDto);
 
     // when
     UserProfileResponseDto response = userService.getUserProfile(1L);
 
     // then
-    assertThat(response.getName()).isEqualTo("Test User");
+    assertThat(response.getName()).isEqualTo("Test UserEntity");
   }
 
   @Test
   @DisplayName("사용자 프로필 수정 테스트")
   void updateUserProfileTest() {
     // given
-    User user = User.builder()
-            .providerId("google_12345")
-            .provider("GOOGLE")
-            .name("Old Name")
-            .email("test@google.com")
-            .bio("Hello, I'm a test user")
-            .role("ROLE_USER")
-            .build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", 1L);
 
     UserUpdateNameRequestDto requestDto = new UserUpdateNameRequestDto("New Name", "Hello!");
@@ -84,7 +72,7 @@ class UserServiceTest {
         .userId(1L).name("New Name").bio("Hello!").email("test@google.com").build();
 
     given(userRepository.findById(anyLong())).willReturn(Optional.of(user));
-    given(userMapper.toProfileResponse(any(User.class))).willReturn(expectedDto);
+    given(userMapper.toProfileResponse(any(UserEntity.class))).willReturn(expectedDto);
 
     // when
     UserProfileResponseDto response = userService.updateUserProfile(1L, requestDto);
@@ -99,14 +87,7 @@ class UserServiceTest {
   @DisplayName("온보딩 선호도 등록 테스트 (최초)")
   void registerOrUpdatePreference_newPreference_createsPreference() {
     // given
-    User user = User.builder()
-        .providerId("test_oauth")
-        .provider("TEST")
-        .name("Test User")
-        .email("test@test.com")
-        .bio("Hello, I'm a test user")
-        .role("ROLE_USER")
-        .build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", 1L);
 
     UserPreferenceRequestDto requestDto = new UserPreferenceRequestDto("사적", "20대", "남성");
@@ -115,7 +96,7 @@ class UserServiceTest {
         .usageType("사적").ageGroup("20대").gender("남성").build();
 
     given(userRepository.findById(1L)).willReturn(Optional.of(user));
-    given(userMapper.toPreferenceResponse(any(UserPreference.class))).willReturn(expectedDto);
+    given(userMapper.toPreferenceResponse(any(UserPreferenceEntity.class))).willReturn(expectedDto);
 
     // when
     UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, requestDto);
@@ -130,16 +111,10 @@ class UserServiceTest {
   @DisplayName("온보딩 선호도 수정 테스트 (기존 존재)")
   void registerOrUpdatePreference_existingPreference_updatesPreference() {
     // given
-    User user = User.builder()
-        .providerId("test_oauth")
-        .provider("TEST")
-        .name("Test User")
-        .email("test@test.com")
-        .role("ROLE_USER")
-        .build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", 1L);
-    UserPreference oldPreference = new UserPreference("사적", "20대", "남성");
-    user.setPreference(oldPreference);
+    UserPreferenceEntity oldPreference = new UserPreferenceEntity("사적", "20대", "남성");
+    ReflectionTestUtils.setField(user, "preference", oldPreference);
 
     UserPreferenceRequestDto updateDto = new UserPreferenceRequestDto("공적", "30대", "여성");
 
@@ -147,7 +122,7 @@ class UserServiceTest {
         .usageType("공적").ageGroup("30대").gender("여성").build();
 
     given(userRepository.findById(1L)).willReturn(Optional.of(user));
-    given(userMapper.toPreferenceResponse(any(UserPreference.class))).willReturn(expectedDto);
+    given(userMapper.toPreferenceResponse(any(UserPreferenceEntity.class))).willReturn(expectedDto);
 
     // when
     UserPreferenceResponseDto response = userService.registerOrUpdatePreference(1L, updateDto);
@@ -162,14 +137,7 @@ class UserServiceTest {
   @DisplayName("사용자 탈퇴 테스트")
   void deleteUserTest() {
     // given
-    User user = User.builder()
-            .providerId("test_oauth")
-            .provider("TEST")
-            .name("Test User")
-            .email("test@test.com")
-            .bio("Hello, I'm a test user")
-            .role("ROLE_USER")
-            .build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", 1L);
 
     given(userRepository.findById(anyLong())).willReturn(Optional.of(user));

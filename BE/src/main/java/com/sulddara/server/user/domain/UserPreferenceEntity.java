@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
-public class UserPreference {
+public class UserPreferenceEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,7 +23,7 @@ public class UserPreference {
 
   @OneToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "user_id", nullable = false)
-  private User user;
+  private UserEntity user;
 
   @Column(nullable = false)
   private String usageType; // 사적 or 공적
@@ -41,13 +41,13 @@ public class UserPreference {
   @LastModifiedDate
   private LocalDateTime updatedAt;
 
-  public UserPreference(String usageType, String ageGroup, String gender) {
+  public UserPreferenceEntity(String usageType, String ageGroup, String gender) {
     this.usageType = usageType;
     this.ageGroup = ageGroup;
     this.gender = gender;
   }
 
-  public void setUser(User user) {
+  void boundToUser(UserEntity user) {
     this.user = user;
   }
 

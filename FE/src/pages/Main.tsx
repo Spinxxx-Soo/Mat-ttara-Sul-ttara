@@ -1,11 +1,15 @@
 import { useState, useMemo } from 'react'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
-import NaverMap from '@/components/map/NaverMap'
-import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
+import KakaoMap from '@/components/map/KakaoMap'
+import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
+<<<<<<< HEAD
 import { useChatMapStore } from '@/stores/chatMapStore'
 import { mergeByPlaceId } from '@/stores/chatMapStore'
+=======
+import { hasNullFields } from '@/lib/placeUtils'
+>>>>>>> origin/develop
 import type { Place } from '@/types/api'
 
 // ==========================================
@@ -13,6 +17,7 @@ import type { Place } from '@/types/api'
 // S14P21B205-129: 지도와 장소 데이터 연동 구현
 // S14P21B205-197: 리스트-마커 연계 동작 구현
 // S14P21B205-198: 지도 중심 기반 재조회 (onIdle 연계)
+// S14P21B205-LazyLoading: 장소 클릭 시 부족한 정보 크롤링 보강
 // ==========================================
 
 const Main = () => {
@@ -37,6 +42,9 @@ const Main = () => {
     radius: zoom > 14 ? 1000 : 2000 // 줌 레벨에 따라 검색 반경 조절 (zoom 활용)
   }, true)
 
+  // 크롤링 보강을 위한 뮤테이션
+  const { mutate: enrichPlace } = useEnrichPlace()
+
   const categories = ['전체', '한식', '일식', '중식', '양식', '카페', '술집']
 
   // 카테고리 필터링 (클라이언트 사이드)
@@ -53,7 +61,12 @@ const Main = () => {
 
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
-    // 리스트에서 클릭 시 스크롤 되도록 유도하는 등의 UX 처리는 필요 시 추가
+    
+    // Lazy Loading 전략: 정보가 부족하면 크롤링 요청
+    if (hasNullFields(place)) {
+      console.log(`[LazyLoading] Enriching data for place: ${place.name} (${place.placeId})`);
+      enrichPlace(place.placeId);
+    }
   }
 
   const handleMapIdle = (center: { lat: number, lng: number }, currentZoom: number) => {
@@ -69,7 +82,7 @@ const Main = () => {
       <main className="flex-1 flex overflow-hidden relative">
         {/* Map Section (S14P21B205-128, 129) */}
         <section className="flex-1 relative">
-          <NaverMap 
+          <KakaoMap 
             className="w-full h-full"
             lat={currentLat}
             lng={currentLng}
