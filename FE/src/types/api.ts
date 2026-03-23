@@ -146,18 +146,18 @@ export interface Place {
   lat: number;
   lng: number;
   rating?: number;
-  recommendReason?: string; // 추천 장소 조회시
-  openingHours?: Record<string, any> | string;
-  imageUrl?: string; // 가게 검색 응답에 포함
-  category?: string; // 가게 검색 응답에 포함
+  recommendReason?: string;
+  openingHours?: Record<string, unknown> | string;
+  imageUrl?: string;
+  category?: string;
 }
 
 export interface PlaceSearchRequest {
-  keyword: string;  // 필수
-  lat?: number;     // 선택
-  lng?: number;     // 선택
-  page: number;     // 필수
-  size: number;     // 필수
+  keyword: string; // 필수
+  lat?: number;
+  lng?: number;
+  page: number; // 필수
+  size: number; // 필수
 }
 
 export interface PlaceSearchResponse {
@@ -170,10 +170,19 @@ export interface Review {
   reviewId: number;
   placeId?: number;
   userId?: number;
+  /** GET /places/{id}/reviews 목록에 포함될 수 있음 */
+  userName?: string;
   rating: number;
   content: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+/** 가게별 리뷰 목록 조회 응답 (GET /api/v1/places/{placeId}/reviews) */
+export interface PlaceReviewsResponse {
+  content: Review[];
+  pageInfo: PageInfo;
+  averageRating?: number;
 }
 
 export interface CreateReviewRequest {

@@ -18,6 +18,9 @@ export const queryKeys = {
             [...queryKeys.place.all, 'detail', placeId] as const,
         search: (params: PlaceSearchRequest) =>
             [...queryKeys.place.all, 'search', params] as const,
+        /** placeId 기준으로 prefix invalidate 시 사용 */
+        reviews: (placeId: number, page: number, size: number) =>
+            [...queryKeys.place.all, 'reviews', placeId, page, size] as const,
     },
 
     // --- 플랜 (Plan) ---

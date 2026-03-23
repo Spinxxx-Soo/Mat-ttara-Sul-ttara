@@ -5,7 +5,16 @@
 // React Query와의 조합은 src/hooks/queries/place/에서 이루어집니다.
 
 import { apiClient } from '@/api/axios';
-import type { Place, ApiPaginationResponse, PlaceSearchRequest, PlaceSearchResponse } from '@/types/api';
+import type {
+  Place,
+  ApiPaginationResponse,
+  PlaceSearchRequest,
+  PlaceSearchResponse,
+  PlaceReviewsResponse,
+  CreateReviewRequest,
+  UpdateReviewRequest,
+  Review,
+} from '@/types/api';
 import type { NearbyPlacesParams } from '@/types/map';
 
 export const placeApi = {
@@ -50,4 +59,61 @@ export const placeApi = {
         );
         return data;
     },
+
+  /**
+   * 가게별 리뷰 목록 조회
+   * GET /api/v1/places/{placeId}/reviews?page=&size=
+   */
+  getPlaceReviews: async (
+    placeId: number,
+    page: number,
+    size: number
+  ): Promise<PlaceReviewsResponse> => {
+    const { data } = await apiClient.get<PlaceReviewsResponse>(
+      `/api/v1/places/${placeId}/reviews`,
+      {
+        params: { page, size },
+      }
+    );
+    return data;
+  },
+
+  /**
+   * 리뷰 등록
+   * POST /api/v1/places/{placeId}/reviews
+   */
+  createPlaceReview: async (
+    placeId: number,
+    body: CreateReviewRequest
+  ): Promise<Review> => {
+    const { data } = await apiClient.post<Review>(
+      `/api/v1/places/${placeId}/reviews`,
+      body
+    );
+    return data;
+  },
+
+  /**
+   * 리뷰 수정
+   * PATCH /api/v1/places/{placeId}/reviews/{reviewId}
+   */
+  updatePlaceReview: async (
+    placeId: number,
+    reviewId: number,
+    body: UpdateReviewRequest
+  ): Promise<Review> => {
+    const { data } = await apiClient.patch<Review>(
+      `/api/v1/places/${placeId}/reviews/${reviewId}`,
+      body
+    );
+    return data;
+  },
+
+  /**
+   * 리뷰 삭제
+   * DELETE /api/v1/places/{placeId}/reviews/{reviewId}
+   */
+  deletePlaceReview: async (placeId: number, reviewId: number): Promise<void> => {
+    await apiClient.delete(`/api/v1/places/${placeId}/reviews/${reviewId}`);
+  },
 };
