@@ -1,27 +1,23 @@
 package com.sulddara.server.plan.service;
 
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.ForbiddenException;
-
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.ForbiddenException;
+import com.sulddara.server.place.domain.PlaceEntity;
+import com.sulddara.server.place.exception.PlaceNotFoundException;
 import com.sulddara.server.place.repository.PlaceRepository;
-import com.sulddara.server.plan.domain.Plan;
-import com.sulddara.server.plan.domain.PlanDetail;
-import com.sulddara.server.plan.dto.PlanCreateRequestDto;
-import com.sulddara.server.plan.dto.PlanCreateResponseDto;
-import com.sulddara.server.plan.dto.PlanDetailResponseDto;
-import com.sulddara.server.plan.dto.PlanListResponseDto;
-import com.sulddara.server.plan.dto.PlanSummaryDto;
-import com.sulddara.server.plan.dto.PlanUpdateRequestDto;
+import com.sulddara.server.plan.domain.PlanEntity;
+import com.sulddara.server.plan.domain.PlanDetailEntity;
+import com.sulddara.server.plan.dto.*;
+import com.sulddara.server.plan.exception.PlanNotFoundException;
 import com.sulddara.server.plan.mapper.PlanMapper;
 import com.sulddara.server.plan.repository.PlanRepository;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.user.exception.UserNotFoundException;
 import com.sulddara.server.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,10 +27,6 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class PlanServiceImpl implements PlanService {
 
-  private static final String USER_NOT_FOUND_MSG = "사용자를 찾을 수 없습니다. ID: ";
-  private static final String PLACE_NOT_FOUND_MSG = "장소를 찾을 수 없습니다. ID: ";
-  private static final String PLAN_NOT_FOUND_MSG = "플랜을 찾을 수 없습니다.";
-
   private final PlanRepository planRepository;
   private final PlaceRepository placeRepository;
   private final UserRepository userRepository;
@@ -43,44 +35,43 @@ public class PlanServiceImpl implements PlanService {
   @Override
   @Transactional
   public PlanCreateResponseDto createPlan(Long userId, PlanCreateRequestDto requestDto) {
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG + userId));
+    UserEntity user = userRepository.findById(userId)
+        .orElseThrow(UserNotFoundException::new);
 
     String shareToken = UUID.randomUUID().toString().replace("-", "");
 
-    Plan plan = new Plan(
+    PlanEntity plan = new PlanEntity(
         user,
-        requestDto.getTitle(),
-        requestDto.getTotalBudget(),
-        requestDto.getParticipantCount(),
-        requestDto.getMeetingAt(),
-        requestDto.getPlanType(),
-        requestDto.getMemo(),
+        requestDto.title(),
+        requestDto.meetingAt(),
+        requestDto.participantCount(),
+        requestDto.totalBudget(),
+        requestDto.planType(),
+        requestDto.memo(),
         shareToken);
 
-    if (requestDto.getDetails() != null) {
-      for (PlanCreateRequestDto.PlanDetailRequestDto detailDto : requestDto.getDetails()) {
-        Place place = placeRepository.findById(detailDto.getPlaceId())
-            .orElseThrow(() -> new IllegalArgumentException(PLACE_NOT_FOUND_MSG + detailDto.getPlaceId()));
+    if (requestDto.details() != null) {
+      for (PlanCreateRequestDto.PlanDetailRequestDto detailDto : requestDto.details()) {
+        PlaceEntity place = placeRepository.findById(detailDto.placeId())
+            .orElseThrow(PlaceNotFoundException::new);
 
-
-        PlanDetail detail = new PlanDetail(place, detailDto.getSeqNo(), null);
+        PlanDetailEntity detail = new PlanDetailEntity(place, detailDto.seqNo(), null);
         plan.addDetail(detail);
       }
     }
 
-    Plan savedPlan = planRepository.save(plan);
+    PlanEntity savedPlan = planRepository.save(plan);
     return planMapper.toCreateResponse(savedPlan);
   }
 
   @Override
   public PlanListResponseDto getMyPlans(Long userId, Long cursor, int size) {
     if (!userRepository.existsById(userId)) {
-      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+      throw new UserNotFoundException();
     }
 
     PageRequest pageRequest = PageRequest.of(0, size + 1);
-    List<Plan> plans;
+    List<PlanEntity> plans;
 
     if (cursor == null) {
       plans = planRepository.findByUserIdOrderByIdDesc(userId, pageRequest);
@@ -89,7 +80,7 @@ public class PlanServiceImpl implements PlanService {
     }
 
     boolean hasNext = plans.size() > size;
-    List<Plan> content = hasNext ? plans.subList(0, size) : plans;
+    List<PlanEntity> content = hasNext ? plans.subList(0, size) : plans;
 
     List<PlanSummaryDto> dtos = content.stream()
         .map(planMapper::toSummary)
@@ -110,11 +101,11 @@ public class PlanServiceImpl implements PlanService {
   @Override
   public PlanDetailResponseDto getPlanDetail(Long userId, Long planId) {
     if (!userRepository.existsById(userId)) {
-      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+      throw new UserNotFoundException();
     }
 
-    Plan plan = planRepository.findWithDetailsById(planId)
-        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
+    PlanEntity plan = planRepository.findWithDetailsById(planId)
+        .orElseThrow(PlanNotFoundException::new);
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
@@ -125,8 +116,8 @@ public class PlanServiceImpl implements PlanService {
 
   @Override
   public PlanDetailResponseDto getSharedPlanDetail(String shareToken) {
-    Plan plan = planRepository.findWithDetailsByShareToken(shareToken)
-        .orElseThrow(() -> new IllegalArgumentException("유효하지 않거나 삭제된 공유 링크입니다."));
+    PlanEntity plan = planRepository.findWithDetailsByShareToken(shareToken)
+        .orElseThrow(PlanNotFoundException::new);
 
     return planMapper.toDetailResponse(plan);
   }
@@ -135,32 +126,32 @@ public class PlanServiceImpl implements PlanService {
   @Transactional
   public PlanDetailResponseDto updatePlan(Long userId, Long planId, PlanUpdateRequestDto requestDto) {
     if (!userRepository.existsById(userId)) {
-      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+      throw new UserNotFoundException();
     }
 
-    Plan plan = planRepository.findWithDetailsById(planId)
-        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
+    PlanEntity plan = planRepository.findWithDetailsById(planId)
+        .orElseThrow(PlanNotFoundException::new);
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
     }
 
     plan.update(
-        requestDto.getTitle(),
-        requestDto.getMeetingAt(),
-        requestDto.getParticipantCount(),
-        requestDto.getTotalBudget(),
-        requestDto.getPlanType(),
-        requestDto.getMemo()
+        requestDto.title(),
+        requestDto.meetingAt(),
+        requestDto.participantCount(),
+        requestDto.totalBudget(),
+        requestDto.planType(),
+        requestDto.memo()
     );
 
-    plan.getDetails().forEach(PlanDetail::softDelete);
+    plan.getDetails().clear();
 
-    if (requestDto.getDetails() != null) {
-      for (PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.getDetails()) {
-        Place place = placeRepository.findById(detailDto.getPlaceId())
-            .orElseThrow(() -> new IllegalArgumentException(PLACE_NOT_FOUND_MSG + detailDto.getPlaceId()));
-        PlanDetail detail = new PlanDetail(place, detailDto.getSeqNo(), detailDto.getRecommendReason());
+    if (requestDto.details() != null) {
+      for (PlanUpdateRequestDto.PlanDetailUpdateRequestDto detailDto : requestDto.details()) {
+        PlaceEntity place = placeRepository.findById(detailDto.placeId())
+            .orElseThrow(PlaceNotFoundException::new);
+        PlanDetailEntity detail = new PlanDetailEntity(place, detailDto.seqNo(), detailDto.recommendReason());
         plan.addDetail(detail);
       }
     }
@@ -172,11 +163,11 @@ public class PlanServiceImpl implements PlanService {
   @Transactional
   public void deletePlan(Long userId, Long planId) {
     if (!userRepository.existsById(userId)) {
-      throw new UserNotFoundException(USER_NOT_FOUND_MSG + userId);
+      throw new UserNotFoundException();
     }
 
-    Plan plan = planRepository.findById(planId)
-        .orElseThrow(() -> new IllegalArgumentException(PLAN_NOT_FOUND_MSG));
+    PlanEntity plan = planRepository.findById(planId)
+        .orElseThrow(PlanNotFoundException::new);
 
     if (!plan.getUser().getId().equals(userId)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);

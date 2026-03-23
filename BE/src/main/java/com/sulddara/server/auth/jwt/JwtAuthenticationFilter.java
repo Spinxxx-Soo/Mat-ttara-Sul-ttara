@@ -2,9 +2,9 @@ package com.sulddara.server.auth.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sulddara.server.auth.oauth.CustomOAuth2User;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.ErrorResponse;
-import com.sulddara.server.share.error.exception.BaseException;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.ErrorResponse;
+import com.sulddara.server.global.error.exception.BaseException;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

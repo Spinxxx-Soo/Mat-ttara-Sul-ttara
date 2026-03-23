@@ -1,27 +1,29 @@
 package com.sulddara.server.plan.repository;
 
-import com.sulddara.server.plan.domain.Plan;
+import com.sulddara.server.plan.domain.PlanEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PlanRepository extends JpaRepository<Plan, Long> {
+public interface PlanRepository extends JpaRepository<PlanEntity, Long> {
 
-  Page<Plan> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    Page<PlanEntity> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
-  java.util.List<Plan> findByUserIdOrderByIdDesc(Long userId, Pageable pageable);
+    List<PlanEntity> findByUserIdOrderByIdDesc(Long userId, Pageable pageable);
 
-  java.util.List<Plan> findByUserIdAndIdLessThanOrderByIdDesc(Long userId, Long id, Pageable pageable);
+    List<PlanEntity> findByUserIdAndIdLessThanOrderByIdDesc(Long userId, Long id, Pageable pageable);
 
-  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"details", "details.place"})
-  Optional<Plan> findWithDetailsById(Long planId);
+    @EntityGraph(attributePaths = {"details", "details.place"})
+    Optional<PlanEntity> findWithDetailsById(Long planId);
 
-  @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"details", "details.place"})
-  Optional<Plan> findWithDetailsByShareToken(String shareToken);
+    @EntityGraph(attributePaths = {"details", "details.place"})
+    Optional<PlanEntity> findWithDetailsByShareToken(String shareToken);
 
-  Optional<Plan> findByShareToken(String shareToken);
+    Optional<PlanEntity> findByShareToken(String shareToken);
 }

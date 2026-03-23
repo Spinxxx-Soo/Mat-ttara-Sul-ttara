@@ -1,3 +1,5 @@
+// FE/src/pages/Main.tsx
+
 import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
@@ -9,11 +11,6 @@ import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
-
-// ==========================================
-// 레이아웃: [사이드바] | [AI 플래너 ↔ 리뷰] | [지도]
-// 핀 클릭 → 상세 카드 → 리뷰 보기 → 왼쪽 패널이 리뷰로 전환
-// ==========================================
 
 const Main = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
@@ -51,10 +48,10 @@ const Main = () => {
     return mergeByPlaceId(filteredRestaurants, aiRecommendedPlaces)
   }, [filteredRestaurants, aiRecommendedPlaces])
 
-  const selectedPlace = useMemo(
-    () => mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null,
-    [mapPlaces, selectedPlaceId]
-  )
+  const selectedPlace = useMemo(() => {
+    if (selectedPlaceId == null) return null
+    return mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null
+  }, [mapPlaces, selectedPlaceId])
 
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)

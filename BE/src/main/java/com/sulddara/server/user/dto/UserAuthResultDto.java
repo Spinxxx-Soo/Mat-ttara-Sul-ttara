@@ -1,5 +1,8 @@
 package com.sulddara.server.user.dto;
 
-import com.sulddara.server.user.domain.User;
-
-public record UserAuthResultDto(User user, boolean isNewUser) {}
+public record UserAuthResultDto(
+    Long userId,
+    String email,
+    String role,
+    boolean isNewUser
+) {}
