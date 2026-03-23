@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from apps.schemas.chat import ChatMessageRequest, SessionState
-
-
-ParsedState = dict[str, Any]
+from apps.schemas.chat import ParsedState, SessionState
 
 
 class ParsedStateManager:
@@ -35,7 +32,15 @@ class ParsedStateManager:
 
         session_state_dict = session_state.model_dump(
             exclude={"excludedPlaceIds"},
-            include={"lat", "lng", "people", "time", "purpose", "mood"},
+            include={
+                "lat",
+                "lng",
+                "people",
+                "time",
+                "purpose",
+                "mood",
+                "selectedPlaceIds",
+            },
         )
         for key, value in session_state_dict.items():
             if value is not None:
@@ -44,16 +49,10 @@ class ParsedStateManager:
 
     def normalize_parsed_state(self, parsed_state: dict[str, Any]) -> dict[str, Any]:
         """
-        parsedState는 없으면 None 형태로 맞춰 follow-up 생성이 안정적으로 동작하도록 정규화합니다.
+        `ParsedState` 스키마에 정의된 키만 채워 응답·슬롯 탐지에 쓰입니다 (단일 소스).
         """
-        return {
-            "lat": parsed_state.get("lat"),
-            "lng": parsed_state.get("lng"),
-            "people": parsed_state.get("people"),
-            "time": parsed_state.get("time"),
-            "purpose": parsed_state.get("purpose"),
-            "mood": parsed_state.get("mood"),
-        }
+        keys = ParsedState.model_fields.keys()
+        return {k: parsed_state.get(k) for k in keys}
 
     def detect_missing_slots(self, normalized_parsed_state: dict[str, Any]) -> list[str]:
         """
@@ -67,7 +66,7 @@ class ParsedStateManager:
 
     def select_target_slot(self, missing_slots: list[str]) -> str:
         """
-        missing_slots는 priority 순서대로 생성되므로 첫 원소가 targetSlot 입니다.
+        missing_slots는 priority 순서대로 생성되므로 첫 원소가 이번 턴에 질문할 슬롯입니다.
         """
         return missing_slots[0]
 

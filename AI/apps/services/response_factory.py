@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from apps.schemas.chat import (
     ChatMessageResponse,
@@ -26,7 +26,6 @@ class ResponseFactory:
         thread_id: str,
         user_id: int,
         chat_response_text: str,
-        target_slot: str,
         normalized_parsed_state: ParsedState,
         memory_status: MemoryStatus,
     ) -> ChatMessageResponse:
@@ -37,7 +36,6 @@ class ResponseFactory:
             chatResponse=chat_response_text,
             type=ChatResponseType.FOLLOW_UP,
             memoryStatus=memory_status,
-            targetSlot=target_slot,
             parsedState=parsed_state_schema,
         )
 
@@ -56,7 +54,6 @@ class ResponseFactory:
             chatResponse="좋아요! 말씀해주신 조건으로 장소를 추천해드릴게요.",
             type=ChatResponseType.RECOMMENDATION,
             memoryStatus=memory_status,
-            targetSlot=None,
             parsedState=parsed_state_schema,
         )
 

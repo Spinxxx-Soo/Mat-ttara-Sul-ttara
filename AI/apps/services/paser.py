@@ -8,6 +8,8 @@ import json
 import re
 from typing import Any, Optional
 
+from apps.schemas.chat import parsed_state_mergeable_keys
+
 
 class ChatParser:
     """사용자 발화에서 구조화된 상태를 추출하는 파서"""
@@ -117,18 +119,20 @@ class ChatParser:
         prompt = (
             "아래 사용자 발화에서 장소 추천에 필요한 정보를 JSON으로 추출하세요.\n"
             "반드시 JSON만 출력하세요.\n\n"
-            "추출 대상 필드:\n"
-            "- people: 인원수 (정수)\n"
-            "- time: 시간대\n"
-            "- purpose: 목적\n"
-            "- mood: 분위기\n"
-            "값이 명확하지 않으면 null로 두세요.\n"
+            "추출 대상 필드 (명확하지 않으면 null):\n"
+            "- people, time, purpose, mood, lat, lng\n"
+            "- cuisine_korean, cuisine_japanese, cuisine_chinese, cuisine_western, cuisine_bunsik, cuisine_asian_other: 0~1 선호도\n"
+            "- vibe_quiet, vibe_lively, vibe_modern, vibe_traditional: 0~1\n"
+            "- seat_private, outdoor_ok: 0~1\n"
+            "- occasion_date, occasion_business, occasion_family, occasion_solo, occasion_friends: 0~1\n"
+            "selectedPlaceIds는 출력하지 마세요 (백엔드 전용).\n"
             "기존 상태와 충돌하면, 이번 발화에서 새롭게 명확히 말한 값만 갱신하세요.\n\n"
             f"[기존 요약]\n{summary or '없음'}\n\n"
             f"[기존 parsed_state]\n{json.dumps(previous_parsed_state, ensure_ascii=False)}\n\n"
             f"[사용자 발화]\n{user_message}\n\n"
             "예시 출력:\n"
-            '{"people": 3, "time": "18:00", "purpose": "술자리", "mood": "조용함", "lat": null, "lng": null}'
+            '{"people": 3, "time": "18:00", "purpose": "술자리", "mood": "조용함", '
+            '"cuisine_korean": 0.8, "occasion_friends": 1.0, "lat": null, "lng": null}'
         )
 
         response = await self.client.chat_completion(
@@ -186,12 +190,15 @@ class ChatParser:
         """
         merged = dict(previous)
 
-        # 반환 JSON에 포함되는 필드만 병합 (area, budget 제외)
-        allowed_keys = {"lat", "lng", "people", "time", "purpose", "mood"}
+        # `ParsedState`와 동일 키만 병합. selectedPlaceIds는 BE 주입 위주라 파서에서 덮어쓰지 않음.
+        allowed_keys = parsed_state_mergeable_keys()
 
         for key, value in new.items():
-            if key in allowed_keys and value is not None and value != "":
-                merged[key] = value
+            if key not in allowed_keys:
+                continue
+            if value is None or value == "":
+                continue
+            merged[key] = value
 
         return merged
 

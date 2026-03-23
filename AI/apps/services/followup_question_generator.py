@@ -62,7 +62,7 @@ class FollowupQuestionGenerator:
     ) -> list[dict[str, str]]:
         system_prompt = (
             "당신은 장소 추천 챗봇의 '후속 질문 생성기'입니다.\n"
-            "역할: 백엔드가 이미 선택한 targetSlot에 대해, 자연스러운 한국어 follow-up 질문 1개를 생성하세요.\n"
+            "역할: 이번 턴에 질문할 슬롯(targetSlot)에 대해, 자연스러운 한국어 follow-up 질문 1개를 생성하세요.\n"
             "중요 규칙:\n"
             "- LLM은 parsedState를 생성/수정하지 않습니다. (질문만 생성)\n"
             "- 이번 턴에는 targetSlot 1개에 대해서만 질문합니다.\n"

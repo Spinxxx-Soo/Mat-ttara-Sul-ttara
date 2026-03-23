@@ -3,13 +3,15 @@
 """
 from __future__ import annotations
 
-from typing import Optional
+import logging
+from typing import Any, Optional
 from typing_extensions import TypedDict, Annotated
 
 from langgraph.graph import StateGraph, add_messages
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import BaseMessage
 
+from apps.config import settings
 from apps.schemas.chat import (
     ChatMessageRequest,
     ChatMessageResponse,
@@ -29,15 +31,26 @@ from apps.services import (
 
 
 RECENT_MESSAGE_WINDOW = 6
+logger = logging.getLogger(__name__)
 
 
-class ParsedState(TypedDict, total=False):
-    lat: Optional[float]
-    lng: Optional[float]
-    people: Optional[int]
-    time: Optional[str]
-    purpose: Optional[str]
-    mood: Optional[str]
+def _create_checkpointer():
+    """
+    Redis URL이 설정되면 RedisSaver 사용 (단기 메모리 + parsed_state 저장),
+    아니면 InMemorySaver 사용.
+    """
+    redis_url = settings.redis_url
+    if redis_url:
+        try:
+            from langgraph.checkpoint.redis import RedisSaver
+
+            checkpointer = RedisSaver.from_conn_string(redis_url)
+            checkpointer.setup()
+            logger.info("Redis checkpointer initialized: %s", redis_url.split("@")[-1] if "@" in redis_url else redis_url)
+            return checkpointer
+        except Exception as e:
+            logger.warning("Redis connection failed, falling back to InMemorySaver: %s", e)
+    return InMemorySaver()
 
 
 # 백엔드에서 제어하는 follow-up 질문 우선순위
@@ -46,10 +59,10 @@ QUESTION_SLOT_PRIORITY: list[str] = ["purpose", "time", "people", "mood"]
 
 
 class ChatState(TypedDict):
-    """LangGraph 상태"""
+    """LangGraph 상태 — parsed_state는 schemas.ParsedState와 동일 키 구조."""
     messages: Annotated[list[BaseMessage], add_messages]
     summary: str
-    parsed_state: ParsedState
+    parsed_state: dict[str, Any]
 
 
 class ChatService:
@@ -59,9 +72,9 @@ class ChatService:
         self.client = OpenAIClient()
         self.parser = ChatParser(client=self.client)
 
-        # 개발용 checkpointer
-        # 운영에서는 Redis 기반으로 교체
-        self.checkpointer = InMemorySaver()
+        # 단기 메모리(messages, summary) + parsed_state 저장
+        # REDIS_URL 설정 시 Redis, 미설정 시 InMemorySaver
+        self.checkpointer = _create_checkpointer()
 
         # 임시 장기 메모리 저장소
         self._long_term_memories: dict[str, PreferenceSummary] = {}
@@ -127,7 +140,7 @@ class ChatService:
 
         await self.state_store.save_parsed_state(thread_id, merged_parsed_state)
 
-        normalized_parsed_state: ParsedState = self.parsed_state_manager.normalize_parsed_state(
+        normalized_parsed_state: dict[str, Any] = self.parsed_state_manager.normalize_parsed_state(
             merged_parsed_state
         )
 
@@ -150,7 +163,7 @@ class ChatService:
         )
         self._long_term_profiles[thread_id] = updated_profile
 
-        # 5) missing slot 탐지 -> targetSlot 선택 -> follow-up 질문 생성 (백엔드가 분기 제어)
+        # 5) missing slot 탐지 -> 슬롯 1개 선택 -> follow-up 질문 생성 (AI 서버 내부 전용)
         missing_slots = self.parsed_state_manager.detect_missing_slots(normalized_parsed_state)
 
         if not missing_slots:
@@ -173,7 +186,6 @@ class ChatService:
                 thread_id=thread_id,
                 user_id=request.userId,
                 chat_response_text=question,
-                target_slot=target_slot,
                 normalized_parsed_state=normalized_parsed_state,
                 memory_status=memory_status,
             )
