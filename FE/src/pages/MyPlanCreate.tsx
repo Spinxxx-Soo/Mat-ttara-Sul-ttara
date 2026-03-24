@@ -95,8 +95,15 @@ const MyPlanCreate = () => {
         toast.success('플랜이 생성되었습니다!')
         navigate('/my-plan')
       },
-      onError: () => {
-        toast.error('플랜 생성 중 오류가 발생했습니다.')
+      onError: (error: any) => {
+        // Validation Error 처리 로직 (S14P21B205-258)
+        const errors = error.response?.data?.errors;
+        if (errors && Object.keys(errors).length > 0) {
+          const firstKey = Object.keys(errors)[0];
+          toast.error(`${errors[firstKey][0]}`);
+        } else {
+          toast.error(error.response?.data?.message || '플랜 생성 중 오류가 발생했습니다.')
+        }
       }
     })
   }
