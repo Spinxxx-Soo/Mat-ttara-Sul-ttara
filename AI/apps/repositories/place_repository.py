@@ -69,3 +69,53 @@ class PlaceRepository:
             return {"type": "no_response", "reason": "connection_error", "data": None}
         except requests.exceptions.RequestException as e:
             return {"type": "no_response", "reason": f"request_exception: {e}", "data": None}
+
+    def find_place_enrichment(self, place_name: str, lat: float, lng: float) -> dict:
+        """
+        카카오 정보를 기반으로 구글 장소 정보를 조회하여 영업시간과 썸네일 URL을 즉시 완성합니다.
+        """
+        url = f"{BASE}/places:searchText"
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": self.api_key,
+            "X-Goog-FieldMask": "places.id,places.currentOpeningHours,places.rating,places.photos",
+        }
+        payload = {
+            "textQuery": place_name,
+            "locationBias": {
+                "circle": {
+                    "center": {"latitude": lat, "longitude": lng},
+                    "radius": 150.0
+                }
+            },
+            "languageCode": "ko"
+        }
+
+        try:
+            r = requests.post(url, headers=headers, json=payload, timeout=(5, 20))
+            if r.status_code == 200:
+                data = r.json()
+                places = data.get("places", [])
+                if not places:
+                    return {"type": "not_found"}
+                
+                place = places[0]
+                
+                # V1 API 사진 URL 바로 조립하기
+                image_url = None
+                photos = place.get("photos", [])
+                if photos:
+                    photo_name = photos[0].get("name")
+                    if photo_name:
+                        image_url = f"https://places.googleapis.com/v1/{photo_name}/media?maxHeightPx=800&maxWidthPx=800&key={self.api_key}"
+                
+                return {
+                    "type": "success",
+                    "google_place_id": place.get("id"),
+                    "rating": place.get("rating"),
+                    "current_opening_hours": place.get("currentOpeningHours"),
+                    "image_url": image_url
+                }
+            return {"type": "http_error", "status_code": r.status_code, "data": r.text}
+        except Exception as e:
+            return {"type": "error", "reason": str(e)}
