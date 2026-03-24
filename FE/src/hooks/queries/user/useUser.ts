@@ -23,6 +23,11 @@ interface UseUserOptions {
   enabled?: boolean;
 }
 
+/**
+ * 내 사용자 정보(me)를 조회하는 React Query 훅.
+ * 인증 스토어(AuthStore)와 연동되어 로그인 상태를 확인하고
+ * 만료시간(Stale Time)에 기반하여 사용자 정보를 전역 상태에 최신화합니다.
+ */
 export const useUser = ({ enabled }: UseUserOptions = {}) => {
   const {
     accessToken,
