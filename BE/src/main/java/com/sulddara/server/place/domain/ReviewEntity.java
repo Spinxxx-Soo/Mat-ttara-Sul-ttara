@@ -61,6 +61,8 @@ public class ReviewEntity {
         this.user = user;
         this.rating = rating;
         this.content = content;
+
+        place.addReview(this);
     }
 
     public void update(Integer rating, String content) {
