@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { loadKakaoMapScript, isKakaoMapLoaded } from '@/lib/kakaoMap';
 import { envConfig } from '@/config/env';
 import type { Coordinates, MapViewport } from '@/types/map';
@@ -77,20 +77,20 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
     };
   }, [sdkLoaded]);
 
-  const setCenter = (center: Coordinates) => {
+  const setCenter = useCallback((center: Coordinates) => {
     setViewport((prev) => ({ ...prev, center }));
     if (mapInstance.current && sdkLoaded) {
       const kakao = window.kakao;
       mapInstance.current.setCenter(new kakao.maps.LatLng(center.lat, center.lng));
     }
-  };
+  }, [sdkLoaded]);
 
-  const setZoom = (zoom: number) => {
+  const setZoom = useCallback((zoom: number) => {
     setViewport((prev) => ({ ...prev, zoom: zoom }));
     if (mapInstance.current && sdkLoaded) {
       mapInstance.current.setLevel(zoom);
     }
-  };
+  }, [sdkLoaded]);
 
   return {
     mapRef,
