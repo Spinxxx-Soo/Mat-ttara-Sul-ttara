@@ -9,6 +9,7 @@ import { queryClient } from '@/app/queryClient';
 import { envConfig } from '@/config/env';
 import { router } from '@/app/router';
 import { initKakao } from '@/lib/kakao';
+import { GlobalErrorBoundary } from '@/components/ui/GlobalErrorBoundary';
 
 export default function App() {
   useEffect(() => {
@@ -16,12 +17,14 @@ export default function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <GoogleOAuthProvider clientId={envConfig.googleClientId}>
-        <Toaster position="top-center" reverseOrder={false} />
-        <RouterProvider router={router} />
-        {envConfig.isDev && <ReactQueryDevtools initialIsOpen={false} />}
-      </GoogleOAuthProvider>
-    </QueryClientProvider>
+    <GlobalErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <GoogleOAuthProvider clientId={envConfig.googleClientId}>
+          <Toaster position="top-center" reverseOrder={false} />
+          <RouterProvider router={router} />
+          {envConfig.isDev && <ReactQueryDevtools initialIsOpen={false} />}
+        </GoogleOAuthProvider>
+      </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
 }
