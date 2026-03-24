@@ -191,25 +191,6 @@ Table user_memory {
   }
 }
 
-// 보류
-// 13. [AI] CHAT_RECOMMENDATIONS - 추천 실행 로그 테이블
-Table chat_recommendations {
-  rec_id bigint [pk, increment, not null] // PK
-  session_id bigint [not null] // CHAT_SESSIONS.session_id (FK)
-  user_id bigint [not null] // USERS.user_id (FK)
-  strategy varchar(50) [not null] // 추천 전략/버전
-  input_slots json [not null] // 추천 입력 슬롯(요약)
-  params json // 추천 파라미터(필터, topK 등)
-  chosen_place_id bigint // 최종 선택 장소 (PLACES FK)
-  plan_id bigint // 생성된 플랜 (PLANS FK)
-  created_at timestamp [not null] // 생성 시각
-
-  indexes {
-    (user_id, created_at)
-    (session_id, created_at)
-    (strategy)
-  }
-}
 
 // 14. [AI] CHAT_RECOMMENDATION_ITEMS - 추천 후보 리스트 테이블
 Table chat_recommendation_items {
@@ -224,26 +205,6 @@ Table chat_recommendation_items {
   indexes {
     (rec_id, rank_no) [unique]
     (rec_id, place_id) [unique]
-  }
-}
-// 보류
-// 15. [AI] USER_FEEDBACK - 추천/장소 피드백 테이블
-Table user_feedback {
-  feedback_id bigint [pk, increment, not null] // PK
-  user_id bigint [not null] // USERS.user_id (FK)
-  plan_id bigint // PLANS.plan_id (FK)
-  place_id bigint [not null] // PLACES.place_id (FK)
-  rec_id bigint // CHAT_RECOMMENDATIONS.rec_id (FK)
-  feedback_type varchar(20) [not null] // like / dislike
-  rating int // 평점(옵션)
-  tags json // 태그형 피드백
-  comment text // 텍스트 의견
-  created_at timestamp [not null] // 생성 시각
-
-  indexes {
-    (user_id, place_id, rec_id) [unique]
-    (user_id, created_at)
-    (place_id, created_at)
   }
 }
 
@@ -270,43 +231,13 @@ Table crwl_reviews {
   }
 }
 
-// 17. [AI - RAG] PLACE_REVIEW_TAGS - 리뷰 태그
-Table place_review_tags {
-  tag_id bigint [pk, increment, not null] // PK
-  place_id bigint [not null] // PLACES.place_id
-  source varchar(50) [not null] // 리뷰 출처
-  tag_name varchar(100) [not null] // 태그 이름
-  count int [not null] // 등장 횟수
-  last_updated_at timestamp [not null] // 업데이트 시각
-
-  indexes {
-    (place_id, source, tag_name) [unique]
-    (place_id, last_updated_at)
-  }
-}
-
-// 18. [AI - RAG] PLACE_SUMMARY_CACHE - RAG 요약 캐시
-Table place_summary_cache {
-  summary_id bigint [pk, increment, not null] // PK
+// 20. [AI] PLACE_MEMORY_VECTOR - 식당 추천용 24차원 특징 벡터
+Table place_memory_vector {
+  vector_id bigint [pk, increment, not null] // PK
   place_id bigint [not null, unique] // PLACES.place_id
-  summary text [not null] // 장소 요약
-  updated_at timestamp [not null] // 업데이트 시각
-}
-
-// 19. [AI - RAG] EMBEDDING_DOCUMENTS - 임베딩 메타데이터
-Table embedding_documents {
-  doc_id bigint [pk, increment, not null] // PK
-  doc_type varchar(50) [not null] // place_review / place_summary
-  place_id bigint // PLACES.place_id
-  user_id bigint // USERS.user_id
-  vector_id varchar(255) [not null, unique] // VectorDB ID
+  vector_data json [not null] // 24차원 벡터 배열 데이터
   created_at timestamp [not null] // 생성 시각
-
-  indexes {
-    (doc_type)
-    (place_id)
-    (user_id)
-  }
+  updated_at timestamp // 갱신 시각
 }
 
 // =========================
@@ -344,8 +275,5 @@ Ref: user_feedback.place_id > places.place_id
 Ref: user_feedback.rec_id > chat_recommendations.rec_id
 
 Ref: crwl_reviews.place_id > places.place_id
-Ref: place_review_tags.place_id > places.place_id
-Ref: place_summary_cache.place_id > places.place_id
 
-Ref: embedding_documents.place_id > places.place_id
-Ref: embedding_documents.user_id > users.user_id
+Ref: place_memory_vector.place_id > places.place_id

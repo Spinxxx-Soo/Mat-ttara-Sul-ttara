@@ -35,7 +35,7 @@ class MemoryKey(IntEnum):
     # ── 👥 혼잡도/편의 ──
     CROWD_TOLERANCE     = 13  # 혼잡도 허용 수준
     WAIT_TOLERANCE      = 14  # 웨이팅 허용 수준
-    PARKING_REQUIRED    = 15  # 주차 필요 여부
+    PARKING_AVAILABLE   = 15  # 주차 가능 여부
 
     # ── 🎯 방문 목적/동반자 ──
     OCCASION_SOLO       = 16  # 혼밥 빈도

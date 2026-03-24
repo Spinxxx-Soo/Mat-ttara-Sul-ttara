@@ -1,13 +1,12 @@
 """
-식당 리뷰 기반 24차원 취향 벡터 추출 스크립트 (LLM 기반)
+식당 메타정보(카테고리, 소개글 등) + 리뷰 기반 24차원 취향 벡터 추출 스크립트 (LLM 기반)
 """
 import sys
 import os
 import json
-import time
 import asyncio
 import mysql.connector
-from typing import List, Dict
+from typing import List, Dict, Any, Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -15,155 +14,211 @@ from apps.config import settings
 from apps.domain.chat.client import OpenAIClient
 from apps.domain.recommend.memory_keys import ORDERED_KEY_NAMES
 
-# DB 연결 정보 (.env 등에서 가져와도 됨)
 DB_CONFIG = {
-    "host": "127.0.0.1",
-    "user": "meal_user",
-    "password": "1234",
-    "database": "meal_reco"
+    "host": settings.db_host,
+    "user": settings.db_user,
+    "password": settings.db_password,
+    "database": settings.db_name
 }
 
 def get_db_connection():
     return mysql.connector.connect(**DB_CONFIG)
 
-def fetch_pending_places(conn) -> List[str]:
-    """벡터 변환이 필요한 crawl_place_id 목록 조회 (이미 변환된 것은 제외)"""
-    cursor = conn.cursor()
-    # PLACE_MEMORY_VECTOR에 없는 place_id만 가져옴
+def fetch_pending_places(conn) -> List[Dict[str, Any]]:
+    """벡터 변환이 필요한 메타데이터 목록 조회 (아직 place_memory_vector에 없는 식당만)"""
+    cursor = conn.cursor(dictionary=True)
     query = """
-        SELECT c.crawl_place_id 
-        FROM CRWL_REVIEWS c
-        LEFT JOIN PLACE_MEMORY_VECTOR p ON c.crawl_place_id = p.crawl_place_id
-        WHERE c.crawl_place_id IS NOT NULL AND p.crawl_place_id IS NULL
-        GROUP BY c.crawl_place_id
-        HAVING COUNT(c.review_text) >= 5
+        SELECT 
+            p.place_id, p.name, p.category, p.description, p.address, p.opening_hours
+        FROM PLACES p
+        JOIN CRWL_REVIEWS r ON p.place_id = r.place_id
+        LEFT JOIN PLACE_MEMORY_VECTOR v ON p.place_id = v.place_id
+        WHERE v.vector_data IS NULL
+        GROUP BY p.place_id, p.name, p.category, p.description, p.address, p.opening_hours
+        HAVING COUNT(r.review_text) >= 5
     """
     cursor.execute(query)
-    results = [row[0] for row in cursor.fetchall()]
+    results = cursor.fetchall()
     cursor.close()
     return results
 
-def fetch_reviews_for_place(conn, crawl_place_id: str, limit: int = 15) -> List[str]:
-    """특정 식당의 최근 리뷰 텍스트 가져오기"""
-    cursor = conn.cursor()
+def fetch_reviews_for_place(conn, place_id: int, limit: int = 15) -> List[str]:
+    """특정 식당의 최근 리뷰 텍스트와 별점 가져오기"""
+    cursor = conn.cursor(dictionary=True)
     query = """
-        SELECT review_text 
+        SELECT rating, review_text 
         FROM CRWL_REVIEWS 
-        WHERE crawl_place_id = %s AND review_text IS NOT NULL AND review_text != ''
+        WHERE place_id = %s AND review_text IS NOT NULL AND review_text != ''
         ORDER BY crawled_at DESC
         LIMIT %s
     """
-    cursor.execute(query, (crawl_place_id, limit))
-    reviews = [row[0] for row in cursor.fetchall()]
+    cursor.execute(query, (place_id, limit))
+    
+    reviews = []
+    for row in cursor.fetchall():
+        rating = row.get("rating")
+        rating_str = f"[별점 {rating}점]" if rating else "[별점 없음]"
+        reviews.append(f"{rating_str} {row['review_text']}")
+        
     cursor.close()
     return reviews
 
-def save_vector_to_db(conn, crawl_place_id: str, vector_dict: Dict[str, float]):
-    """추출된 24차원 벡터를 DB에 저장"""
+def normalize_vector_dict(raw: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """
+    LLM 응답을 정규화:
+    - 범위 초과 숫자 클램프 (0.0~1.0)
+    - 누락 및 'null' 문자열 등을 고려하여 None 반환
+    """
+    normalized: Dict[str, Optional[float]] = {}
+    for key in ORDERED_KEY_NAMES:
+        value = raw.get(key, None)
+        
+        if value is None:
+            normalized[key] = None
+            continue
+            
+        if isinstance(value, str):
+            s = value.strip().lower()
+            if s in ("null", "none", ""):
+                normalized[key] = None
+                continue
+            try:
+                value = float(value)
+            except ValueError:
+                normalized[key] = None
+                continue
+                
+        if isinstance(value, (int, float)):
+            value = max(0.0, min(1.0, float(value)))
+            normalized[key] = round(value, 4)
+        else:
+            normalized[key] = None
+            
+    return normalized
+
+def save_vector_to_db(conn, place_id: int, vector_dict: Dict[str, Optional[float]]):
+    """추출된 24차원 벡터를 DB에 저장 (None/null 허용)"""
     cursor = conn.cursor()
-    
-    # 24차원 순서에 맞춘 리스트 생성 (기본값 0.0)
-    # LLM이 누락한 키가 있으면 0.0으로 처리
-    vector_array = [vector_dict.get(key, 0.0) for key in ORDERED_KEY_NAMES]
-    vector_json = json.dumps(vector_array)
-    
+    vector_array = [vector_dict.get(key, None) for key in ORDERED_KEY_NAMES]
+    vector_json = json.dumps(vector_array, ensure_ascii=False)
     query = """
-        INSERT INTO PLACE_MEMORY_VECTOR (crawl_place_id, vector_data, created_at)
+        INSERT INTO PLACE_MEMORY_VECTOR (place_id, vector_data, created_at)
         VALUES (%s, %s, NOW())
         ON DUPLICATE KEY UPDATE 
             vector_data = VALUES(vector_data),
             updated_at = NOW()
     """
-    cursor.execute(query, (crawl_place_id, vector_json))
-    conn.commit()
-    cursor.close()
+    try:
+        cursor.execute(query, (place_id, vector_json))
+        conn.commit()
+    except Exception as e:
+        print(f"[-] DB 저장 에러 (place_id={place_id}): {type(e).__name__}: {e}")
+        import traceback; traceback.print_exc()
+    finally:
+        cursor.close()
 
-async def extract_vector_for_place(client: OpenAIClient, crawl_place_id: str, reviews: List[str]) -> Dict[str, float]:
+async def extract_vector_for_place(client: OpenAIClient, place_meta: Dict[str, Any], reviews: List[str]) -> Dict[str, float]:
     """LLM을 호출하여 24차원 벡터 수치 추출"""
+    
+    name = place_meta.get("name", "이름 없음")
+    category = place_meta.get("category", "") or "분류 안됨"
+    description = place_meta.get("description", "") or "소개 없음"
+    address = place_meta.get("address", "") or "주소 정보 없음"
+    opening_hours = place_meta.get("opening_hours")
+    
+    # 시간 데이터가 비어있으면 프롬프트에서 생략, 있으면 압축 요약
+    hours_info = ""
+    if opening_hours:
+        hours_info = f"- 영업시간 참고: {opening_hours} (야간 영업, 브레이크타임 등에서 occasion/vibe 힌트 도출. 비어있거나 무관하면 무시할 것)"
+    
     reviews_text = "\n".join([f"- {r}" for r in reviews])
     
-    system_prompt = f"""너는 식당 리뷰를 분석하여 24차원 취향 벡터를 추출하는 AI야.
-주어진 리뷰들을 읽고, 다음 24개의 구체적인 평가 기준(Memory Key)에 대해 0.0에서 1.0 사이의 점수를 매겨줘.
-리뷰 내용에서 추론할 수 없는 항목은 0.0 으로 줘.
-반드시 아래 제시된 JSON 형식으로만 응답해야 해 (결과 외의 마크다운이나 부연설명 금지).
+    system_prompt = """식당 정보와 리뷰를 보고, 아래 24개 키에 대해 0.0~1.0 또는 null(정보부족)로만 평가하라.
+- 0.0=없음, 1.0=매우강함, null=판단불가. 극단값은 명확한 근거가 있을 때만.
+- cuisine_*: 카테고리 기준 최우선 판단(해당=1.0, 아니면=0.0)
+- price_range: 주소 상권+카테고리 기반
+- taste_*: 좋다/나쁘다 아닌 맛의 특성
+- JSON만 반환. 마크다운/설명 금지.
+Keys: cuisine_korean,cuisine_japanese,cuisine_chinese,cuisine_western,cuisine_bunsik,cuisine_asian_other,price_range,vibe_quiet,vibe_lively,vibe_modern,vibe_traditional,seat_private,outdoor_ok,crowd_tolerance,wait_tolerance,parking_available,occasion_solo,occasion_date,occasion_friends,occasion_family,occasion_business,taste_spicy,taste_light,taste_rich"""
 
-[Memory Keys: 0.0~1.0 배점 기준]
-- 음식 종류 (해당하면 1.0, 아니면 0.0): cuisine_korean, cuisine_japanese, cuisine_chinese, cuisine_western, cuisine_bunsik, cuisine_asian_other
-- 가격대 (0.0=저렴, 1.0=비쌈): price_range
-- 분위기 (0.0~1.0 매핑): vibe_quiet (조용함), vibe_lively (활기참), vibe_modern (모던함), vibe_traditional (전통적), seat_private (룸/프라이빗), outdoor_ok (야외석)
-- 혼잡/편의 (0.0=안좋음, 1.0=좋음): crowd_tolerance (덜 혼잡함), wait_tolerance (웨이팅 적음), parking_required (주차 가능)
-- 목적 (0.0~1.0): occasion_solo(혼밥), occasion_date(데이트), occasion_friends(친구), occasion_family(가족), occasion_business(비즈니스)
-- 맛 (0.0~1.0): taste_spicy(매움), taste_light(담백/건강식), taste_rich(자극적/진함)
+    hours_str = f"영업시간:{opening_hours} " if opening_hours else ""
+    user_prompt = f"""{name} | {category} | {address}
+{hours_str}{description}
 
-[출력 JSON 예시]
-{{
-  "cuisine_korean": 1.0, "cuisine_japanese": 0.0, "cuisine_chinese": 0.0, "cuisine_western": 0.0, "cuisine_bunsik": 0.0, "cuisine_asian_other": 0.0,
-  "price_range": 0.3, "vibe_quiet": 0.0, "vibe_lively": 0.8, "vibe_modern": 0.0, "vibe_traditional": 0.9, "seat_private": 0.0, "outdoor_ok": 0.0,
-  "crowd_tolerance": 0.2, "wait_tolerance": 0.1, "parking_required": 0.0,
-  "occasion_solo": 0.1, "occasion_date": 0.2, "occasion_friends": 0.9, "occasion_family": 0.3, "occasion_business": 0.0,
-  "taste_spicy": 0.8, "taste_light": 0.0, "taste_rich": 0.9
-}}
-"""
+리뷰({len(reviews)}건):\n{reviews_text}"""
 
-    user_prompt = f"[식당 ID: {crawl_place_id}]\n다음 리뷰들을 분석해 JSON을 출력해:\n{reviews_text}"
-    
     messages = client.create_messages(system_prompt, user_prompt)
     
     try:
-        response = await client.chat_completion(messages, max_tokens=1024, temperature=0.1)
-        # GMS 응답 파싱
+        # 추론 모델은 내부 추론(reasoning_tokens)으로 많은 토큰을 소모하므로 제한을 크게 늘려줍니다.
+        response = await client.chat_completion(messages, max_tokens=4096)
         content = response["choices"][0]["message"]["content"]
-        # 마크다운 블록 제거 처리 (가끔 프롬프트 지시를 무시하고 ```json 을 붙이는 경우 대응)
+        
         if content.startswith("```"):
             content = content.strip("`").removeprefix("json").strip()
             
-        vector_dict = json.loads(content)
+        try:
+            raw_vector = json.loads(content)
+        except Exception as e:
+            print(f"\n[!] JSON 파싱 에러! LLM 원본 응답 내용:\n{repr(content)}\n전체 API 응답:\n{response}\n")
+            raise e
+        vector_dict = normalize_vector_dict(raw_vector)
         return vector_dict
     except Exception as e:
-        print(f"[-] Place {crawl_place_id} LLM 호출 중 에러 발생: {e}")
+        print(f"[-] Place ID {place_meta.get('place_id')} LLM 호출 중 에러 발생: {e}")
         return None
 
+async def process_place_task(client: OpenAIClient, place_meta: Dict[str, Any], semaphore: asyncio.Semaphore, current_idx: int, total_count: int):
+    """개별 식당 처리 태스크 (세마포어로 동시성 제어)"""
+    async with semaphore:
+        place_id = place_meta["place_id"]
+        place_name = place_meta["name"]
+        
+        # 각 태스크마다 별도의 DB 연결 (동시성 안전을 위해)
+        try:
+            conn = get_db_connection()
+            reviews = fetch_reviews_for_place(conn, place_id)
+            if not reviews:
+                conn.close()
+                return
+            
+            print(f"[{current_idx}/{total_count}] 식당: {place_name} (ID: {place_id}) - 분석 시작...")
+            vector_dict = await extract_vector_for_place(client, place_meta, reviews)
+            
+            if vector_dict:
+                save_vector_to_db(conn, place_id, vector_dict)
+                print(f"  └── [OK] {place_name} 저장 완료")
+            
+            conn.close()
+        except Exception as e:
+            print(f"  └── [!] {place_name} 처리 중 에러: {e}")
+
 async def main():
-    print("[*] DB 연결 중...")
+    print("[*] DB 연결 중 (최초 조회)...")
     try:
         conn = get_db_connection()
+        places = fetch_pending_places(conn)
+        conn.close()
     except Exception as e:
-        print(f"[-] DB 연결 실패: {e}")
+        print(f"[-] DB 조회 실패: {e}")
         return
 
-    places = fetch_pending_places(conn)
     print(f"[*] 벡터 변환 대상 식당 수: {len(places)} 개")
-    
     if not places:
-        print("[*] 모든 식당이 이미 변환되었습니다.")
-        conn.close()
+        print("[*] 조건을 만족하는 식당이 없습니다.")
         return
 
     client = OpenAIClient()
+    semaphore = asyncio.Semaphore(100)  # 동시 요청 수 100개로 대폭 상향
     
-    # 전체 6180여 개 진행
-    test_limit = 10000
-    process_places = places[:test_limit]
+    print(f"[*] 병렬 처리 시작 (동시성: 100)...")
     
-    print(f"[*] 시작! (최대 {len(process_places)}개 진행합니다)")
-    for i, crawl_place_id in enumerate(process_places, 1):
-        reviews = fetch_reviews_for_place(conn, crawl_place_id)
-        if not reviews:
-            print(f"[{i}/{len(process_places)}] 식당 ID: {crawl_place_id} - 리뷰 없음 (스킵)")
-            continue
-            
-        print(f"[{i}/{len(process_places)}] 식당 ID: {crawl_place_id} - 리뷰 {len(reviews)}건 분석 중...")
-        vector_dict = await extract_vector_for_place(client, crawl_place_id, reviews)
+    tasks = []
+    for i, meta in enumerate(places, 1):
+        tasks.append(process_place_task(client, meta, semaphore, i, len(places)))
         
-        if vector_dict:
-            save_vector_to_db(conn, crawl_place_id, vector_dict)
-            print(f"  └── 분석 완료 및 저장됨")
-        
-        # Rate limit 우회용 대기시간
-        await asyncio.sleep(0.5)
-
-    print("[*] 작업 종료 완료. (추가 진행 시 스크립트를 재실행하거나 제한을 늘리세요)")
-    conn.close()
+    await asyncio.gather(*tasks)
+    print("\n[*] 모든 작업이 완료되었습니다.")
 
 if __name__ == "__main__":
     asyncio.run(main())

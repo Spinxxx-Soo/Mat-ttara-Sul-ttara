@@ -13,18 +13,19 @@ from apps.domain.recommend.vector_utils import (
     merge_vectors,
     rank_places,
 )
+from apps.repositories.recommend_repository import RecommendRepository
 
 
 class RecommendService:
     """
     추천 파이프라인 오케스트레이터.
 
-    현재는 DB 연동 없이 가상 데이터(mock)로 동작하며,
-    DB/Redis 연동이 완료되면 _load_* 메서드만 교체하면 됩니다.
+    DB(RecommendRepository)에서 유저/식당 벡터를 로드하고
+    단기/장기 벡터 결합 및 코사인 유사도 연산을 수행합니다.
     """
 
     def __init__(self):
-        pass
+        self.repository = RecommendRepository()
 
     # ──────────────────────────────────────
     # 메인 추천 파이프라인
@@ -72,33 +73,48 @@ class RecommendService:
         return results
 
     # ──────────────────────────────────────
-    # 데이터 로드 (TODO: DB 연동 시 교체)
+    # 데이터 로드 및 Cold Start
     # ──────────────────────────────────────
     def _load_user_memory(self, user_id: int) -> Dict[str, float]:
         """
         DB USER_MEMORY 테이블에서 유저의 장기기억 벡터를 로드합니다.
-
-        TODO: 실제 DB 연동 시 이 메서드를 교체
-              SELECT memory_key, memory_value FROM user_memory WHERE user_id = ?
+        기록이 전혀 없는 신규 회원의 경우 USER_PREFERENCE 기반으로 생성합니다.
         """
-        # Mock: Cold Start 유저 (모든 값 0.5로 초기화)
-        return {key: 0.5 for key in ORDERED_KEY_NAMES}
+        long_term = self.repository.get_user_memory(user_id)
+        if not long_term:
+            # Cold Start 로직: 장기 기억이 없으면 선호도 프로필 로드
+            pref = self.repository.get_user_preference(user_id)
+            return self._build_cold_start_memory(pref)
+        return long_term
+
+    def _build_cold_start_memory(self, pref: dict = None) -> Dict[str, float]:
+        """
+        USER_PREFERENCE를 바탕으로 초기 가중치 벡터(Cold Start)를 생성합니다.
+        """
+        initial = {key: 0.5 for key in ORDERED_KEY_NAMES}
+        if not pref:
+            return initial
+
+        usage_type = pref.get("usage_type")
+        
+        # 하드코딩된 규칙 기반 초기 벡터 세팅 (예시 기획)
+        if usage_type == "데이트":
+            initial["occasion_date"] = 0.9
+            initial["vibe_modern"] = 0.8
+            initial["vibe_quiet"] = 0.7
+        elif usage_type == "회식":
+            initial["occasion_business"] = 0.9
+            initial["vibe_lively"] = 0.8
+            initial["seat_private"] = 0.8
+        elif usage_type == "동네친구":
+            initial["occasion_friends"] = 0.9
+            initial["price_range"] = 0.3
+            initial["vibe_quiet"] = 0.7
+            
+        return initial
 
     def _load_place_vectors(self, place_ids: List[int]) -> Dict[int, List[float]]:
         """
         DB PLACE_MEMORY_VECTOR 테이블에서 식당 벡터를 로드합니다.
-
-        TODO: 실제 DB 연동 시 이 메서드를 교체
-              SELECT place_id, vector_data FROM place_memory_vector
-              WHERE place_id IN (...)
         """
-        # Mock: 가상 식당 벡터 데이터 (테스트용)
-        import random
-        random.seed(42)  # 재현 가능한 결과를 위해 시드 고정
-
-        mock_vectors = {}
-        for pid in place_ids:
-            random.seed(pid)  # place_id별 고유한 벡터 생성
-            mock_vectors[pid] = [round(random.random(), 2) for _ in range(VECTOR_DIM)]
-
-        return mock_vectors
+        return self.repository.get_place_vectors(place_ids)
