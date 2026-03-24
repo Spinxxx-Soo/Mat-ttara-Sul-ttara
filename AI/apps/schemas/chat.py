@@ -100,7 +100,7 @@ class SessionState(APIModel):
 class ParsedState(APIModel):
     """
     대화/파싱 상태의 단일 스키마.
-    - 슬롯 필드(people, time, …): 파서가 채움
+    - time, lat, lng: 파서·세션에서 채움
     - selectedPlaceIds: 주로 백엔드가 후보 주입 (AI는 보통 비움)
     - cuisine_*, vibe_*, seat_*, outdoor_ok, occasion_*: 추천용 선호 점수 0~1 (AI 파서가 단계적으로 채움)
     """
@@ -112,9 +112,6 @@ class ParsedState(APIModel):
         description="시간값 (예: 18:00)",
         example="18:00",
     )
-    people: Optional[int] = Field(default=None, description="인원수", example=3, ge=1)
-    purpose: Optional[str] = Field(default=None, description="목적", example="술자리")
-    mood: Optional[str] = Field(default=None, description="분위기")
 
     selectedPlaceIds: Optional[List[int]] = Field(
         default=None,
@@ -141,6 +138,36 @@ class ParsedState(APIModel):
     occasion_family: Optional[float] = Field(default=None, description="가족 0~1", ge=0, le=1)
     occasion_solo: Optional[float] = Field(default=None, description="혼자 0~1", ge=0, le=1)
     occasion_friends: Optional[float] = Field(default=None, description="친구/모임 0~1", ge=0, le=1)
+
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_assignment=True,
+        json_schema_extra={
+            "example": {
+                "lat": None,
+                "lng": None,
+                "time": "18:00",
+                "selectedPlaceIds": [101, 202, 303],
+                "cuisine_korean": 0.9,
+                "cuisine_japanese": 0.4,
+                "cuisine_chinese": None,
+                "cuisine_western": None,
+                "cuisine_bunsik": None,
+                "cuisine_asian_other": None,
+                "vibe_quiet": None,
+                "vibe_lively": None,
+                "vibe_modern": None,
+                "vibe_traditional": None,
+                "seat_private": None,
+                "outdoor_ok": None,
+                "occasion_date": None,
+                "occasion_business": None,
+                "occasion_family": None,
+                "occasion_solo": None,
+                "occasion_friends": 1.0,
+            }
+        },
+    )
 
 
 def parsed_state_mergeable_keys() -> frozenset[str]:
@@ -293,7 +320,7 @@ class ChatMessageResponse(APIModel):
     """챗봇 응답 (ChatResponse)."""
 
     threadId: str = Field(..., example="chat-101")
-    userId: int = Field(..., example=101)
+    userId: str = Field(..., example="101")
     chatResponse: str = Field(
         ...,
         min_length=1,
@@ -312,16 +339,44 @@ class ChatMessageResponse(APIModel):
     parsedState: Optional[ParsedState] = Field(
         default=None,
         description="AI가 파싱한 상태 정보 (ParsedState 단일 스키마)",
-        example={
-            "lat": None,
-            "lng": None,
-            "time": "18:00",
-            "people": 3,
-            "purpose": "술자리",
-            "mood": None,
-            "selectedPlaceIds": [101, 202, 303],
-            "cuisine_korean": 0.9,
-            "occasion_friends": 1.0,
+    )
+
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_assignment=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "threadId": "chat-101",
+                    "userId": "101",
+                    "chatResponse": "어떤 분위기를 원하세요?",
+                    "type": "FOLLOW_UP",
+                    "memoryStatus": "OK",
+                    "parsedState": {
+                        "lat": None,
+                        "lng": None,
+                        "time": "18:00",
+                        "selectedPlaceIds": [101, 202, 303],
+                        "cuisine_korean": 0.9,
+                        "cuisine_japanese": 0.4,
+                        "cuisine_chinese": None,
+                        "cuisine_western": None,
+                        "cuisine_bunsik": None,
+                        "cuisine_asian_other": None,
+                        "vibe_quiet": None,
+                        "vibe_lively": None,
+                        "vibe_modern": None,
+                        "vibe_traditional": None,
+                        "seat_private": None,
+                        "outdoor_ok": None,
+                        "occasion_date": None,
+                        "occasion_business": None,
+                        "occasion_family": None,
+                        "occasion_solo": None,
+                        "occasion_friends": 1.0,
+                    },
+                }
+            ]
         },
     )
 

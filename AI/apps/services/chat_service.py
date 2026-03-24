@@ -16,17 +16,19 @@ from apps.schemas.chat import (
     ChatMessageRequest,
     ChatMessageResponse,
     MemoryStatus,
-    PreferenceSummary,
 )
 from apps.domain.chat.client import OpenAIClient
-from apps.services.paser import ChatParser
+from apps.services.chat_paser import ChatParser
+from apps.services.redis_reply_publisher import (
+    RedisReplyPublisher,
+    build_be_ai_reply_redis_payload,
+)
 from apps.services import (
     ParsedStateManager,
     FollowupQuestionGenerator,
     ConversationStateStore,
     SummaryService,
     ResponseFactory,
-    MemoryService,
 )
 
 
@@ -53,9 +55,9 @@ def _create_checkpointer():
     return InMemorySaver()
 
 
-# 백엔드에서 제어하는 follow-up 질문 우선순위
-# 요구사항의 area > purpose > time > people > mood 중, 현재 프로젝트 `parsedState` source-of-truth에는 `area`가 포함되어 있지 않아 제외했습니다.
-QUESTION_SLOT_PRIORITY: list[str] = ["purpose", "time", "people", "mood"]
+# 백엔드에서 제어하는 follow-up 질문 우선순위 (`ParsedState` 필드명과 일치)
+# 응답 스키마에서 people/purpose/mood 제거 후, 필수에 가깝게 쓰는 슬롯은 time 중심으로 둡니다.
+QUESTION_SLOT_PRIORITY: list[str] = ["time"]
 
 
 class ChatState(TypedDict):
@@ -76,11 +78,6 @@ class ChatService:
         # REDIS_URL 설정 시 Redis, 미설정 시 InMemorySaver
         self.checkpointer = _create_checkpointer()
 
-        # 임시 장기 메모리 저장소
-        self._long_term_memories: dict[str, PreferenceSummary] = {}
-        # 장기 선호 프로필(키->점수). 현재 MVP에서는 in-memory로만 누적합니다.
-        self._long_term_profiles: dict[str, dict[str, float]] = {}
-
         self.graph = self._build_graph()
 
         # 책임 분리 컴포넌트(Orchestration 전용)
@@ -89,7 +86,8 @@ class ChatService:
         self.followup_question_generator = FollowupQuestionGenerator(client=self.client)
         self.summary_service = SummaryService(client=self.client)
         self.response_factory = ResponseFactory()
-        self.memory_service = MemoryService()
+        self.redis_reply_publisher = RedisReplyPublisher(settings.redis_url)
+        # self.memory_service = MemoryService()  # 장기 메모리 비활성화
 
     def _build_graph(self):
         workflow = StateGraph(ChatState)
@@ -109,8 +107,8 @@ class ChatService:
         has_history = bool(state and state.get("messages"))
         is_session_start = not has_history
 
-        if request.preferenceSummary:
-            self._long_term_memories[thread_id] = request.preferenceSummary
+        # if request.preferenceSummary:
+        #     self._long_term_memories[thread_id] = request.preferenceSummary  # 장기 메모리 비활성화
 
         memory_status = MemoryStatus.OK
         if is_session_start and request.contextInjection and request.contextInjection.reason == "MISSING_MEMORY":
@@ -154,14 +152,14 @@ class ChatService:
             )
             await self.state_store.save_summary(thread_id, updated_summary)
 
-        # 4-1) 장기 선호(장기 메모리) 업데이트
-        prev_profile = self._long_term_profiles.get(thread_id, {})
-        updated_profile, _events = self.memory_service.process_user_message_for_long_term_memory(
-            user_message=user_message,
-            summary=updated_summary,
-            previous_profile=prev_profile,
-        )
-        self._long_term_profiles[thread_id] = updated_profile
+        # 4-1) 장기 선호(장기 메모리) 업데이트 — MVP 비활성화
+        # prev_profile = self._long_term_profiles.get(thread_id, {})
+        # updated_profile, _events = self.memory_service.process_user_message_for_long_term_memory(
+        #     user_message=user_message,
+        #     summary=updated_summary,
+        #     previous_profile=prev_profile,
+        # )
+        # self._long_term_profiles[thread_id] = updated_profile
 
         # 5) missing slot 탐지 -> 슬롯 1개 선택 -> follow-up 질문 생성 (AI 서버 내부 전용)
         missing_slots = self.parsed_state_manager.detect_missing_slots(normalized_parsed_state)
@@ -192,6 +190,11 @@ class ChatService:
 
         # 6) AI 응답 저장
         await self.state_store.save_ai_message(thread_id, response.chatResponse)
+
+        # 7) BE Redis Pub/Sub (BE는 ai:reply 구독 — 체크포인터 Redis와 별도 클라이언트)
+        self.redis_reply_publisher.publish_chat_reply(
+            build_be_ai_reply_redis_payload(request, response)
+        )
 
         return response
 
