@@ -32,7 +32,10 @@ services:
       - "9200:9200"
       - "9300:9300"
     command: >
-      sh -c "./bin/elasticsearch-plugin install analysis-nori && /usr/local/bin/docker-entrypoint.sh"
+      sh -c "if ! ./bin/elasticsearch-plugin list | grep -qx analysis-nori; then
+        ./bin/elasticsearch-plugin install --batch analysis-nori;
+      fi;
+      exec /usr/local/bin/docker-entrypoint.sh"
     volumes:
       - es-data:/usr/share/elasticsearch/data
 
