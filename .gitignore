@@ -12,3 +12,4 @@ FE/.vexp/index.db
 FE/vexp.toml
 BE/build_log.txt
 .env.local
+../BE_backup/

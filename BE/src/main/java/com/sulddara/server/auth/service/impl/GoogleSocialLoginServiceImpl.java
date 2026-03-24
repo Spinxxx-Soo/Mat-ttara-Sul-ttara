@@ -11,6 +11,7 @@ import com.sulddara.server.auth.jwt.OAuth2UserInfo;
 import com.sulddara.server.auth.service.SocialLoginService;
 import com.sulddara.server.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -26,6 +27,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.Duration;
 import java.util.Map;
 
+@Slf4j
 @Service("googleSocialLoginService")
 @RequiredArgsConstructor
 public class GoogleSocialLoginServiceImpl implements SocialLoginService {
@@ -45,8 +47,8 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
     private String redirectUri;
 
     @Override
-    public LoginResponse login(String provider, String code) {
-        String accessToken = getAccessToken(code);
+    public LoginResponse login(String provider, String code, String state) {
+        String accessToken = getAccessToken(code, state);
         Map<String, Object> attributes = getUserInfo(accessToken);
 
         OAuth2UserInfo userInfo = new GoogleUserInfo(attributes);
@@ -74,7 +76,7 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
     }
 
     @Override
-    public String getAccessToken(String code) {
+    public String getAccessToken(String code, String state) {
         String url = "https://oauth2.googleapis.com/token";
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
@@ -84,15 +86,19 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
         params.add("redirect_uri", redirectUri);
         params.add("grant_type", "authorization_code");
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
+
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url, HttpMethod.POST, new HttpEntity<>(params), new ParameterizedTypeReference<Map<String, Object>>() {});
+                    url, HttpMethod.POST, new HttpEntity<>(params, headers), new ParameterizedTypeReference<Map<String, Object>>() {});
             Map<String, Object> body = response.getBody();
             if (body == null || body.get("access_token") == null) {
                 throw new UnauthorizedException(ErrorCode.INVALID_SOCIAL_CODE);
             }
             return (String) body.get("access_token");
-        }catch (Exception e) {
+        } catch (Exception e) {
+            log.error("[Google OAuth] getAccessToken 실패: {}", e.getMessage(), e);
             throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
         }
     }
@@ -108,6 +114,7 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
                     "https://www.googleapis.com/oauth2/v3/userinfo", HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {});
             return response.getBody();
         } catch (Exception e) {
+            log.error("[Google OAuth] getUserInfo 실패: {}", e.getMessage(), e);
             throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
         }
     }

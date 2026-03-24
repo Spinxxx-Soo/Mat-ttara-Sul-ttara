@@ -4,11 +4,11 @@ import com.sulddara.server.auth.controller.response.LoginResponse;
 import com.sulddara.server.global.error.ErrorCode;
 import com.sulddara.server.global.error.exception.BaseException;
 import com.sulddara.server.global.error.exception.UnauthorizedException;
-import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.auth.jwt.JwtUtil;
 import com.sulddara.server.auth.jwt.NaverUserInfo;
 import com.sulddara.server.auth.jwt.OAuth2UserInfo;
 import com.sulddara.server.auth.service.SocialLoginService;
+import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +19,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
@@ -39,8 +41,8 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
     private String clientSecret;
 
     @Override
-    public LoginResponse login(String provider, String code) {
-        String accessToken = getAccessToken(code);
+    public LoginResponse login(String provider, String code, String state) {
+        String accessToken = getAccessToken(code, state);
         Map<String, Object> attributes = getUserInfo(accessToken);
 
         OAuth2UserInfo userInfo = new NaverUserInfo(attributes);
@@ -67,13 +69,24 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
     }
 
     @Override
-    public String getAccessToken(String code) {
-        String url = "https://nid.naver.com/oauth2.0/token?grant_type=authorization_code" +
-                "&client_id=" + clientId + "&client_secret=" + clientSecret + "&code=" + code;
+    public String getAccessToken(String code, String state) {
+        String url = "https://nid.naver.com/oauth2.0/token";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("grant_type", "authorization_code");
+        params.add("client_id", clientId);
+        params.add("client_secret", clientSecret);
+        params.add("code", code);
+        params.add("state", state);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
 
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url, HttpMethod.GET, null, new ParameterizedTypeReference<Map<String, Object>>() {});
+                    url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>() {});
             Map<String, Object> body = response.getBody();
             if (body == null || body.get("access_token") == null) {
                 throw new UnauthorizedException(ErrorCode.INVALID_SOCIAL_CODE);
