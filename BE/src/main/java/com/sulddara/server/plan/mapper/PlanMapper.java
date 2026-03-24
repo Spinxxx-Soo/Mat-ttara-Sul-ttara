@@ -1,8 +1,8 @@
 package com.sulddara.server.plan.mapper;
 
-import com.sulddara.server.place.domain.Place;
-import com.sulddara.server.plan.domain.Plan;
-import com.sulddara.server.plan.domain.PlanDetail;
+import com.sulddara.server.place.domain.PlaceEntity;
+import com.sulddara.server.plan.domain.PlanEntity;
+import com.sulddara.server.plan.domain.PlanDetailEntity;
 import com.sulddara.server.plan.dto.PlaceSummaryDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
 import com.sulddara.server.plan.dto.PlanDetailPlaceDto;
@@ -15,7 +15,7 @@ public class PlanMapper {
 
   private static final String SHARE_URL_PREFIX = "/api/v1/plans/share/";
 
-  public PlanCreateResponseDto toCreateResponse(Plan plan) {
+  public PlanCreateResponseDto toCreateResponse(PlanEntity plan) {
     return PlanCreateResponseDto.builder()
         .planId(plan.getId())
         .title(plan.getTitle())
@@ -25,7 +25,7 @@ public class PlanMapper {
         .build();
   }
 
-  public PlanSummaryDto toSummary(Plan plan) {
+  public PlanSummaryDto toSummary(PlanEntity plan) {
     return PlanSummaryDto.builder()
         .planId(plan.getId())
         .title(plan.getTitle())
@@ -37,7 +37,7 @@ public class PlanMapper {
         .build();
   }
 
-  public PlaceSummaryDto toPlaceSummary(Place place) {
+  public PlaceSummaryDto toPlaceSummary(PlaceEntity place) {
     return PlaceSummaryDto.builder()
         .placeId(place.getId())
         .name(place.getName())
@@ -48,7 +48,7 @@ public class PlanMapper {
         .build();
   }
 
-  public PlanDetailPlaceDto toDetailPlace(PlanDetail detail) {
+  public PlanDetailPlaceDto toDetailPlace(PlanDetailEntity detail) {
     return PlanDetailPlaceDto.builder()
         .detailId(detail.getId())
         .placeId(detail.getPlace().getId())
@@ -58,7 +58,7 @@ public class PlanMapper {
         .build();
   }
 
-  public PlanDetailResponseDto toDetailResponse(Plan plan) {
+  public PlanDetailResponseDto toDetailResponse(PlanEntity plan) {
     return PlanDetailResponseDto.builder()
         .planId(plan.getId())
         .title(plan.getTitle())

@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
+
+import { useCreateUserPreferenceMutation } from '@/hooks/queries/user/useUserMutations'
+import { toUserPreferenceRequest } from '@/lib/userPreference'
+import { useAuthStore } from '@/stores/authStore'
 
 const Onboarding = () => {
   const navigate = useNavigate()
+  const { completeOnboarding } = useAuthStore()
+  const { mutate: createPreference, isPending } = useCreateUserPreferenceMutation()
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
     purpose: '' as 'personal' | 'professional' | '',
@@ -26,8 +33,16 @@ const Onboarding = () => {
     if (step < 3) {
       setStep(step + 1)
     } else {
-      // TODO: 온보딩 데이터 저장 후 메인으로 이동
-      navigate('/')
+      createPreference(toUserPreferenceRequest(formData), {
+        onSuccess: () => {
+          completeOnboarding()
+          toast.success('온보딩이 완료되었습니다.')
+          navigate('/')
+        },
+        onError: () => {
+          toast.error('온보딩 저장 중 오류가 발생했습니다.')
+        },
+      })
     }
   }
 
@@ -51,7 +66,10 @@ const Onboarding = () => {
           </h2>
         </div>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => {
+            completeOnboarding()
+            navigate('/')
+          }}
           className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-primary text-white text-sm font-bold leading-normal transition-opacity hover:opacity-90"
         >
           <span className="truncate">Skip</span>
@@ -233,13 +251,14 @@ const Onboarding = () => {
             <button
               onClick={handleNext}
               disabled={
+                isPending ||
                 (step === 1 && !formData.purpose) ||
                 (step === 2 && !formData.age) ||
                 (step === 3 && !formData.gender)
               }
               className="bg-primary text-white font-bold px-10 py-3 rounded-xl shadow-lg shadow-primary/30 hover:translate-y-[-2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
-              {step === 3 ? '완료' : 'Next Step'}
+              {step === 3 ? (isPending ? '저장 중...' : '완료') : 'Next Step'}
             </button>
           </footer>
         </div>

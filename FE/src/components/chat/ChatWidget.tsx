@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
+import { useChatMapStore } from '@/stores/chatMapStore'
+import { useChatSessionSse } from '@/hooks/useChatSessionSse'
 import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
 import type { ChatMessage, ChatSession } from '@/types/api'
 
-const ChatWidget = () => {
+interface ChatWidgetProps {
+  /** 부모가 너비를 잡을 때 `w-full`로 채움 (기본 400px 레이아웃) */
+  className?: string
+}
+
+const ChatWidget = ({ className = '' }: ChatWidgetProps) => {
   const { user } = useAuthStore()
   const [sessionId, setSessionId] = useState<string>('')
   const [input, setInput] = useState('')
@@ -62,6 +69,21 @@ const ChatWidget = () => {
 
   const messages: ChatMessage[] = messagesData?.content || []
 
+  const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
+
+  const prevSessionIdRef = useRef<string | null>(null)
+
+  // 세션 전환 시 지도용 추천 장소 초기화
+  useEffect(() => {
+    if (prevSessionIdRef.current !== sessionId) {
+      clearAiRecommendedPlaces()
+      prevSessionIdRef.current = sessionId || null
+    }
+  }, [sessionId, clearAiRecommendedPlaces])
+
+  /** SSE(ai_response) → GET /api/v1/places/recommend 로 추천 장소 동기화 */
+  useChatSessionSse(sessionId, !!user && !!sessionId)
+
   // 메시지 전송
   const sendMessageMutation = useSendMessage()
 
@@ -93,7 +115,9 @@ const ChatWidget = () => {
   }
 
   return (
-    <aside className="w-[400px] h-full flex flex-col bg-white dark:bg-slate-900 shadow-2xl z-40 relative border-r border-slate-200 dark:border-slate-800">
+    <aside
+      className={`flex h-full min-h-0 w-full flex-col bg-white shadow-2xl z-40 relative border-r border-slate-200 dark:border-slate-800 dark:bg-slate-900 ${className}`}
+    >
       {/* Header */}
       <div className="p-6 border-b border-primary/5">
       <h1 className="text-xl font-bold mb-4 flex items-center gap-2">

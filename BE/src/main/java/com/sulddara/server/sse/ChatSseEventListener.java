@@ -2,9 +2,9 @@ package com.sulddara.server.sse;
 
 import com.sulddara.server.chat.ai.service.AiService;
 import com.sulddara.server.chat.domain.enums.RoleType;
-import com.sulddara.server.share.event.AiChatMessageCreatedEvent;
-import com.sulddara.server.share.event.ChatMessageCreatedEvent;
-import com.sulddara.server.share.event.ChatMessageUpdatedEvent;
+import com.sulddara.server.chat.event.AiChatMessageCreatedEvent;
+import com.sulddara.server.chat.event.ChatMessageCreatedEvent;
+import com.sulddara.server.chat.event.ChatMessageUpdatedEvent;
 import com.sulddara.server.sse.payload.AiResponsePayload;
 import com.sulddara.server.sse.payload.ChatMessagePayload;
 import com.sulddara.server.sse.payload.ChatUpdatePayload;
