@@ -41,9 +41,9 @@ def main():
 
     try:
         conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST", "localhost"),
+            host=os.getenv("DB_HOST", "127.0.0.1"),
             user=os.getenv("DB_USER", "meal_user"),
-            password=os.getenv("DB_PASSWORD", "1234"),
+            password=os.getenv("DB_PASSWORD", ""),
             database=os.getenv("DB_NAME", "meal_reco"),
         )
         print("Connected to MySQL.")

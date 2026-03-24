@@ -63,5 +63,17 @@ spring:
     naver:
       local-search:
         url: https://openapi.naver.com/v1/search/local.json
-        client-id: ${NAVER_ID}
-        client-secret: ${NAVER_SECRET}
+        client-id: ${NAVER_ID:dummy-naver-id}
+        client-secret: ${NAVER_SECRET:dummy-naver-secret}
+
+  cloud:
+    aws:
+      credentials:
+        access-key: ${AWS_KEY}
+        secret-key: ${AWS_SECRET}
+      s3:
+        bucket: matsul-image-storage-582802577055-ap-northeast-2-an
+      region:
+        static: ap-northeast-2
+      stack:
+        auto: false # 가상 환경에서 불필요한 스택 경고 방지
