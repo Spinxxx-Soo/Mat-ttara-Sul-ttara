@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Sidebar from '../components/Sidebar'
 import KakaoMap from '@/components/map/KakaoMap'
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
@@ -7,6 +7,8 @@ import { useSearchPlaces } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
+import { useMapPinAnchor } from '@/hooks/useMapPinAnchor'
+import type { KakaoMapInstance } from '@/types/kakao.d'
 
 // ==========================================
 // 레이아웃: [사이드바] | [가게 검색·결과 ↔ 리뷰] | [지도]
@@ -27,6 +29,21 @@ const Search = () => {
   const defaultLng = storeLng ?? 126.978
 
   const [mapCenter, setMapCenter] = useState({ lat: defaultLat, lng: defaultLng })
+  const [zoom, setZoom] = useState(15)
+  const [mapInstance, setMapInstance] = useState<KakaoMapInstance | null>(null)
+  const mapMainRef = useRef<HTMLElement>(null)
+
+  const handleMapReady = useCallback((map: KakaoMapInstance) => {
+    setMapInstance(map)
+  }, [])
+
+  const handleMapIdle = useCallback(
+    (center: { lat: number; lng: number }, level: number) => {
+      setMapCenter(center)
+      setZoom(level)
+    },
+    []
+  )
 
   useEffect(() => {
     setPage(1)
@@ -64,6 +81,15 @@ const Search = () => {
   const selectedPlace = useMemo(
     () => places.find((p) => p.placeId === selectedPlaceId) ?? null,
     [places, selectedPlaceId]
+  )
+
+  const detailCardAnchor = useMapPinAnchor(
+    mapMainRef,
+    mapInstance,
+    selectedPlace,
+    mapCenter.lat,
+    mapCenter.lng,
+    zoom
   )
 
   const handlePlaceClick = (place: Place) => {
@@ -221,19 +247,22 @@ const Search = () => {
         )}
       </aside>
 
-      <main className="relative min-h-0 min-w-0 flex-1">
+      <main ref={mapMainRef} className="relative min-h-0 min-w-0 flex-1">
         <KakaoMap
           className="h-full w-full"
           lat={mapCenter.lat}
           lng={mapCenter.lng}
           places={placesForMap}
           selectedPlaceId={selectedPlaceId}
+          onMapReady={handleMapReady}
           onPlaceClick={handlePlaceClick}
+          onIdle={handleMapIdle}
         />
 
         {selectedPlace && !reviewPanel && (
           <PlaceMapDetailCard
             place={selectedPlace}
+            anchor={detailCardAnchor}
             onClose={() => setSelectedPlaceId(null)}
             onReviewClick={openReviewFromDetail}
           />

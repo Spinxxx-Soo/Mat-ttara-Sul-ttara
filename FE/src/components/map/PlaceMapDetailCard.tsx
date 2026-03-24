@@ -8,15 +8,29 @@ export interface PlaceMapDetailCardProps {
   place: Place
   onClose: () => void
   onReviewClick: () => void
+  /** 지도 영역(main) 기준 픽셀 — 선택 핀 좌표를 투영한 위치 (카드 하단이 핀 위에 오도록 transform 처리) */
+  anchor: { x: number; y: number } | null
 }
 
 export default function PlaceMapDetailCard({
   place,
   onClose,
   onReviewClick,
+  anchor,
 }: PlaceMapDetailCardProps) {
+  if (anchor == null) {
+    return null
+  }
+
   return (
-    <div className="pointer-events-auto absolute bottom-24 left-1/2 z-30 w-[min(calc(100%-2rem),24rem)] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+    <div
+      className="pointer-events-auto absolute z-30 w-[min(calc(100%-2rem),24rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+      style={{
+        left: anchor.x,
+        top: anchor.y,
+        transform: 'translate(-50%, calc(-100% - 44px))',
+      }}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-black text-slate-900 dark:text-slate-100">

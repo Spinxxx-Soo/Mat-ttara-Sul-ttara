@@ -1,6 +1,6 @@
 // FE/src/pages/Main.tsx
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
@@ -12,6 +12,8 @@ import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 import { hasNullFields } from '@/lib/placeUtils'
+import { useMapPinAnchor } from '@/hooks/useMapPinAnchor'
+import type { KakaoMapInstance } from '@/types/kakao.d'
 
 const Main = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
@@ -27,6 +29,12 @@ const Main = () => {
 
   const [mapCenter, setMapCenter] = useState({ lat: currentLat, lng: currentLng })
   const [zoom, setZoom] = useState(15)
+  const [mapInstance, setMapInstance] = useState<KakaoMapInstance | null>(null)
+  const mapMainRef = useRef<HTMLElement>(null)
+
+  const handleMapReady = useCallback((map: KakaoMapInstance) => {
+    setMapInstance(map)
+  }, [])
 
   const { data: restaurants = [], isLoading } = useNearbyPlaces(
     {
@@ -56,6 +64,15 @@ const Main = () => {
     if (selectedPlaceId == null) return null
     return mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null
   }, [mapPlaces, selectedPlaceId])
+
+  const detailCardAnchor = useMapPinAnchor(
+    mapMainRef,
+    mapInstance,
+    selectedPlace,
+    mapCenter.lat,
+    mapCenter.lng,
+    zoom
+  )
 
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
@@ -238,13 +255,14 @@ const Main = () => {
         </aside>
 
         {/* 오른쪽: 지도 */}
-        <main className="relative min-h-0 min-w-0 flex-1">
+        <main ref={mapMainRef} className="relative min-h-0 min-w-0 flex-1">
           <KakaoMap
             className="h-full w-full"
             lat={mapCenter.lat}
             lng={mapCenter.lng}
             places={mapPlaces}
             selectedPlaceId={selectedPlaceId}
+            onMapReady={handleMapReady}
             onPlaceClick={handlePlaceClick}
             onIdle={handleMapIdle}
           />
@@ -252,6 +270,7 @@ const Main = () => {
           {selectedPlace && !reviewPanel && (
             <PlaceMapDetailCard
               place={selectedPlace}
+              anchor={detailCardAnchor}
               onClose={() => setSelectedPlaceId(null)}
               onReviewClick={openReviewFromDetail}
             />
