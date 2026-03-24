@@ -17,6 +17,7 @@ public class UserMapper {
         .userId(user.getId())
         .email(user.getEmail())
         .name(user.getName())
+        .profileImageUrl(user.getProfileImageUrl())
         .bio(user.getBio())
         .createdAt(user.getCreatedAt())
         .lastLoginAt(user.getLastLoginAt())

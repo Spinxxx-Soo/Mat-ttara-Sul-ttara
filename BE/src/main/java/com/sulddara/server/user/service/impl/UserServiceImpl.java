@@ -65,6 +65,8 @@ public class UserServiceImpl implements UserService {
                     requestDto.gender());
         }
 
+        userRepository.save(user);
+
         return userMapper.toPreferenceResponse(user.getPreference());
     }
 
