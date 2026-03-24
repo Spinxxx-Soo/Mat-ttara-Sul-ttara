@@ -285,7 +285,6 @@ public class PlaceServiceImpl implements PlaceService {
     private double rad2deg(double rad) { return (rad * 180 / Math.PI); }
 
     @Override
-    @Transactional
     public PlaceDetailResponse getPlaceDetail(Long placeId) {
         Place place = placeRepository.findById(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
@@ -293,13 +292,14 @@ public class PlaceServiceImpl implements PlaceService {
         if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
             String s3Url = s3Service.uploadFromExternalUrl(place.getOriginImgUrl());
             if (s3Url != null) {
-                place.updateImageUrl(s3Url);
+                updatePlaceImageUrl(placeId, s3Url);
             }
         }
 
         // webclient로 데이터가 null일 경우 ai한테 크롤링 로직 호출
         if(isMissingData(place)) {
             fetchAndEnrichData(place);
+            place = placeRepository.findById(placeId).get();
         }
 
         PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
@@ -344,13 +344,7 @@ public class PlaceServiceImpl implements PlaceService {
                     .block(Duration.ofSeconds(10));
 
             if (response != null && response.getIsSuccess()) {
-                place.updateDetails(
-                        response.getImageUrl(),
-                        response.getDescription(),
-                        response.getOpeningHours(),
-                        response.getPhone(),
-                        response.getUrl()
-                );
+                saveEnrichedData(place.getId(), response);
             }
         } catch (Exception e) {
             log.error("AI 서버 통신 중 오류 발생 (Lazy Loading 실패): {}", e.getMessage());
@@ -361,5 +355,23 @@ public class PlaceServiceImpl implements PlaceService {
         return place.getDescription() == null
                 || place.getOpeningHours() == null || place.getPhone() == null
                 || place.getUrl() == null;
+    }
+
+    @Transactional
+    public void saveEnrichedData(Long placeId, AiEnrichResponse response) {
+        placeRepository.findById(placeId).ifPresent(p ->
+                p.updateDetails(
+                        response.getImageUrl(),
+                        response.getDescription(),
+                        response.getOpeningHours(),
+                        response.getPhone(),
+                        response.getUrl()
+                )
+        );
+    }
+
+    @Transactional
+    public void updatePlaceImageUrl(Long placeId, String s3Url) {
+        placeRepository.findById(placeId).ifPresent(p -> p.updateImageUrl(s3Url));
     }
 }
