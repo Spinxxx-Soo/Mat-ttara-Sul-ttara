@@ -94,7 +94,7 @@ class AiServiceTest {
         long userId = 100L;
         SessionState state = SessionState.builder().lat(37.5).lng(127.0).build();
         AiChatResponse response = AiChatResponse.builder()
-                .type("RECOMMENDATION")
+                .type("PLACE_CANDIDATES")
                 .parsedState(state)
                 .build();
 

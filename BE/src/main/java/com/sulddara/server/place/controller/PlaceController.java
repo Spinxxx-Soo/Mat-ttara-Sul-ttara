@@ -1,13 +1,17 @@
 package com.sulddara.server.place.controller;
 
+import com.sulddara.server.auth.oauth.CustomOAuth2User;
+import com.sulddara.server.chat.ai.controller.response.PlaceDetailResponse;
+import com.sulddara.server.chat.ai.controller.response.RecommendedPlace;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.service.PlaceService;
+import com.sulddara.server.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/places")
@@ -26,6 +30,23 @@ public class PlaceController {
             @RequestParam(defaultValue = "distance") String sort) {
         
         PlaceSearchResponseDto response = placeService.searchPlaces(keyword, lat, lng, page, size, sort);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/recommend")
+    public ResponseEntity<List<RecommendedPlace>> getRecommendedPlaces(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @RequestParam Double lat,
+            @RequestParam Double lng
+    ) {
+        Long userId = user.getUserId();
+        var response = placeService.getRecommendedFromRedis(userId, lat, lng);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{placeId}")
+    public ResponseEntity<PlaceDetailResponse> getPlaceDetail(@PathVariable Long placeId) {
+        var response = placeService.getPlaceDetail(placeId);
         return ResponseEntity.ok(response);
     }
 }

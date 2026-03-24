@@ -1,6 +1,10 @@
 package com.sulddara.server.place.service;
 
+import com.sulddara.server.chat.ai.controller.response.PlaceDetailResponse;
+import com.sulddara.server.chat.ai.controller.response.RecommendedPlace;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
+
+import java.util.List;
 
 public interface PlaceService {
 
@@ -17,4 +21,8 @@ public interface PlaceService {
      * @return 통합된 가게 검색 결과
      */
     PlaceSearchResponseDto searchPlaces(String keyword, Double lat, Double lng, int page, int size, String sort);
+
+    List<RecommendedPlace> getRecommendedFromRedis(Long id, Double lat, Double lng);
+
+    PlaceDetailResponse getPlaceDetail(Long placeId);
 }
