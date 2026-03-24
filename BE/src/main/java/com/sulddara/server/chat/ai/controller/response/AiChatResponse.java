@@ -21,4 +21,6 @@ public class AiChatResponse {
     private SessionState parsedState;
     // AI가 요약한 채팅방 제목
     private String title;
+    // 추천 최종 장소
+    private List<RecommendedPlace> places;
 }

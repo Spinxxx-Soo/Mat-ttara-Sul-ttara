@@ -1,5 +1,16 @@
 package com.sulddara.server.place.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sulddara.server.chat.ai.controller.request.AiPlaceCandidatesRequest;
+import com.sulddara.server.chat.ai.controller.response.AiChatResponse;
+import com.sulddara.server.chat.ai.controller.response.PlaceDetailResponse;
+import com.sulddara.server.chat.ai.controller.response.RecommendedPlace;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
+import com.sulddara.server.place.controller.request.AiEnrichRequest;
+import com.sulddara.server.place.controller.response.AiEnrichResponse;
 import com.sulddara.server.place.document.PlaceDocument;
 import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
@@ -8,18 +19,24 @@ import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import com.sulddara.server.place.service.PlaceService;
+import com.sulddara.server.place.domain.PlaceEntity;
+import com.sulddara.server.s3.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,6 +49,10 @@ public class PlaceServiceImpl implements PlaceService {
     private final ExternalPlaceSearchService externalPlaceSearchService;
     private final PlaceRepository placeRepository;
     private final PlaceSearchRepository placeSearchRepository;
+    private final ObjectMapper objectMapper;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final WebClient webClient;
+    private final S3Service s3Service;
 
     @Override
     @Transactional(readOnly = true)
@@ -221,5 +242,137 @@ public class PlaceServiceImpl implements PlaceService {
     private String stripHtmlTags(String input) {
         if (input == null) return null;
         return input.replaceAll("<[^>]*>", "");
+    }
+
+    @Override
+    public List<RecommendedPlace> getRecommendedFromRedis(Long userId, Double lat, Double lng) {
+        String redisKey = "recommend:user:" + userId;
+        String cachedData = redisTemplate.opsForValue().get(redisKey);
+
+        if (cachedData == null || cachedData.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<RecommendedPlace> allRecommended = objectMapper.readValue(cachedData,
+                    new TypeReference<List<RecommendedPlace>>() {});
+
+            return allRecommended.stream()
+                    .filter(place -> isWithinRadius(lat, lng, place.getLat(), place.getLng()))
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private boolean isWithinRadius(double userLat, double userLng, double placeLat, double placeLng) {
+        double distance = calculateDistance(userLat, userLng, placeLat, placeLng);
+        return distance <= 1.0;
+    }
+
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        double theta = lon1 - lon2;
+        double dist = Math.sin(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(deg2rad(theta));
+
+        dist = Math.acos(dist);
+        dist = rad2deg(dist);
+        dist = dist * 60 * 1.1515 * 1.609344; // 단위를 km로 변환
+
+        return dist;
+    }
+
+    private double deg2rad(double deg) { return (deg * Math.PI / 180.0); }
+    private double rad2deg(double rad) { return (rad * 180 / Math.PI); }
+
+    @Override
+    public PlaceDetailResponse getPlaceDetail(Long placeId) {
+        PlaceEntity place = placeRepository.findById(placeId)
+                .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
+
+        if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
+            String s3Url = s3Service.uploadFromExternalUrl(place.getOriginImgUrl());
+            if (s3Url != null) {
+                updatePlaceImageUrl(placeId, s3Url);
+            }
+        }
+
+        // webclient로 데이터가 null일 경우 ai한테 크롤링 로직 호출
+        if(isMissingData(place)) {
+            fetchAndEnrichData(place);
+            place = placeRepository.findById(placeId).get();
+        }
+
+        PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
+
+        // rating 불러오는 로직 필요!!!!
+        return PlaceDetailResponse.builder()
+                .placeId(place.getId())
+                .name(place.getName())
+                .address(place.getAddress())
+                .phone(place.getPhone())
+                .lat(place.getLat())
+                .lng(place.getLng())
+                .category(place.getCategory())
+                .description(place.getDescription())
+                .imageUrls(place.getImageUrl() != null ? List.of(place.getImageUrl()) : List.of())
+                .openingHours(openingHours)
+                .url(place.getUrl())
+                .build();
+    }
+
+    private PlaceDetailResponse.OpeningHoursResponse parseOpeningHours(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            return objectMapper.readValue(json, PlaceDetailResponse.OpeningHoursResponse.class);
+        } catch (JsonProcessingException e) {
+            throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private void fetchAndEnrichData(PlaceEntity place) {
+        var request = AiEnrichRequest.builder()
+                .provider(place.getProvider())
+                .externalPlaceId(place.getExternalPlaceId())
+                .build();
+
+        try {
+            AiEnrichResponse response = webClient.post()
+                    .uri("/api/v1/internal/ai/enrich")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(AiEnrichResponse.class)
+                    .block(Duration.ofSeconds(10));
+
+            if (response != null && response.getIsSuccess()) {
+                saveEnrichedData(place.getId(), response);
+            }
+        } catch (Exception e) {
+            log.error("AI 서버 통신 중 오류 발생 (Lazy Loading 실패): {}", e.getMessage());
+        }
+    }
+
+    private boolean isMissingData(PlaceEntity place) {
+        return place.getDescription() == null
+                || place.getOpeningHours() == null || place.getPhone() == null
+                || place.getUrl() == null;
+    }
+
+    @Transactional
+    public void saveEnrichedData(Long placeId, AiEnrichResponse response) {
+        placeRepository.findById(placeId).ifPresent(p ->
+                p.updateDetails(
+                        response.getImageUrl(),
+                        response.getDescription(),
+                        response.getOpeningHours(),
+                        response.getPhone(),
+                        response.getUrl()
+                )
+        );
+    }
+
+    @Transactional
+    public void updatePlaceImageUrl(Long placeId, String s3Url) {
+        placeRepository.findById(placeId).ifPresent(p -> p.updateImageUrl(s3Url));
     }
 }
