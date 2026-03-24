@@ -1,8 +1,8 @@
 package com.sulddara.server.auth.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.ErrorResponse;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.ErrorResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

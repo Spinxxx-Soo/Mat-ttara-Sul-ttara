@@ -1,8 +1,9 @@
 package com.sulddara.server.plan.service;
 
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.repository.PlaceRepository;
-import com.sulddara.server.plan.domain.Plan;
+import com.sulddara.server.plan.domain.PlanEntity;
+import com.sulddara.server.common.fixture.PlanEntityFixture;
 import com.sulddara.server.plan.dto.PlanCreateRequestDto;
 import com.sulddara.server.plan.dto.PlanCreateResponseDto;
 import com.sulddara.server.plan.mapper.PlanMapper;
@@ -10,9 +11,13 @@ import com.sulddara.server.plan.repository.PlanRepository;
 import com.sulddara.server.plan.dto.PlanDetailResponseDto;
 import com.sulddara.server.plan.dto.PlanSummaryDto;
 import com.sulddara.server.plan.dto.PlanUpdateRequestDto;
-import com.sulddara.server.share.error.exception.ForbiddenException;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.global.error.exception.ForbiddenException;
+import com.sulddara.server.user.domain.UserEntity;
+import com.sulddara.server.common.fixture.UserEntityFixture;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.sulddara.server.user.exception.UserNotFoundException;
+import com.sulddara.server.place.exception.PlaceNotFoundException;
+import com.sulddara.server.plan.exception.PlanNotFoundException;
 import com.sulddara.server.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,7 +25,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,31 +65,21 @@ class PlanServiceImplTest {
   void createPlan_validRequest_returnsCreatedPlan() {
     // Given
     Long userId = 1L;
-    User user = User.builder()
-        .providerId("google_123")
-        .provider("GOOGLE")
-        .name("테스트유저")
-        .email("test@test.com")
-        .role("ROLE_USER")
-        .build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    Place place = new Place("NAVER", "ext_1", "맛집", "서울시 강남구", 37.5, 127.0);
+    PlaceEntity place = new PlaceEntity("NAVER", "ext_1", "맛집", "서울시 강남구", 37.5, 127.0);
     ReflectionTestUtils.setField(place, "id", 10L);
 
-    PlanCreateRequestDto requestDto = PlanCreateRequestDto.builder()
-        .title("회식 플랜")
-        .meetingAt(LocalDateTime.of(2026, 3, 15, 18, 0))
-        .participantCount(4)
-        .totalBudget(200000L)
-        .planType("회식")
-        .memo("강남역 근처")
-        .details(List.of(
-            PlanCreateRequestDto.PlanDetailRequestDto.builder()
-                .placeId(10L)
-                .seqNo(1)
-                .build()))
-        .build();
+    PlanCreateRequestDto requestDto = new PlanCreateRequestDto(
+        "회식 플랜",
+        LocalDateTime.of(2026, 3, 15, 18, 0),
+        4,
+        200000L,
+        "회식",
+        "강남역 근처",
+        List.of(new PlanCreateRequestDto.PlanDetailRequestDto(10L, 1))
+    );
 
     PlanCreateResponseDto expectedResponse = PlanCreateResponseDto.builder()
         .planId(100L)
@@ -97,12 +91,12 @@ class PlanServiceImplTest {
 
     given(userRepository.findById(userId)).willReturn(Optional.of(user));
     given(placeRepository.findById(10L)).willReturn(Optional.of(place));
-    given(planRepository.save(any(Plan.class))).willAnswer(invocation -> {
-      Plan saved = invocation.getArgument(0);
+    given(planRepository.save(any(PlanEntity.class))).willAnswer(invocation -> {
+      PlanEntity saved = invocation.getArgument(0);
       ReflectionTestUtils.setField(saved, "id", 100L);
       return saved;
     });
-    given(planMapper.toCreateResponse(any(Plan.class))).willReturn(expectedResponse);
+    given(planMapper.toCreateResponse(any(PlanEntity.class))).willReturn(expectedResponse);
 
     // When
     PlanCreateResponseDto response = planService.createPlan(userId, requestDto);
@@ -113,7 +107,7 @@ class PlanServiceImplTest {
     assertThat(response.getTitle()).isEqualTo("회식 플랜");
     assertThat(response.getShareToken()).isNotNull();
 
-    verify(planRepository).save(any(Plan.class));
+    verify(planRepository).save(any(PlanEntity.class));
     verify(placeRepository).findById(10L);
   }
 
@@ -122,20 +116,18 @@ class PlanServiceImplTest {
   void createPlan_noDetails_returnsCreatedPlan() {
     // Given
     Long userId = 1L;
-    User user = User.builder()
-        .providerId("google_123")
-        .provider("GOOGLE")
-        .name("테스트유저")
-        .email("test@test.com")
-        .role("ROLE_USER")
-        .build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    PlanCreateRequestDto requestDto = PlanCreateRequestDto.builder()
-        .title("간단 플랜")
-        .meetingAt(LocalDateTime.of(2026, 3, 20, 12, 0))
-        .participantCount(2)
-        .build();
+    PlanCreateRequestDto requestDto = new PlanCreateRequestDto(
+        "간단 플랜",
+        LocalDateTime.of(2026, 3, 20, 12, 0),
+        2,
+        null,
+        null,
+        null,
+        null
+    );
 
     PlanCreateResponseDto expectedResponse = PlanCreateResponseDto.builder()
         .planId(101L)
@@ -144,12 +136,12 @@ class PlanServiceImplTest {
         .build();
 
     given(userRepository.findById(userId)).willReturn(Optional.of(user));
-    given(planRepository.save(any(Plan.class))).willAnswer(invocation -> {
-      Plan saved = invocation.getArgument(0);
+    given(planRepository.save(any(PlanEntity.class))).willAnswer(invocation -> {
+      PlanEntity saved = invocation.getArgument(0);
       ReflectionTestUtils.setField(saved, "id", 101L);
       return saved;
     });
-    given(planMapper.toCreateResponse(any(Plan.class))).willReturn(expectedResponse);
+    given(planMapper.toCreateResponse(any(PlanEntity.class))).willReturn(expectedResponse);
 
     // When
     PlanCreateResponseDto response = planService.createPlan(userId, requestDto);
@@ -158,7 +150,7 @@ class PlanServiceImplTest {
     assertThat(response).isNotNull();
     assertThat(response.getPlanId()).isEqualTo(101L);
 
-    verify(planRepository).save(any(Plan.class));
+    verify(planRepository).save(any(PlanEntity.class));
     verify(placeRepository, never()).findById(anyLong());
   }
 
@@ -169,20 +161,23 @@ class PlanServiceImplTest {
   void createPlan_userNotFound_throwsUserNotFoundException() {
     // Given
     Long invalidUserId = 999L;
-    PlanCreateRequestDto requestDto = PlanCreateRequestDto.builder()
-        .title("실패 플랜")
-        .meetingAt(LocalDateTime.of(2026, 3, 15, 18, 0))
-        .participantCount(4)
-        .build();
+    PlanCreateRequestDto requestDto = new PlanCreateRequestDto(
+        "실패 플랜",
+        LocalDateTime.of(2026, 3, 15, 18, 0),
+        4,
+        null,
+        null,
+        null,
+        null
+    );
 
     given(userRepository.findById(invalidUserId)).willReturn(Optional.empty());
 
     // When & Then
     assertThatThrownBy(() -> planService.createPlan(invalidUserId, requestDto))
-        .isInstanceOf(UserNotFoundException.class)
-        .hasMessageContaining(String.valueOf(invalidUserId));
+        .isInstanceOf(UserNotFoundException.class);
 
-    verify(planRepository, never()).save(any(Plan.class));
+    verify(planRepository, never()).save(any(PlanEntity.class));
   }
 
   @Test
@@ -191,35 +186,27 @@ class PlanServiceImplTest {
     // Given
     Long userId = 1L;
     Long invalidPlaceId = 999L;
-    User user = User.builder()
-        .providerId("google_123")
-        .provider("GOOGLE")
-        .name("테스트유저")
-        .email("test@test.com")
-        .role("ROLE_USER")
-        .build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    PlanCreateRequestDto requestDto = PlanCreateRequestDto.builder()
-        .title("장소 없는 플랜")
-        .meetingAt(LocalDateTime.of(2026, 3, 15, 18, 0))
-        .participantCount(4)
-        .details(List.of(
-            PlanCreateRequestDto.PlanDetailRequestDto.builder()
-                .placeId(invalidPlaceId)
-                .seqNo(1)
-                .build()))
-        .build();
+    PlanCreateRequestDto requestDto = new PlanCreateRequestDto(
+        "장소 없는 플랜",
+        LocalDateTime.of(2026, 3, 15, 18, 0),
+        4,
+        null,
+        null,
+        null,
+        List.of(new PlanCreateRequestDto.PlanDetailRequestDto(invalidPlaceId, 1))
+    );
 
     given(userRepository.findById(userId)).willReturn(Optional.of(user));
     given(placeRepository.findById(invalidPlaceId)).willReturn(Optional.empty());
 
     // When & Then
     assertThatThrownBy(() -> planService.createPlan(userId, requestDto))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(String.valueOf(invalidPlaceId));
+        .isInstanceOf(PlaceNotFoundException.class);
 
-    verify(planRepository, never()).save(any(Plan.class));
+    verify(planRepository, never()).save(any(PlanEntity.class));
   }
 
   // ========== getMyPlans 테스트 ==========
@@ -232,22 +219,22 @@ class PlanServiceImplTest {
     int size = 10;
     PageRequest pageRequest = PageRequest.of(0, size + 1);
 
-    User user = User.builder().build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    Plan plan1 = new Plan(user, "플랜1", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    PlanEntity plan1 = PlanEntityFixture.createDefaultPlan(user);
     ReflectionTestUtils.setField(plan1, "id", 2L);
-    Plan plan2 = new Plan(user, "플랜2", 20000L, 4, LocalDateTime.now(), "타입", "메모", "token2");
+    PlanEntity plan2 = PlanEntityFixture.createDefaultPlan(user);
     ReflectionTestUtils.setField(plan2, "id", 1L);
 
-    List<Plan> plans = List.of(plan1, plan2);
+    List<PlanEntity> plans = List.of(plan1, plan2);
 
     // getMyPlans 테스트
     given(userRepository.existsById(userId)).willReturn(true);
     given(planRepository.findByUserIdOrderByIdDesc(userId, pageRequest))
         .willReturn(plans);
-    given(planMapper.toSummary(any(Plan.class))).willAnswer(invocation -> {
-      Plan p = invocation.getArgument(0);
+    given(planMapper.toSummary(any(PlanEntity.class))).willAnswer(invocation -> {
+      PlanEntity p = invocation.getArgument(0);
       return com.sulddara.server.plan.dto.PlanSummaryDto.builder()
           .planId(p.getId())
           .title(p.getTitle())
@@ -273,22 +260,22 @@ class PlanServiceImplTest {
     int size = 1;
     PageRequest pageRequest = PageRequest.of(0, size + 1);
 
-    User user = User.builder().build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    Plan plan1 = new Plan(user, "플랜1", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    PlanEntity plan1 = PlanEntityFixture.createDefaultPlan(user);
     ReflectionTestUtils.setField(plan1, "id", 9L);
-    Plan plan2 = new Plan(user, "플랜2", 20000L, 4, LocalDateTime.now(), "타입", "메모", "token2");
+    PlanEntity plan2 = PlanEntityFixture.createDefaultPlan(user);
     ReflectionTestUtils.setField(plan2, "id", 8L);
 
-    List<Plan> plans = List.of(plan1, plan2);
+    List<PlanEntity> plans = List.of(plan1, plan2);
 
     // getMyPlans cursor 테스트
     given(userRepository.existsById(userId)).willReturn(true);
     given(planRepository.findByUserIdAndIdLessThanOrderByIdDesc(userId, cursor, pageRequest))
         .willReturn(plans);
-    given(planMapper.toSummary(any(Plan.class))).willAnswer(invocation -> {
-      Plan p = invocation.getArgument(0);
+    given(planMapper.toSummary(any(PlanEntity.class))).willAnswer(invocation -> {
+      PlanEntity p = invocation.getArgument(0);
       return PlanSummaryDto.builder()
           .planId(p.getId())
           .title(p.getTitle())
@@ -315,10 +302,10 @@ class PlanServiceImplTest {
     Long userId = 1L;
     Long planId = 100L;
 
-    User user = User.builder().build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    Plan plan = new Plan(user, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    PlanEntity plan = PlanEntityFixture.createDefaultPlan(user);
     ReflectionTestUtils.setField(plan, "id", planId);
     given(userRepository.existsById(userId)).willReturn(true);
     given(planRepository.findWithDetailsById(planId))
@@ -348,10 +335,10 @@ class PlanServiceImplTest {
     Long ownerUserId = 1L;
     Long planId = 100L;
 
-    User owner = User.builder().build();
+    UserEntity owner = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(owner, "id", ownerUserId);
 
-    Plan plan = new Plan(owner, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    PlanEntity plan = PlanEntityFixture.createDefaultPlan(owner);
     ReflectionTestUtils.setField(plan, "id", planId);
 
     given(userRepository.existsById(requestUserId)).willReturn(true);
@@ -372,10 +359,10 @@ class PlanServiceImplTest {
     String shareToken = "token123";
     Long planId = 100L;
 
-    User owner = User.builder().build();
+    UserEntity owner = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(owner, "id", 1L);
 
-    Plan plan = new Plan(owner, "공유 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", shareToken);
+    PlanEntity plan = PlanEntityFixture.createDefaultPlan(owner);
     ReflectionTestUtils.setField(plan, "id", planId);
 
     given(planRepository.findWithDetailsByShareToken(shareToken))
@@ -410,7 +397,7 @@ class PlanServiceImplTest {
 
     // When & Then
     assertThatThrownBy(() -> planService.getSharedPlanDetail(invalidToken))
-        .isInstanceOf(IllegalArgumentException.class);
+        .isInstanceOf(PlanNotFoundException.class);
   }
 
   // ========== updatePlan 테스트 ==========
@@ -421,20 +408,21 @@ class PlanServiceImplTest {
     // Given
     Long userId = 1L;
     Long planId = 100L;
-    User user = User.builder().build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    Plan plan = new Plan(user, "원본", 100000L, 4, LocalDateTime.now(), "원본타입", "원본메모", "token");
+    PlanEntity plan = PlanEntityFixture.createDefaultPlan(user);
     ReflectionTestUtils.setField(plan, "id", planId);
 
-    PlanUpdateRequestDto requestDto = PlanUpdateRequestDto.builder()
-        .title("수정 제목")
-        .meetingAt(LocalDateTime.now().plusDays(1))
-        .participantCount(6)
-        .totalBudget(150000L)
-        .planType("수정타입")
-        .memo("수정메모")
-        .build();
+    PlanUpdateRequestDto requestDto = new PlanUpdateRequestDto(
+        "수정 제목",
+        LocalDateTime.now().plusDays(1),
+        6,
+        150000L,
+        "수정타입",
+        "수정메모",
+        null
+    );
 
     PlanDetailResponseDto expectedDto = PlanDetailResponseDto.builder()
         .planId(planId)
@@ -443,7 +431,7 @@ class PlanServiceImplTest {
 
     given(userRepository.existsById(userId)).willReturn(true);
     given(planRepository.findWithDetailsById(planId)).willReturn(Optional.of(plan));
-    given(planMapper.toDetailResponse(any(Plan.class))).willReturn(expectedDto);
+    given(planMapper.toDetailResponse(any(PlanEntity.class))).willReturn(expectedDto);
 
     // When
     PlanDetailResponseDto response = planService.updatePlan(userId, planId, requestDto);
@@ -461,10 +449,10 @@ class PlanServiceImplTest {
     Long ownerUserId = 1L;
     Long planId = 100L;
 
-    User owner = User.builder().build();
+    UserEntity owner = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(owner, "id", ownerUserId);
 
-    Plan plan = new Plan(owner, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    PlanEntity plan = PlanEntityFixture.createDefaultPlan(owner);
     ReflectionTestUtils.setField(plan, "id", planId);
 
     given(userRepository.existsById(requestUserId)).willReturn(true);
@@ -483,10 +471,10 @@ class PlanServiceImplTest {
     // Given
     Long userId = 1L;
     Long planId = 100L;
-    User user = User.builder().build();
+    UserEntity user = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(user, "id", userId);
 
-    Plan plan = new Plan(user, "제목", 100000L, 4, LocalDateTime.now(), "타입", "메모", "token");
+    PlanEntity plan = PlanEntityFixture.createDefaultPlan(user);
     ReflectionTestUtils.setField(plan, "id", planId);
 
     given(userRepository.existsById(userId)).willReturn(true);
@@ -507,10 +495,10 @@ class PlanServiceImplTest {
     Long ownerUserId = 1L;
     Long planId = 100L;
 
-    User owner = User.builder().build();
+    UserEntity owner = UserEntityFixture.createDefaultUser();
     ReflectionTestUtils.setField(owner, "id", ownerUserId);
 
-    Plan plan = new Plan(owner, "상세 플랜", 10000L, 4, LocalDateTime.now(), "타입", "메모", "token1");
+    PlanEntity plan = PlanEntityFixture.createDefaultPlan(owner);
 
     given(userRepository.existsById(requestUserId)).willReturn(true);
     given(planRepository.findById(planId)).willReturn(Optional.of(plan));

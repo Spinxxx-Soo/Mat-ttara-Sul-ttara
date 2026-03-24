@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import { planApi } from '@/api/planApi';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { mapPlanToUI, mapPlanListToUI } from '@/utils/mappers/planMapper';
-import { CreatePlanRequest } from '@/types/api';
+import { CreatePlanRequest, UpdatePlanRequest } from '@/types/api';
 
 /**
  * 플랜 목록 조회 쿼리 - UI 모델로 변환 (S14P21B205-132: 커서 기반)
@@ -53,7 +53,25 @@ export const useCreatePlanMutation = () => {
   return useMutation({
     mutationFn: (data: CreatePlanRequest) => planApi.createPlan(data),
     onSuccess: () => {
+      // 목록 캐시 무효화 (S14P21B205-259)
       queryClient.invalidateQueries({ queryKey: queryKeys.plan.list() });
+    },
+  });
+};
+
+/**
+ * 플랜 수정 Mutation (S14P21B205-133, 264)
+ */
+export const useUpdatePlanMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ planId, data }: { planId: string | number; data: UpdatePlanRequest }) => 
+      planApi.updatePlan(planId, data),
+    onSuccess: (_, variables) => {
+      // 목록 및 특정 상세 캐시 무효화 (S14P21B205-259)
+      queryClient.invalidateQueries({ queryKey: queryKeys.plan.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.plan.detail(variables.planId.toString()) });
     },
   });
 };
@@ -66,8 +84,10 @@ export const useDeletePlanMutation = () => {
 
   return useMutation({
     mutationFn: (planId: string | number) => planApi.deletePlan(planId),
-    onSuccess: () => {
+    onSuccess: (_, planId) => {
+      // 목록 캐시 무효화 및 삭제된 상세 캐시 제거
       queryClient.invalidateQueries({ queryKey: queryKeys.plan.list() });
+      queryClient.removeQueries({ queryKey: queryKeys.plan.detail(planId.toString()) });
     },
   });
 };

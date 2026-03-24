@@ -1,21 +1,24 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
-import NaverMap from '@/components/map/NaverMap'
-import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
+import KakaoMap from '@/components/map/KakaoMap'
+import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces'
 import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
+import { useAuthStore } from '@/stores/authStore'
 import { useLocationStore, FALLBACK_LOCATION } from '@/stores/locationStore'
+import { hasNullFields } from '@/lib/placeUtils'
 import { Place } from '@/types/api'
 import toast from 'react-hot-toast'
 
 const MyPlanCreate = () => {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const { lat: userLat, lng: userLng } = useLocationStore()
   
   // 지도 관련 상태
   const [mapCenter, setMapCenter] = useState({ lat: userLat || FALLBACK_LOCATION.lat, lng: userLng || FALLBACK_LOCATION.lng })
   const [zoom, setZoom] = useState(15)
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
+  const [selectedPlaces, setSelectedPlaces] = useState<Place[]>([])
 
   // 데이터 쿼리 (S14P21B205-129 연동)
   const { data: places = [], isLoading: isPlacesLoading } = useNearbyPlaces(
@@ -27,6 +30,7 @@ const MyPlanCreate = () => {
     true
   )
   const { mutate: createPlan, isPending: isCreating } = useCreatePlanMutation()
+  const { mutate: enrichPlace } = useEnrichPlace()
 
   // 폼 상태
   const [title, setTitle] = useState('')
@@ -36,24 +40,45 @@ const MyPlanCreate = () => {
   const [planType, setPlanType] = useState('친목/회식')
   const [memo, setMemo] = useState('')
 
+  useEffect(() => {
+    if (user?.name && !title) {
+      setTitle(`${user.name}님의 맛집 모임`)
+    }
+  }, [title, user?.name])
+
   const handleIdle = useCallback((newCenter: { lat: number; lng: number }, newZoom: number) => {
     setMapCenter(newCenter)
     setZoom(newZoom)
   }, [])
 
   const handlePlaceClick = (place: Place) => {
-    setSelectedPlace(place)
+    // Lazy Loading: 정보가 부족하면 크롤링 요청
+    if (hasNullFields(place)) {
+      enrichPlace(place.placeId)
+    }
+
+    setSelectedPlaces(prev => {
+      const exists = prev.find(p => p.placeId === place.placeId)
+      if (exists) {
+        return prev.filter(p => p.placeId !== place.placeId)
+      }
+      return [...prev, place]
+    })
+  }
+
+  const removePlace = (placeId: number) => {
+    setSelectedPlaces(prev => prev.filter(p => p.placeId !== placeId))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedPlace) {
-      toast.error('장소를 선택해주세요.')
+    if (selectedPlaces.length === 0) {
+      toast.error('최소 하나 이상의 장소를 선택해주세요.')
       return
     }
 
-    // S14P21B205-132: 실제 생성 API 요청 규격 준수
+    // S14P21B205-132: 실제 생성 API 요청 규격 준수 (Payload Assembly)
     createPlan({
       title,
       meetingAt: meetingAt ? new Date(meetingAt).toISOString() : new Date().toISOString(),
@@ -61,9 +86,10 @@ const MyPlanCreate = () => {
       totalBudget: Number(totalBudget),
       planType,
       memo,
-      details: [
-        { placeId: selectedPlace.placeId, seqNo: 1 }
-      ],
+      details: selectedPlaces.map((p, index) => ({
+        placeId: p.placeId,
+        seqNo: index + 1
+      })),
     }, {
       onSuccess: () => {
         toast.success('플랜이 생성되었습니다!')
@@ -84,7 +110,9 @@ const MyPlanCreate = () => {
           <header className="mb-6">
             <h1 className="text-2xl font-black tracking-tight mb-1">플랜 새로 만들기</h1>
             <p className="text-slate-500 text-sm">
-              모임 정보를 입력하고, 오른쪽 지도에서 장소를 선택하세요.
+              {user?.name
+                ? `${user.name}님, 모임 정보를 입력하고 오른쪽 지도에서 장소를 선택하세요.`
+                : '모임 정보를 입력하고, 오른쪽 지도에서 장소를 선택하세요.'}
             </p>
           </header>
 
@@ -172,25 +200,38 @@ const MyPlanCreate = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                선택한 장소
+                선택한 장소 ({selectedPlaces.length})
               </label>
-              <div className="px-4 py-3 rounded-lg border border-dashed border-primary/30 bg-background-light dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300">
-                {selectedPlace ? (
-                  <>
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">
-                      {selectedPlace.name}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {selectedPlace.address}
-                    </p>
-                    <p className="text-xs font-bold text-primary mt-1">
-                      {selectedPlace.category}
-                    </p>
-                  </>
+              <div className="space-y-2">
+                {selectedPlaces.length > 0 ? (
+                  selectedPlaces.map((place, idx) => (
+                    <div key={place.placeId} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/10 bg-background-light dark:bg-slate-800 group animate-in slide-in-from-left-2 duration-200">
+                      <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm truncate">
+                          {place.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 truncate">
+                          {place.category}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removePlace(place.placeId)}
+                        className="p-1 hover:text-red-500 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <span className="material-symbols-outlined text-lg">close</span>
+                      </button>
+                    </div>
+                  ))
                 ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    오른쪽 지도에서 장소를 클릭해 선택하세요.
-                  </p>
+                  <div className="px-4 py-8 rounded-xl border border-dashed border-primary/30 bg-background-light dark:bg-slate-800 text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      오른쪽 지도에서 방문할 장소들을 클릭하세요.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -229,9 +270,9 @@ const MyPlanCreate = () => {
 
         {/* 오른쪽: 지도 영역 */}
         <section className="flex-1 relative">
-           <NaverMap 
+           <KakaoMap 
             places={places}
-            selectedPlaceId={selectedPlace?.placeId}
+            selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.placeId}
             onPlaceClick={handlePlaceClick}
             onIdle={handleIdle}
             lat={mapCenter.lat}

@@ -2,9 +2,11 @@ package com.sulddara.server.auth.service.impl;
 
 import com.sulddara.server.auth.controller.response.LoginResponse;
 import com.sulddara.server.auth.jwt.JwtUtil;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
+import com.sulddara.server.user.domain.UserEntity;
+import com.sulddara.server.common.fixture.UserEntityFixture;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.user.service.UserService;
 import org.junit.jupiter.api.DisplayName;
@@ -63,7 +65,6 @@ class GoogleSocialLoginServiceImplTest {
         Map<String, Object> tokenResponseBody = Map.of("access_token", googleAccessToken);
         ResponseEntity<Map<String, Object>> tokenResponse = new ResponseEntity<>(tokenResponseBody, HttpStatus.OK);
 
-        // ParameterizedTypeReference 매칭을 위해 any()를 사용
         given(restTemplate.exchange(
                 eq("https://oauth2.googleapis.com/token"),
                 eq(HttpMethod.POST),
@@ -80,11 +81,10 @@ class GoogleSocialLoginServiceImplTest {
                 any(ParameterizedTypeReference.class)))
                 .willReturn(userInfoResponse);
 
-        // 3. 나머지 Mock 설정 (동일)
-        User mockUser = User.builder().id(1L).email("test@gmail.com").role("ROLE_USER").build();
-        UserAuthResultDto authResult = new UserAuthResultDto(mockUser, true);
-
-        given(userService.joinOrUpdate(any())).willReturn(authResult);
+        // 3. 서비스 로직 Mock
+        UserEntity mockUser = UserEntityFixture.createUserWithId(1L);
+        ReflectionTestUtils.setField(mockUser, "email", "test@gmail.com");
+        given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser.getId(), mockUser.getEmail(), mockUser.getRole(), true));
         given(jwtUtil.generateAccessToken(any(), any(), any())).willReturn("jwt_access");
         given(jwtUtil.generateRefreshToken(any(), any())).willReturn("jwt_refresh");
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
@@ -101,7 +101,6 @@ class GoogleSocialLoginServiceImplTest {
     @DisplayName("실패: 구글 토큰 요청 중 에러 발생 시 SOCIAL_LOGIN_ERROR 예외가 발생한다.")
     void login_fail_google_api_error() {
         // given
-        // lenient()를 사용하면 '불필요한 스텁' 경고를 피할 수 있습니다.
         org.mockito.Mockito.lenient().when(restTemplate.postForObject(anyString(), any(), eq(Map.class)))
                 .thenThrow(new RuntimeException("Google API Connection Fail"));
 

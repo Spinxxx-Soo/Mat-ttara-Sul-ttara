@@ -2,9 +2,11 @@ package com.sulddara.server.auth.service.impl;
 
 import com.sulddara.server.auth.controller.response.LoginResponse;
 import com.sulddara.server.auth.jwt.JwtUtil;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
+import com.sulddara.server.user.domain.UserEntity;
+import com.sulddara.server.common.fixture.UserEntityFixture;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.user.service.UserService;
 import org.junit.jupiter.api.DisplayName;
@@ -55,7 +57,7 @@ class NaverSocialLoginServiceImplTest {
 
     @Test
     @DisplayName("성공: 네이버 로그인 완료 후 토큰을 발급해줍니다.")
-    void login_success1() {
+    void login_success() {
         // given
         String code = "naver_auth_code";
         String naverAccessToken = "naver_access_token";
@@ -64,12 +66,11 @@ class NaverSocialLoginServiceImplTest {
         Map<String, Object> tokenResponseBody = Map.of("access_token", naverAccessToken);
         ResponseEntity<Map<String, Object>> tokenResponse = new ResponseEntity<>(tokenResponseBody, HttpStatus.OK);
 
-        // [수정] getAccessToken 내부의 exchange 호출 매칭
         given(restTemplate.exchange(
-                contains("oauth2.0/token"), // URL에 토큰 관련 문자열 포함 확인
+                contains("oauth2.0/token"),
                 eq(HttpMethod.GET),
-                isNull(), // 주시: 서비스에서 null을 넘김
-                any(ParameterizedTypeReference.class))) // ParameterizedTypeReference 매칭
+                isNull(),
+                any(ParameterizedTypeReference.class)))
                 .willReturn(tokenResponse);
 
         // 2. 유저 정보 요청 Mock
@@ -80,19 +81,19 @@ class NaverSocialLoginServiceImplTest {
         Map<String, Object> naverUserInfoBody = Map.of("response", naverProfile);
         ResponseEntity<Map<String, Object>> userInfoResponse = new ResponseEntity<>(naverUserInfoBody, HttpStatus.OK);
 
-        // [수정] getUserInfo 내부의 exchange 호출 매칭
         given(restTemplate.exchange(
                 eq("https://openapi.naver.com/v1/nid/me"),
                 eq(HttpMethod.GET),
-                any(HttpEntity.class), // 헤더가 포함된 Entity
+                any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)))
                 .willReturn(userInfoResponse);
 
-        // 3. 기타 Mock (동일)
-        User mockUser = User.builder().id(1L).email("test@naver.com").role("ROLE_USER").build();
-        given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser, false));
-        given(jwtUtil.generateAccessToken(anyLong(), anyString(), anyString())).willReturn("jwt_access");
-        given(jwtUtil.generateRefreshToken(anyLong(), anyString())).willReturn("jwt_refresh");
+        // 3. 서비스 로직 Mock
+        UserEntity mockUser = UserEntityFixture.createUserWithId(1L);
+        ReflectionTestUtils.setField(mockUser, "email", "test@naver.com");
+        given(userService.joinOrUpdate(any())).willReturn(new UserAuthResultDto(mockUser.getId(), mockUser.getEmail(), mockUser.getRole(), false));
+        given(jwtUtil.generateAccessToken(any(), any(), any())).willReturn("jwt_access");
+        given(jwtUtil.generateRefreshToken(any(), any())).willReturn("jwt_refresh");
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
 
         // when
@@ -102,7 +103,6 @@ class NaverSocialLoginServiceImplTest {
         assertThat(response.getAccessToken()).isEqualTo("jwt_access");
         assertThat(response.isNewUser()).isFalse();
     }
-
 
     @Test
     @DisplayName("실패: 네이버 API 호출 중 예외가 발생하면 SOCIAL_LOGIN_ERROR가 발생한다.")

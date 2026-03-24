@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.sulddara.server.chat.controller.response.ChatListResponse;
-import com.sulddara.server.user.domain.User;
+import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,8 +27,8 @@ import org.springframework.data.domain.SliceImpl;
 
 import com.sulddara.server.chat.domain.ChatSessions;
 import com.sulddara.server.chat.repository.ChatSessionRepository;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,7 +52,7 @@ class ChatSessionServiceImplTest {
     @DisplayName("채팅 세션 생성 성공")
     void createChatSessions_Success() {
         // given
-        given(userRepository.findById(userId)).willReturn(Optional.of(mock(User.class)));
+        given(userRepository.findById(userId)).willReturn(Optional.of(mock(UserEntity.class)));
 
         // when
         chatSessionService.createChatSessions(userId);
@@ -91,7 +91,7 @@ class ChatSessionServiceImplTest {
         // Reflection을 이용해 세션 ID 주입
         ReflectionTestUtils.setField(session, "sessionId", 100L);
 
-        given(userRepository.findById(userId)).willReturn(Optional.of(mock(User.class)));
+        given(userRepository.findById(userId)).willReturn(Optional.of(mock(UserEntity.class)));
         given(chatSessionRepository.findById(100L)).willReturn(Optional.of(session));
 
         // when
@@ -118,7 +118,7 @@ class ChatSessionServiceImplTest {
                 .userId(otherUserId) // 다른 유저의 세션
                 .build();
 
-        given(userRepository.findById(userId)).willReturn(Optional.of(mock(User.class)));
+        given(userRepository.findById(userId)).willReturn(Optional.of(mock(UserEntity.class)));
         given(chatSessionRepository.findById(sessionId)).willReturn(Optional.of(session));
 
         // when & then
@@ -131,7 +131,7 @@ class ChatSessionServiceImplTest {
     @DisplayName("채팅 세션 삭제 실패 - 세션이 존재하지 않음")
     void deleteChatSessions_Fail_SessionNotFound() {
         // given
-        given(userRepository.findById(userId)).willReturn(Optional.of(mock(User.class)));
+        given(userRepository.findById(userId)).willReturn(Optional.of(mock(UserEntity.class)));
         given(chatSessionRepository.findById(sessionId)).willReturn(Optional.empty());
 
         // when & then
@@ -158,7 +158,7 @@ class ChatSessionServiceImplTest {
 
         Slice<ChatSessions> slice = new SliceImpl<>(List.of(session), pageable, true);
 
-        given(userRepository.findById(userId)).willReturn(Optional.of(mock(User.class)));
+        given(userRepository.findById(userId)).willReturn(Optional.of(mock(UserEntity.class)));
         given(chatSessionRepository.findSessionsByCursor(userId, null, pageable)).willReturn(slice);
 
         // when

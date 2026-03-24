@@ -5,6 +5,8 @@ interface ErrorStateProps {
   message?: string;
   onRetry?: () => void;
   actionText?: string;
+  secondaryActionText?: string;
+  onSecondaryAction?: () => void;
   className?: string;
   isFetching?: boolean;
 }
@@ -14,6 +16,8 @@ const ErrorState = memo(({
   message = '네트워크 연결을 확인하거나 잠시 후 다시 시도해주세요.',
   onRetry,
   actionText = '다시 시도',
+  secondaryActionText,
+  onSecondaryAction,
   className = '',
   isFetching = false
 }: ErrorStateProps) => {
@@ -28,20 +32,30 @@ const ErrorState = memo(({
       <p className="text-slate-500 text-sm mb-6">
         {message}
       </p>
-      {onRetry && (
-        <button
-          onClick={onRetry}
-          disabled={isFetching}
-          className={`px-6 py-2 bg-primary text-white rounded-xl font-medium shadow-sm hover:bg-primary/90 transition-all flex items-center gap-2 ${
-            isFetching ? 'opacity-70 cursor-not-allowed scale-95' : 'active:scale-95'
-          }`}
-        >
-          {isFetching && (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          )}
-          {isFetching ? '요청 중...' : actionText}
-        </button>
-      )}
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            disabled={isFetching}
+            className={`px-6 py-2 bg-primary text-white rounded-xl font-medium shadow-sm hover:bg-primary/90 transition-all flex items-center gap-2 ${
+              isFetching ? 'opacity-70 cursor-not-allowed scale-95' : 'active:scale-95'
+            }`}
+          >
+            {isFetching && (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            )}
+            {isFetching ? '요청 중...' : actionText}
+          </button>
+        )}
+        {onSecondaryAction && (
+          <button
+            onClick={onSecondaryAction}
+            className="px-6 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
+          >
+            {secondaryActionText}
+          </button>
+        )}
+      </div>
     </div>
   );
 });

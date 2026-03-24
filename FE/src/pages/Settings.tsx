@@ -1,22 +1,74 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
+
+import LoadingState from '@/components/ui/LoadingState'
+import { useUpdateUserProfileMutation, useUpdateUserPreferenceMutation } from '@/hooks/queries/user/useUserMutations'
+import { useUser } from '@/hooks/queries/user/useUser'
+import {
+  isUserPreferenceFormComplete,
+  toUserPreferenceRequest,
+} from '@/lib/userPreference'
 import Sidebar from '../components/Sidebar'
 
 const Settings = () => {
+  const { user } = useUser({ enabled: false })
+  const { mutateAsync: updateUserProfile, isPending: isUpdatingProfile } =
+    useUpdateUserProfileMutation()
+  const { mutateAsync: updatePreference, isPending: isUpdatingPreference } =
+    useUpdateUserPreferenceMutation()
   const [formData, setFormData] = useState({
-    nickname: '김미식가',
-    email: 'gourmet_kim@example.com',
-    bio: '술과 안주에 진심인 사람입니다.',
-    purpose: 'professional' as 'personal' | 'professional',
-    age: '30s' as '20s' | '30s' | '40s+',
-    gender: 'female' as 'male' | 'female',
+    nickname: '',
+    email: '',
+    bio: '',
+    purpose: '' as 'personal' | 'professional' | '',
+    age: '' as '20s' | '30s' | '40s+' | '',
+    gender: '' as 'male' | 'female' | '',
   })
   const [isEditing, setIsEditing] = useState(false)
 
+  useEffect(() => {
+    if (user && formData.email !== user.email && !isEditing) {
+      setFormData((prev) => ({
+        ...prev,
+        nickname: user.name,
+        email: user.email,
+        bio: user.bio ?? '',
+      }))
+    }
+  }, [formData.email, isEditing, user])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: API 호출로 데이터 저장
-    alert('변경사항이 저장되었습니다.')
-    setIsEditing(false)
+
+    void (async () => {
+      try {
+        await updateUserProfile({
+          name: formData.nickname,
+          bio: formData.bio,
+        })
+
+        if (isUserPreferenceFormComplete(formData)) {
+          await updatePreference(toUserPreferenceRequest(formData))
+        }
+
+        toast.success('변경사항이 저장되었습니다.')
+        setIsEditing(false)
+      } catch (error) {
+        console.error('환경설정 저장 실패:', error)
+        toast.error('변경사항 저장 중 오류가 발생했습니다.')
+      }
+    })()
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto p-8">
+          <LoadingState message="사용자 정보를 불러오는 중입니다..." />
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -87,7 +139,7 @@ const Settings = () => {
                     </label>
                     <input
                       type="email"
-                      value={formData.email}
+                      value={formData.email || user.email}
                       disabled
                       className="w-full px-4 py-3 rounded-lg border border-primary/5 bg-slate-100 dark:bg-slate-900 text-slate-400 cursor-not-allowed"
                     />
@@ -132,7 +184,12 @@ const Settings = () => {
           <section className="bg-white dark:bg-slate-900/50 rounded-xl p-8 shadow-sm border border-primary/5">
             <div className="flex items-center gap-2 mb-8 border-b border-primary/5 pb-4">
               <span className="material-symbols-outlined text-primary">tune</span>
-              <h3 className="text-xl font-bold">취향 및 온보딩 정보 수정</h3>
+              <div>
+                <h3 className="text-xl font-bold">취향 및 온보딩 정보 수정</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  현재 저장된 취향 정보 조회 API가 없어, 변경할 값만 다시 선택해 저장합니다.
+                </p>
+              </div>
             </div>
             <form onSubmit={handleSubmit} className="space-y-8">
               {/* Usage Purpose */}
@@ -193,6 +250,7 @@ const Settings = () => {
                         : 'border-primary/5 bg-slate-100 dark:bg-slate-900 text-slate-500 cursor-not-allowed'
                     }`}
                   >
+                    <option value="">선택 안 함</option>
                     <option value="20s">20대</option>
                     <option value="30s">30대</option>
                     <option value="40s+">40대 이상</option>
@@ -242,10 +300,12 @@ const Settings = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={!isEditing}
+                  disabled={!isEditing || isUpdatingProfile || isUpdatingPreference}
                   className="px-10 py-4 rounded-xl bg-primary text-white font-black shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
                 >
-                  변경사항 저장하기
+                  {isUpdatingProfile || isUpdatingPreference
+                    ? '저장 중...'
+                    : '변경사항 저장하기'}
                 </button>
               </div>
             </form>

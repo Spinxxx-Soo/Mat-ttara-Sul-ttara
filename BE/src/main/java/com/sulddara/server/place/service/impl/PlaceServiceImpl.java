@@ -7,19 +7,20 @@ import com.sulddara.server.chat.ai.controller.request.AiPlaceCandidatesRequest;
 import com.sulddara.server.chat.ai.controller.response.AiChatResponse;
 import com.sulddara.server.chat.ai.controller.response.PlaceDetailResponse;
 import com.sulddara.server.chat.ai.controller.response.RecommendedPlace;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.exception.BaseException;
 import com.sulddara.server.place.controller.request.AiEnrichRequest;
 import com.sulddara.server.place.controller.response.AiEnrichResponse;
 import com.sulddara.server.place.document.PlaceDocument;
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import com.sulddara.server.place.service.PlaceService;
+import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.s3.service.S3Service;
-import com.sulddara.server.share.error.ErrorCode;
-import com.sulddara.server.share.error.exception.BaseException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -87,9 +88,9 @@ public class PlaceServiceImpl implements PlaceService {
                 String cleanTitle = stripHtmlTags(item.getTitle());
                 String externalId = item.getMapx() + item.getMapy();
 
-                Optional<Place> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(PROVIDER_NAVER, externalId);
-                Long placeId = localPlaceOpt.map(Place::getId).orElse(null);
-                Boolean isOpen = localPlaceOpt.map(Place::getIsOpen).orElse(true);
+                Optional<PlaceEntity> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(PROVIDER_NAVER, externalId);
+                Long placeId = localPlaceOpt.map(PlaceEntity::getId).orElse(null);
+                Boolean isOpen = localPlaceOpt.map(PlaceEntity::getIsOpen).orElse(true);
 
                 // ⚠️ Fix: Naver TM128(KATEC) 평면 좌표 -> WGS84 위경도 변환
                 Double itemMapX = parseDoubleSafely(item.getMapx());
@@ -121,7 +122,7 @@ public class PlaceServiceImpl implements PlaceService {
                         .lat(itemLat)
                         .lng(itemLng)
                         .rating(rating)
-                        .imageUrl(localPlaceOpt.map(Place::getImageUrl).orElse(null))
+                        .imageUrl(localPlaceOpt.map(PlaceEntity::getImageUrl).orElse(null))
                         .category(item.getCategory())
                         .isOpen(isOpen)
                         .reviewCount(reviewCount)
@@ -195,17 +196,17 @@ public class PlaceServiceImpl implements PlaceService {
     // --- DTO 변환 메서드 ---
 
     private PlaceSearchResponseDto.PlaceItemDto toPlaceItemDto(PlaceDocument doc) {
-        Optional<Place> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(
+        Optional<PlaceEntity> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(
                 doc.getProvider(), doc.getExternalPlaceId());
 
         return PlaceSearchResponseDto.PlaceItemDto.builder()
-                .placeId(localPlaceOpt.map(Place::getId).orElse(null))
+                .placeId(localPlaceOpt.map(PlaceEntity::getId).orElse(null))
                 .name(doc.getName())
                 .address(doc.getAddress())
                 .lat(doc.getLat())
                 .lng(doc.getLng())
                 .rating(0.0)
-                .imageUrl(localPlaceOpt.map(Place::getImageUrl).orElse(doc.getImageUrl()))
+                .imageUrl(localPlaceOpt.map(PlaceEntity::getImageUrl).orElse(doc.getImageUrl()))
                 .category(doc.getCategory())
                 .isOpen(doc.getIsOpen() != null ? doc.getIsOpen() : true)
                 .reviewCount(0)
@@ -286,7 +287,7 @@ public class PlaceServiceImpl implements PlaceService {
 
     @Override
     public PlaceDetailResponse getPlaceDetail(Long placeId) {
-        Place place = placeRepository.findById(placeId)
+        PlaceEntity place = placeRepository.findById(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
 
         if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
@@ -329,7 +330,7 @@ public class PlaceServiceImpl implements PlaceService {
         }
     }
 
-    private void fetchAndEnrichData(Place place) {
+    private void fetchAndEnrichData(PlaceEntity place) {
         var request = AiEnrichRequest.builder()
                 .provider(place.getProvider())
                 .externalPlaceId(place.getExternalPlaceId())
@@ -351,7 +352,7 @@ public class PlaceServiceImpl implements PlaceService {
         }
     }
 
-    private boolean isMissingData(Place place) {
+    private boolean isMissingData(PlaceEntity place) {
         return place.getDescription() == null
                 || place.getOpeningHours() == null || place.getPhone() == null
                 || place.getUrl() == null;
