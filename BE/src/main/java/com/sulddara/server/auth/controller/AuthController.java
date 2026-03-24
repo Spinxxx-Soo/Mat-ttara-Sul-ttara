@@ -32,7 +32,8 @@ public class AuthController {
     @GetMapping("/callback/{provider}")
     public ResponseEntity<LoginResponse> callback(
             @PathVariable String provider,
-            @RequestParam String code) {
+            @RequestParam String code,
+            @RequestParam(required = false) String state) {
 
         SocialLoginService service;
         if(provider.equals("naver")){
@@ -41,7 +42,7 @@ public class AuthController {
             service = googleSocialLoginService;
         }
 
-        return ResponseEntity.ok(service.login(provider, code));
+        return ResponseEntity.ok(service.login(provider, code, state));
     }
 
     @PostMapping("/refresh")
