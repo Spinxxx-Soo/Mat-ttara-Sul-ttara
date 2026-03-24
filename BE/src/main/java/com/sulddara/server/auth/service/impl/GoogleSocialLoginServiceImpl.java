@@ -47,8 +47,8 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
     private String redirectUri;
 
     @Override
-    public LoginResponse login(String provider, String code) {
-        String accessToken = getAccessToken(code);
+    public LoginResponse login(String provider, String code, String state) {
+        String accessToken = getAccessToken(code, state);
         Map<String, Object> attributes = getUserInfo(accessToken);
 
         OAuth2UserInfo userInfo = new GoogleUserInfo(attributes);
@@ -76,7 +76,7 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
     }
 
     @Override
-    public String getAccessToken(String code) {
+    public String getAccessToken(String code, String state) {
         String url = "https://oauth2.googleapis.com/token";
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();

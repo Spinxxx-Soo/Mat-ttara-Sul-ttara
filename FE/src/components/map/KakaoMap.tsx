@@ -110,6 +110,12 @@ export default function KakaoMap({
     }
   }, [coordinates, sdkLoaded, mapInstance, setCenter]);
 
+  // 외부에서 lat/lng(검색 결과 중심 등)를 바꿔줄 때 지도를 함께 recenter
+  useEffect(() => {
+    if (!sdkLoaded || !mapInstance.current) return;
+    setCenter({ lat, lng });
+  }, [lat, lng, sdkLoaded, mapInstance, setCenter]);
+
   // 마커 언마운트 시 정리
   useEffect(() => {
     return () => {

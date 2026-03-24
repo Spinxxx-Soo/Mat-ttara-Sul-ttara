@@ -60,6 +60,7 @@ class NaverSocialLoginServiceImplTest {
     void login_success() {
         // given
         String code = "naver_auth_code";
+        String state = "test_state";
         String naverAccessToken = "naver_access_token";
 
         // 1. 액세스 토큰 요청 Mock
@@ -68,8 +69,8 @@ class NaverSocialLoginServiceImplTest {
 
         given(restTemplate.exchange(
                 contains("oauth2.0/token"),
-                eq(HttpMethod.GET),
-                isNull(),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)))
                 .willReturn(tokenResponse);
 
@@ -97,7 +98,7 @@ class NaverSocialLoginServiceImplTest {
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
 
         // when
-        LoginResponse response = naverSocialLoginService.login("naver", code);
+        LoginResponse response = naverSocialLoginService.login("naver", code, state);
 
         // then
         assertThat(response.getAccessToken()).isEqualTo("jwt_access");
@@ -112,7 +113,7 @@ class NaverSocialLoginServiceImplTest {
                 .willThrow(new RuntimeException("API Error"));
 
         // when & then
-        assertThatThrownBy(() -> naverSocialLoginService.getAccessToken("wrong_code"))
+        assertThatThrownBy(() -> naverSocialLoginService.getAccessToken("wrong_code", "state"))
                 .isInstanceOf(BaseException.class)
                 .hasMessage(ErrorCode.SOCIAL_LOGIN_ERROR.getMessage());
     }
