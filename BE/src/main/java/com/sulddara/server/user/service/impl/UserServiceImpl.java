@@ -86,6 +86,7 @@ public class UserServiceImpl implements UserService {
                 )
                 .map(user -> {
                     user.updateName(userInfo.getName());
+                    user.updateProfileImageUrl(userInfo.getProfileImage());
                     user.updateLastLoginAt(LocalDateTime.now());
                     return new UserAuthResultDto(
                             user.getId(),
@@ -99,7 +100,7 @@ public class UserServiceImpl implements UserService {
                             userInfo.getEmail(),
                             userInfo.getName(),
                             null,
-                            null,
+                            userInfo.getProfileImage(),
                             socialType,
                             userInfo.getProviderId(),
                             "ROLE_USER"
