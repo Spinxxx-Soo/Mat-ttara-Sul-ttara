@@ -6,6 +6,7 @@ import com.sulddara.server.global.error.ErrorCode;
 import com.sulddara.server.global.error.exception.BaseException;
 import com.sulddara.server.user.domain.UserEntity;
 import com.sulddara.server.common.fixture.UserEntityFixture;
+import org.springframework.http.HttpEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.user.service.UserService;
@@ -58,6 +59,7 @@ class GoogleSocialLoginServiceImplTest {
     void login_success() {
         // given
         String code = "google_auth_code";
+        String state = null;
         String googleAccessToken = "google_access_token";
         Map<String, Object> googleUserInfo = Map.of("sub", "12345", "email", "test@gmail.com", "name", "테스터");
 
@@ -68,7 +70,7 @@ class GoogleSocialLoginServiceImplTest {
         given(restTemplate.exchange(
                 eq("https://oauth2.googleapis.com/token"),
                 eq(HttpMethod.POST),
-                any(),
+                any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)))
                 .willReturn(tokenResponse);
 
@@ -77,7 +79,7 @@ class GoogleSocialLoginServiceImplTest {
         given(restTemplate.exchange(
                 eq("https://www.googleapis.com/oauth2/v3/userinfo"),
                 eq(HttpMethod.GET),
-                any(),
+                any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)))
                 .willReturn(userInfoResponse);
 
@@ -90,7 +92,7 @@ class GoogleSocialLoginServiceImplTest {
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
 
         // when
-        LoginResponse response = googleSocialLoginService.login("google", code);
+        LoginResponse response = googleSocialLoginService.login("google", code, state);
 
         // then
         assertThat(response.getAccessToken()).isEqualTo("jwt_access");
@@ -105,7 +107,7 @@ class GoogleSocialLoginServiceImplTest {
                 .thenThrow(new RuntimeException("Google API Connection Fail"));
 
         // when & then
-        assertThatThrownBy(() -> googleSocialLoginService.getAccessToken("wrong_code"))
+        assertThatThrownBy(() -> googleSocialLoginService.getAccessToken("wrong_code", null))
                 .isInstanceOf(BaseException.class)
                 .hasMessage(ErrorCode.SOCIAL_LOGIN_ERROR.getMessage());
     }
