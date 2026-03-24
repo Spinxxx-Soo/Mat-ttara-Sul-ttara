@@ -85,7 +85,7 @@ class PlanServiceImplTest {
         .planId(100L)
         .title("회식 플랜")
         .shareToken("abc123")
-        .shareUrl("/api/v1/plans/share/abc123")
+
         .createdAt(LocalDateTime.now())
         .build();
 
