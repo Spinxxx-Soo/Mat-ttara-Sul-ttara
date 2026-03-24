@@ -24,7 +24,7 @@ export const mapPlanToUI = (plan: Plan | PlanDetail): PlanUIModel => {
     placeId: d.placeId,
     name: d.place?.name || '알 수 없는 장소',
     address: d.place?.address || '',
-    category: d.place?.category,
+    category: d.place?.category ?? undefined,
     lat: d.place?.lat || 0,
     lng: d.place?.lng || 0,
     seqNo: d.seqNo
