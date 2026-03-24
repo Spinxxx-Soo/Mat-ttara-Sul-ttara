@@ -7,6 +7,10 @@ import type {
 } from '@/types/api';
 
 export const userApi = {
+  /**
+   * 내 정보 조회 (me API)
+   * 현재 인증된 사용자의 기본 프로필 정보를 가져옵니다.
+   */
   getMyProfile: async (): Promise<UserInfo> => {
     const response = await apiClient.get<UserInfo>('/api/v1/users/me');
     return response.data;
