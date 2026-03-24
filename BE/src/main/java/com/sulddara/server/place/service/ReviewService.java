@@ -7,7 +7,7 @@ import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
 import com.sulddara.server.place.exception.PlaceNotFoundException;
 import com.sulddara.server.place.exception.ReviewNotFoundException;
-import com.sulddara.server.place.exception.ReviewPermissionDeniedException;
+import com.sulddara.server.global.error.exception.ForbiddenException;
 import com.sulddara.server.global.error.exception.DuplicateResourceException;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.ReviewRepository;
@@ -104,7 +104,7 @@ public class ReviewService {
 
     private void validateReviewOwnership(ReviewEntity review, Long userId) {
         if (!review.getUser().getId().equals(userId)) {
-            throw new ReviewPermissionDeniedException();
+            throw new ForbiddenException();
         }
     }
 }
