@@ -10,6 +10,7 @@ import Main from '@/pages/Main';
 import MyPlan from '@/pages/MyPlan';
 import MyPlanCreate from '@/pages/MyPlanCreate';
 import MyPlanDetail from '@/pages/MyPlanDetail';
+import MyPlanEdit from '@/pages/MyPlanEdit';
 import Onboarding from '@/pages/Onboarding';
 import Search from '@/pages/Search';
 import Settings from '@/pages/Settings';
@@ -61,6 +62,10 @@ export const router = createBrowserRouter([
               {
                 path: '/my-plan/:id',
                 element: <MyPlanDetail />,
+              },
+              {
+                path: '/my-plan/:id/edit',
+                element: <MyPlanEdit />,
               },
               {
                 path: '/settings',

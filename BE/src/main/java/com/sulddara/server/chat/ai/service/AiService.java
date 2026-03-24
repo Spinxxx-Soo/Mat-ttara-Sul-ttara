@@ -101,13 +101,18 @@ public class AiService {
             return;
         }
         try {
-            if ("RECOMMENDATION".equals(response.getType())) {
+            if ("PLACE_CANDIDATES".equals(response.getType())) {
                 List<Long> candidateIds = placeRepository.findIdsByLocation(
                         response.getParsedState().lat(),
                         response.getParsedState().lng()
                 );
                 sendCandidatesToAi(sessionId, userId, response, candidateIds);
                 return;
+            }
+            if ("RECOMMENDATION".equals(response.getType()) && response.getPlaces() != null) {
+                String redisKey = "recommend:user:" + userId;
+                String placesJson = objectMapper.writeValueAsString(response.getPlaces());
+                redisTemplate.opsForValue().set(redisKey, placesJson, Duration.ofMinutes(30));
             }
 
             long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), response.getChatResponse()); // ai 답변 저장
