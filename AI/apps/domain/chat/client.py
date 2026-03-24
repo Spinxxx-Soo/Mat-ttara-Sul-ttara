@@ -38,10 +38,15 @@ class OpenAIClient:
         
         payload = {
             "model": self.model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature
+            "messages": messages
         }
+        
+        # gpt-5-nano 등은 temperature 미지원, max_tokens 대신 max_completion_tokens 사용
+        if "nano" not in self.model and "o1" not in self.model:
+            payload["temperature"] = temperature
+            payload["max_tokens"] = max_tokens
+        else:
+            payload["max_completion_tokens"] = max_tokens
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -49,6 +54,8 @@ class OpenAIClient:
                 headers=headers,
                 json=payload
             )
+            if response.status_code >= 400:
+                print(f"\n[API 상세 에러] {response.text}\n")
             response.raise_for_status()
             return response.json()
     
@@ -68,6 +75,6 @@ class OpenAIClient:
             메시지 리스트
         """
         return [
-            {"role": "system", "content": system_content},
+            {"role": "developer", "content": system_content},
             {"role": "user", "content": user_content}
         ]

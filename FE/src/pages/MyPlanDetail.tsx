@@ -3,61 +3,16 @@ import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import LoadingState from '@/components/ui/LoadingState'
 import ErrorState from '@/components/ui/ErrorState'
-import { usePlanDetailQuery, useDeletePlanMutation, useUpdatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
+import { usePlanDetailQuery, useDeletePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
 import toast from 'react-hot-toast'
 
 const MyPlanDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [showShareModal, setShowShareModal] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
 
   const { data: plan, isLoading, isError } = usePlanDetailQuery(id || '')
   const { mutate: deletePlan } = useDeletePlanMutation()
-  const { mutate: updatePlan, isPending: isUpdating } = useUpdatePlanMutation()
-
-  // 수정용 로컬 상태
-  const [editForm, setEditForm] = useState({
-    title: '',
-    participantCount: 0,
-    totalBudget: 0,
-    planType: '',
-    memo: ''
-  })
-
-  // 수정 모드 진입 시 초기값 설정
-  const toggleEdit = () => {
-    if (!isEditing && plan) {
-      setEditForm({
-        title: plan.title,
-        participantCount: plan.participantCount,
-        totalBudget: plan.totalBudget,
-        planType: plan.planType,
-        memo: plan.memo || ''
-      })
-    }
-    setIsEditing(!isEditing)
-  }
-
-  const handleSave = () => {
-    if (!id || !plan) return
-
-    updatePlan({
-      planId: id,
-      data: {
-        ...editForm,
-        // 필요 시 장소 순서 변경 등도 여기서 처리 가능 (현재는 기본 정보 위주)
-      }
-    }, {
-      onSuccess: () => {
-        toast.success('플랜이 수정되었습니다.')
-        setIsEditing(false)
-      },
-      onError: () => {
-        toast.error('플랜 수정 중 오류가 발생했습니다.')
-      }
-    })
-  }
 
   // shareUrl은 plan이 존재할 때만 사용
   const shareUrl = plan ? `${window.location.origin}/my-plan/${plan.id}` : ''
@@ -104,44 +59,24 @@ const MyPlanDetail = () => {
           </div>
           {plan && (
             <div className="flex gap-3">
-              {isEditing ? (
-                <>
-                  <button
-                    onClick={handleSave}
-                    disabled={isUpdating}
-                    className="px-6 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25 disabled:opacity-50"
-                  >
-                    {isUpdating ? '저장 중...' : '저장'}
-                  </button>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    취소
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setShowShareModal(true)}
-                    className="px-4 py-2 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
-                  >
-                    공유
-                  </button>
-                  <button
-                    onClick={toggleEdit}
-                    className="px-4 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-primary/10 shadow-sm"
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-800 shadow-sm"
-                  >
-                    삭제
-                  </button>
-                </>
-              )}
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="px-4 py-2 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
+              >
+                공유
+              </button>
+              <button
+                onClick={() => navigate(`/my-plan/${id}/edit`)}
+                className="px-4 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-primary/10 shadow-sm"
+              >
+                수정
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-800 shadow-sm"
+              >
+                삭제
+              </button>
             </div>
           )}
         </header>
@@ -160,29 +95,13 @@ const MyPlanDetail = () => {
             />
           ) : (
             <div className="max-w-4xl mx-auto p-8 w-full space-y-6">
-              {isEditing && (
-                <div className="px-4 py-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/50 rounded-xl text-sm text-amber-700 dark:text-amber-300">
-                  {/* TODO: 수정 API 연동 후 아래 입력 필드를 활성화하고 저장 로직을 구현해야 합니다 (planApi.updatePlan) */}
-                  ⚠️ 수정 기능은 현재 준비 중입니다. 입력 필드는 조회 전용입니다.
-                </div>
-              )}
-
               {/* Plan Info Card */}
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-sm border border-slate-100 dark:border-slate-800">
                 <div className="space-y-6">
                   <div>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editForm.title}
-                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                        className="text-3xl font-bold text-slate-900 dark:text-slate-100 w-full px-4 py-2 border border-primary/20 rounded-lg bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 outline-none"
-                      />
-                    ) : (
-                      <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                        {plan.title}
-                      </h1>
-                    )}
+                    <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                      {plan.title}
+                    </h1>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -204,21 +123,9 @@ const MyPlanDetail = () => {
                       <span className="material-symbols-outlined text-primary text-2xl">group</span>
                       <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">인원 수</p>
-                        {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={editForm.participantCount}
-                              onChange={(e) => setEditForm({ ...editForm, participantCount: Number(e.target.value) })}
-                              className="text-base font-semibold text-slate-900 dark:text-slate-100 w-20 px-2 py-1 border border-primary/20 rounded bg-white dark:bg-slate-800"
-                            />
-                            <span className="text-sm text-slate-500">명</span>
-                          </div>
-                        ) : (
-                          <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                            {plan.participantCount}명
-                          </p>
-                        )}
+                        <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                          {plan.participantCount}명
+                        </p>
                       </div>
                     </div>
 
@@ -229,21 +136,9 @@ const MyPlanDetail = () => {
                       </span>
                       <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">예산</p>
-                        {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={editForm.totalBudget}
-                              onChange={(e) => setEditForm({ ...editForm, totalBudget: Number(e.target.value) })}
-                              className="text-base font-semibold text-slate-900 dark:text-slate-100 w-32 px-2 py-1 border border-primary/20 rounded bg-white dark:bg-slate-800"
-                            />
-                            <span className="text-sm text-slate-500">원</span>
-                          </div>
-                        ) : (
-                          <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                            {plan.formattedBudget}원
-                          </p>
-                        )}
+                        <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                          {plan.formattedBudget}원
+                        </p>
                       </div>
                     </div>
 
@@ -254,21 +149,9 @@ const MyPlanDetail = () => {
                       </span>
                       <div className="flex-1">
                         <p className="text-sm text-slate-500 dark:text-slate-400">유형</p>
-                        {isEditing ? (
-                          <select
-                            value={editForm.planType}
-                            onChange={(e) => setEditForm({ ...editForm, planType: e.target.value })}
-                            className="text-base font-semibold text-slate-900 dark:text-slate-100 w-full px-2 py-1 border border-primary/20 rounded bg-white dark:bg-slate-800"
-                          >
-                            {['친목/회식', '데이트', '비즈니스'].map(type => (
-                              <option key={type} value={type}>{type}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                            {plan.planType}
-                          </p>
-                        )}
+                        <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                          {plan.planType}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -276,17 +159,7 @@ const MyPlanDetail = () => {
                   {/* 메모 */}
                   <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">메모</p>
-                    {isEditing ? (
-                      <textarea
-                        value={editForm.memo}
-                        onChange={(e) => setEditForm({ ...editForm, memo: e.target.value })}
-                        className="w-full px-4 py-3 border border-primary/20 rounded-lg bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 outline-none"
-                        rows={3}
-                        placeholder="메모를 입력하세요."
-                      />
-                    ) : (
-                      <p className="text-base text-slate-700 dark:text-slate-300">{plan.memo || '메모가 없습니다.'}</p>
-                    )}
+                    <p className="text-base text-slate-700 dark:text-slate-300">{plan.memo || '메모가 없습니다.'}</p>
                   </div>
                 </div>
               </div>
