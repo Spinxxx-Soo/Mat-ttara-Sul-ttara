@@ -195,4 +195,29 @@ class ReviewServiceTest {
         assertThatThrownBy(() -> reviewService.deleteReview(userId, mismatchPlaceId, reviewId))
                 .isInstanceOf(ReviewNotFoundException.class);
     }
+    @Test
+    @DisplayName("deleteReview_unauthorizedUser_throwsReviewPermissionDeniedException")
+    void deleteReview_unauthorizedUser_throwsReviewPermissionDeniedException() {
+        // given
+        Long ownerId = 1L;
+        Long requesterId = 2L;
+        Long placeId = 3L;
+        Long reviewId = 10L;
+
+        given(placeRepository.existsById(placeId)).willReturn(true);
+
+        UserEntity owner = new UserEntity("o@test.com", "owner", "bio", "img", com.sulddara.server.user.domain.enums.SocialType.NAVER, "123", "ROLE_USER");
+        ReflectionTestUtils.setField(owner, "id", ownerId);
+        PlaceEntity place = new PlaceEntity("NAVER", "ext3", "Place3", "Addr3", 37.0, 127.0);
+        ReflectionTestUtils.setField(place, "id", placeId);
+
+        ReviewEntity review = new ReviewEntity(place, owner, 5, "Original");
+        ReflectionTestUtils.setField(review, "id", reviewId);
+
+        given(reviewRepository.findById(reviewId)).willReturn(Optional.of(review));
+
+        // when & then
+        assertThatThrownBy(() -> reviewService.deleteReview(requesterId, placeId, reviewId))
+                .isInstanceOf(ReviewPermissionDeniedException.class);
+    }
 }
