@@ -17,11 +17,13 @@ public enum ErrorCode {
     LOGOUT_TOKEN(401, "AUTH_401", "로그아웃된 토큰입니다."),
 
     FORBIDDEN(403, "COMMON_403", "권한이 없습니다."),
+    REVIEW_PERMISSION_DENIED(403, "REVIEW_403", "해당 리뷰에 대한 권한이 없습니다."),
 
     USER_NOT_FOUND(404, "USER_404", "사용자를 찾을 수 없습니다."),
     PLAN_NOT_FOUND(404, "PLAN_404", "플랜을 찾을 수 없습니다."),
     PLACE_NOT_FOUND(404, "PLACE_404", "장소를 찾을 수 없습니다."),
     SESSION_NOT_FOUND(404, "AUTH_404", "해당 세션을 찾을 수 없습니다."),
+    REVIEW_NOT_FOUND(404, "REVIEW_404", "리뷰를 찾을 수 없습니다."),
     ENTITY_NOT_FOUND(404, "COMMON_404", "엔티티를 찾을 수 없습니다."),
 
     DUPLICATE_RESOURCE(409, "COMMON_409", "이미 존재하는 리소스입니다."),

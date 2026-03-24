@@ -9,6 +9,8 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "places", uniqueConstraints = {
@@ -95,5 +97,11 @@ public class PlaceEntity {
         if (phone != null) this.phone = phone;
         if (url != null) this.url = url;
         this.lastUpdatedAt = LocalDateTime.now();
+
+    @OneToMany(mappedBy = "place")
+    private List<ReviewEntity> reviews = new ArrayList<>();
+
+    public void addReview(ReviewEntity review) {
+        this.reviews.add(review);
     }
 }
