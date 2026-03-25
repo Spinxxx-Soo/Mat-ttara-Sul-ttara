@@ -1,25 +1,37 @@
-import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import Sidebar from '../components/Sidebar'
-import LoadingState from '@/components/ui/LoadingState'
-import ErrorState from '@/components/ui/ErrorState'
-import { usePlanDetailQuery, useDeletePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
 import toast from 'react-hot-toast'
+import { useNavigate, useParams } from 'react-router-dom'
+
+import ErrorState from '@/components/ui/ErrorState'
+import LoadingState from '@/components/ui/LoadingState'
+import {
+  useDeletePlanMutation,
+  usePlanDetailQuery,
+} from '@/hooks/queries/plan/usePlanQueries'
+import { usePendingDelay } from '@/hooks/usePendingDelay'
+import {
+  PLAN_MESSAGES,
+  getPlanMutationErrorMessage,
+  getPlanPageErrorState,
+} from '@/lib/planUi'
+
+import Sidebar from '../components/Sidebar'
 
 const MyPlanDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [showShareModal, setShowShareModal] = useState(false)
 
-  const { data: plan, isLoading, isError } = usePlanDetailQuery(id || '')
-  const { mutate: deletePlan } = useDeletePlanMutation()
+  const { data: plan, isLoading, isError, error } = usePlanDetailQuery(id || '')
+  const { mutate: deletePlan, isPending: isDeleting } = useDeletePlanMutation()
+  const showDeleteDelay = usePendingDelay(isDeleting)
 
   // shareUrl은 plan이 존재할 때만 사용
   const shareUrl = plan ? `${window.location.origin}/my-plan/${plan.id}` : ''
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl)
-    toast.success('링크가 복사되었습니다!')
+    toast.success(PLAN_MESSAGES.copySuccess)
   }
 
   const handleDelete = () => {
@@ -27,15 +39,17 @@ const MyPlanDetail = () => {
       if (!id) return;
       deletePlan(id, {
         onSuccess: () => {
-          toast.success('플랜이 삭제되었습니다.');
+          toast.success(PLAN_MESSAGES.deleteSuccess);
           navigate('/my-plan');
         },
-        onError: () => {
-          toast.error('플랜 삭제 중 오류가 발생했습니다.');
+        onError: (error: unknown) => {
+          toast.error(getPlanMutationErrorMessage(error, 'delete'));
         }
       });
     }
   }
+
+  const errorState = getPlanPageErrorState(error, 'detail')
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
@@ -73,9 +87,10 @@ const MyPlanDetail = () => {
               </button>
               <button
                 onClick={handleDelete}
+                disabled={isDeleting}
                 className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-800 shadow-sm"
               >
-                삭제
+                {isDeleting ? '삭제 중...' : '삭제'}
               </button>
             </div>
           )}
@@ -83,14 +98,21 @@ const MyPlanDetail = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
+          {showDeleteDelay && (
+            <div className="px-8 pt-4">
+              <p className="text-right text-xs text-slate-500">
+                {PLAN_MESSAGES.delayedPending}
+              </p>
+            </div>
+          )}
           {isLoading ? (
             <LoadingState className="h-[60vh]" />
           ) : isError || !plan ? (
             <ErrorState
               className="h-[60vh]"
-              title="플랜을 불러오지 못했습니다."
-              message="유효하지 않은 플랜이거나 서버 오류가 발생했습니다."
-              actionText="목록으로 돌아가기"
+              title={errorState.title}
+              message={errorState.message}
+              actionText={errorState.actionText}
               onRetry={() => navigate('/my-plan')}
             />
           ) : (
@@ -159,7 +181,9 @@ const MyPlanDetail = () => {
                   {/* 메모 */}
                   <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">메모</p>
-                    <p className="text-base text-slate-700 dark:text-slate-300">{plan.memo || '메모가 없습니다.'}</p>
+                    <p className="text-base text-slate-700 dark:text-slate-300">
+                      {plan.memo || PLAN_MESSAGES.emptyMemo}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -218,7 +242,7 @@ const MyPlanDetail = () => {
               </button>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              아래 링크를 복사하여 카카오톡으로 공유하세요.
+              {PLAN_MESSAGES.shareDescription}
             </p>
             <div className="flex gap-2 mb-4">
               <input
@@ -236,7 +260,6 @@ const MyPlanDetail = () => {
             </div>
             <button
               onClick={() => {
-                // TODO: 카카오톡 공유 API 연동
                 window.open(
                   `https://talk.kakao.com/share?url=${encodeURIComponent(shareUrl)}`,
                   '_blank'
@@ -244,7 +267,7 @@ const MyPlanDetail = () => {
               }}
               className="w-full px-4 py-3 bg-[#FEE500] text-slate-900 rounded-lg font-semibold hover:bg-[#FEE500]/90 transition-colors"
             >
-              카카오톡으로 공유하기
+              {PLAN_MESSAGES.shareKakao}
             </button>
           </div>
         </div>

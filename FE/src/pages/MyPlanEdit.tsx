@@ -1,14 +1,29 @@
-import { useState, useCallback, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
-import KakaoMap from '@/components/map/KakaoMap'
-import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces'
-import { usePlanDetailQuery, useUpdatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
-import { useAuthStore } from '@/stores/authStore'
-import { useLocationStore, FALLBACK_LOCATION } from '@/stores/locationStore'
-import { hasNullFields } from '@/lib/placeUtils'
-import { Place } from '@/types/api'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
+import { useNavigate, useParams } from 'react-router-dom'
+
+import KakaoMap from '@/components/map/KakaoMap'
+import ErrorState from '@/components/ui/ErrorState'
+import LoadingState from '@/components/ui/LoadingState'
+import { useEnrichPlace, useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
+import {
+  usePlanDetailQuery,
+  useUpdatePlanMutation,
+} from '@/hooks/queries/plan/usePlanQueries'
+import { usePendingDelay } from '@/hooks/usePendingDelay'
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning'
+import { hasNullFields } from '@/lib/placeUtils'
+import {
+  PLAN_MESSAGES,
+  confirmDiscardPlanChanges,
+  getPlanMutationErrorMessage,
+  getPlanPageErrorState,
+} from '@/lib/planUi'
+import { useAuthStore } from '@/stores/authStore'
+import { FALLBACK_LOCATION, useLocationStore } from '@/stores/locationStore'
+import type { Place } from '@/types/api'
+
+import Sidebar from '../components/Sidebar'
 
 const MyPlanEdit = () => {
   const { id } = useParams()
@@ -30,7 +45,12 @@ const MyPlanEdit = () => {
     },
     true
   )
-  const { data: plan, isLoading: isPlanLoading } = usePlanDetailQuery(id || '')
+  const {
+    data: plan,
+    isLoading: isPlanLoading,
+    isError: isPlanError,
+    error: planError,
+  } = usePlanDetailQuery(id || '')
   const { mutate: updatePlan, isPending: isUpdating } = useUpdatePlanMutation()
   const { mutate: enrichPlace } = useEnrichPlace()
 
@@ -41,17 +61,63 @@ const MyPlanEdit = () => {
   const [totalBudget, setTotalBudget] = useState('50000')
   const [planType, setPlanType] = useState('친목/회식')
   const [memo, setMemo] = useState('')
+  const initializedPlanIdRef = useRef<string | null>(null)
+  const initialSelectedPlaces = useMemo(
+    () =>
+      (plan?.places ?? []).map((place) => ({
+        placeId: place.placeId,
+        seqNo: place.seqNo,
+      })),
+    [plan?.places]
+  )
+  const currentSelectedPlaces = useMemo(
+    () =>
+      selectedPlaces.map((place, index) => ({
+        placeId: place.placeId,
+        seqNo: index + 1,
+      })),
+    [selectedPlaces]
+  )
+  const isDirty = useMemo(() => {
+    if (!plan) {
+      return false
+    }
+
+    return (
+      title !== plan.title ||
+      meetingAt !== plan.meetingAt.slice(0, 16) ||
+      participantCount !== plan.participantCount.toString() ||
+      totalBudget !== plan.totalBudget.toString() ||
+      planType !== plan.planType ||
+      memo !== (plan.memo || '') ||
+      JSON.stringify(currentSelectedPlaces) !== JSON.stringify(initialSelectedPlaces)
+    )
+  }, [
+    currentSelectedPlaces,
+    initialSelectedPlaces,
+    meetingAt,
+    memo,
+    participantCount,
+    plan,
+    planType,
+    title,
+    totalBudget,
+  ])
+  const showDelayedPending = usePendingDelay(isUpdating)
+
+  useUnsavedChangesWarning(isDirty && !isUpdating, PLAN_MESSAGES.leaveWarning)
 
   useEffect(() => {
-    if (plan) {
+    if (plan && initializedPlanIdRef.current !== plan.id) {
+      initializedPlanIdRef.current = plan.id
       setTitle(plan.title)
       setMeetingAt(plan.meetingAt.slice(0, 16)) // YYYY-MM-DDThh:mm
       setParticipantCount(plan.participantCount.toString())
       setTotalBudget(plan.totalBudget.toString())
       setPlanType(plan.planType)
       setMemo(plan.memo || '')
-      
-      if (plan.places && selectedPlaces.length === 0) {
+
+      if (plan.places) {
         setSelectedPlaces(plan.places.map(p => ({
           placeId: p.placeId,
           name: p.name,
@@ -68,8 +134,8 @@ const MyPlanEdit = () => {
           })
         }
       }
-    } else if (user?.name && !title) {
-      setTitle(`${user.name}님의 맛집 모임`)
+    } else if (user?.name) {
+      setTitle((prevTitle) => prevTitle || `${user.name}님의 맛집 모임`)
     }
   }, [plan, user?.name])
 
@@ -124,24 +190,42 @@ const MyPlanEdit = () => {
       }
     }, {
       onSuccess: () => {
-        toast.success('플랜이 수정되었습니다!')
+        toast.success(PLAN_MESSAGES.updateSuccess)
         navigate(`/my-plan/${id}`)
       },
-      onError: (error: any) => {
-        // Validation Error 처리 로직 분리 (S14P21B205-258)
-        const errors = error.response?.data?.errors;
-        if (errors && Object.keys(errors).length > 0) {
-          const firstKey = Object.keys(errors)[0];
-          toast.error(`${errors[firstKey][0]}`);
-        } else {
-          toast.error(error.response?.data?.message || '플랜 수정 중 오류가 발생했습니다.')
-        }
+      onError: (error: unknown) => {
+        toast.error(getPlanMutationErrorMessage(error, 'update'))
       }
     })
   }
 
   if (isPlanLoading) {
-    return <div className="flex justify-center items-center h-screen w-full bg-background-light dark:bg-background-dark">로딩 중...</div>
+    return (
+      <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto p-8">
+          <LoadingState message="플랜 정보를 불러오는 중입니다..." />
+        </main>
+      </div>
+    )
+  }
+
+  if (isPlanError || !plan) {
+    const errorState = getPlanPageErrorState(planError, 'edit')
+
+    return (
+      <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto p-8">
+          <ErrorState
+            title={errorState.title}
+            message={errorState.message}
+            actionText={errorState.actionText}
+            onRetry={() => navigate('/my-plan')}
+          />
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -272,7 +356,7 @@ const MyPlanEdit = () => {
                 ) : (
                   <div className="px-4 py-8 rounded-xl border border-dashed border-primary/30 bg-background-light dark:bg-slate-800 text-center">
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      오른쪽 지도에서 방문할 장소들을 클릭하세요.
+                      {PLAN_MESSAGES.emptyPlaces}
                     </p>
                   </div>
                 )}
@@ -295,7 +379,11 @@ const MyPlanEdit = () => {
             <div className="pt-4 flex gap-3 justify-end">
               <button
                 type="button"
-                onClick={() => navigate('/my-plan')}
+                onClick={() => {
+                  if (!isDirty || confirmDiscardPlanChanges(PLAN_MESSAGES.editCancel)) {
+                    navigate('/my-plan')
+                  }
+                }}
                 className="px-5 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 취소
@@ -305,9 +393,14 @@ const MyPlanEdit = () => {
                 disabled={isUpdating}
                 className="px-6 py-2 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isUpdating ? '저장 중...' : '변경사항 저장'}
+                {isUpdating ? PLAN_MESSAGES.updatePending : '변경사항 저장'}
               </button>
             </div>
+            {showDelayedPending && (
+              <p className="text-right text-xs text-slate-500">
+                {PLAN_MESSAGES.delayedPending}
+              </p>
+            )}
           </form>
         </section>
 
