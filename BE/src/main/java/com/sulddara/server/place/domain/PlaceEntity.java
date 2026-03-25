@@ -105,4 +105,14 @@ public class PlaceEntity {
         if (url != null) this.url = url;
         this.lastUpdatedAt = LocalDateTime.now();
     }
+
+    public Double getAverageRating() {
+        if (reviews == null || reviews.isEmpty()) {
+            return 0.0;
+        }
+        double sum = reviews.stream()
+                .mapToInt(ReviewEntity::getRating)
+                .sum();
+        return sum / reviews.size();
+    }
 }
