@@ -16,9 +16,9 @@ import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
-import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import com.sulddara.server.place.service.PlaceService;
+import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.s3.service.S3Service;
 import lombok.RequiredArgsConstructor;
@@ -290,7 +290,6 @@ public class PlaceServiceImpl implements PlaceService {
     public PlaceDetailResponse getPlaceDetail(Long placeId) {
         PlaceEntity place = placeRepository.findByIdWithReviews(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
-
         if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
             String s3Url = s3Service.uploadFromExternalUrl(place.getOriginImgUrl());
             if (s3Url != null) {
@@ -298,16 +297,16 @@ public class PlaceServiceImpl implements PlaceService {
             }
         }
 
-        // webclient로 데이터가 null일 경우 ai한테 크롤링 로직 호출
-        if(isMissingData(place)) {
+        if (isMissingData(place)) {
             fetchAndEnrichData(place);
+            place = placeRepository.findByIdWithReviews(placeId)
+                    .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
         }
 
         PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
 
-        Double averageRating = place.getAverageRating();
+        Double rating = placeRepository.getAverageRatingByPlaceId(placeId);
 
-        // rating 불러오는 로직 필요!!!!
         return PlaceDetailResponse.builder()
                 .placeId(place.getId())
                 .name(place.getName())
@@ -315,9 +314,9 @@ public class PlaceServiceImpl implements PlaceService {
                 .phone(place.getPhone())
                 .lat(place.getLat())
                 .lng(place.getLng())
-                .rating(averageRating)
                 .category(place.getCategory())
                 .description(place.getDescription())
+                .rating(rating)
                 .imageUrls(place.getImageUrl() != null ? List.of(place.getImageUrl()) : List.of())
                 .openingHours(openingHours)
                 .url(place.getUrl())

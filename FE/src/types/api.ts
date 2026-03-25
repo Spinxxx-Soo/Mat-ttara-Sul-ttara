@@ -152,6 +152,7 @@ export interface Place {
   lat: number;
   lng: number;
   rating?: number | null;
+  reviewScore?: number | null;
   recommendReason?: string | null; // 추천 장소 조회시
   openingHours?: PlaceOpeningHours | Record<string, unknown> | string | null;
   imageUrl?: string | null; // 가게 검색 응답에 포함
