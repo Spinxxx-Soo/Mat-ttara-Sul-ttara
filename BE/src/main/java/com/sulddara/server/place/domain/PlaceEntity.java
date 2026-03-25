@@ -97,6 +97,7 @@ public class PlaceEntity {
         if (phone != null) this.phone = phone;
         if (url != null) this.url = url;
         this.lastUpdatedAt = LocalDateTime.now();
+    }
 
     @OneToMany(mappedBy = "place")
     private List<ReviewEntity> reviews = new ArrayList<>();
