@@ -305,7 +305,8 @@ public class PlaceServiceImpl implements PlaceService {
 
         PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
 
-        // rating 불러오는 로직 필요!!!!
+        Double rating = placeRepository.getAverageRatingByPlaceId(placeId);
+
         return PlaceDetailResponse.builder()
                 .placeId(place.getId())
                 .name(place.getName())
@@ -315,6 +316,7 @@ public class PlaceServiceImpl implements PlaceService {
                 .lng(place.getLng())
                 .category(place.getCategory())
                 .description(place.getDescription())
+                .rating(rating)
                 .imageUrls(place.getImageUrl() != null ? List.of(place.getImageUrl()) : List.of())
                 .openingHours(openingHours)
                 .url(place.getUrl())
