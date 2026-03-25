@@ -11,6 +11,7 @@ public class UserProfileResponseDto {
   private Long userId;
   private String email;
   private String name;
+  private String profileImageUrl;
   private String bio;
   private LocalDateTime createdAt;
   private LocalDateTime lastLoginAt;
