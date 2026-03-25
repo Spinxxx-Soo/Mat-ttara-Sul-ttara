@@ -106,7 +106,7 @@ public class AiService {
                         response.getParsedState().lat(),
                         response.getParsedState().lng()
                 );
-                SessionState updatedState = response.getParsedState().withSelectedPlaceIds(candidateIds);
+                SessionState updatedState = response.getParsedState().withFinalPlaceIds(candidateIds);
                 sendCandidatesToAi(sessionId, userId, updatedState);
                 return;
             }

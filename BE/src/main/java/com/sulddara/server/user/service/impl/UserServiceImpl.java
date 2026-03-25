@@ -42,6 +42,12 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserPreferenceResponseDto getUserPreference(Long userId) {
+        UserEntity user = getUserOrThrow(userId);
+        return userMapper.toPreferenceResponse(user.getPreference());
+    }
+
+    @Override
     @Transactional
     public UserPreferenceResponseDto registerOrUpdatePreference(Long userId, UserPreferenceRequestDto requestDto) {
         UserEntity user = getUserOrThrow(userId);
@@ -58,6 +64,8 @@ public class UserServiceImpl implements UserService {
                     requestDto.ageGroup(),
                     requestDto.gender());
         }
+
+        userRepository.save(user);
 
         return userMapper.toPreferenceResponse(user.getPreference());
     }
@@ -86,6 +94,7 @@ public class UserServiceImpl implements UserService {
                 )
                 .map(user -> {
                     user.updateName(userInfo.getName());
+                    user.updateProfileImageUrl(userInfo.getProfileImage());
                     user.updateLastLoginAt(LocalDateTime.now());
                     return new UserAuthResultDto(
                             user.getId(),
@@ -99,7 +108,7 @@ public class UserServiceImpl implements UserService {
                             userInfo.getEmail(),
                             userInfo.getName(),
                             null,
-                            null,
+                            userInfo.getProfileImage(),
                             socialType,
                             userInfo.getProviderId(),
                             "ROLE_USER"
