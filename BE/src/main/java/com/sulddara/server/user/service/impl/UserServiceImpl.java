@@ -11,6 +11,7 @@ import com.sulddara.server.user.domain.enums.SocialType;
 import com.sulddara.server.user.repository.UserRepository;
 import com.sulddara.server.user.mapper.UserMapper;
 import com.sulddara.server.user.exception.UserNotFoundException;
+import com.sulddara.server.user.exception.UserPreferenceNotFoundException;
 import com.sulddara.server.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserPreferenceResponseDto getUserPreference(Long userId) {
         UserEntity user = getUserOrThrow(userId);
+        if (user.getPreference() == null) {
+            throw new UserPreferenceNotFoundException();
+        }
         return userMapper.toPreferenceResponse(user.getPreference());
     }
 
