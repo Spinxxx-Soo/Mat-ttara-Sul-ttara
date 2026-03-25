@@ -286,8 +286,9 @@ public class PlaceServiceImpl implements PlaceService {
     private double rad2deg(double rad) { return (rad * 180 / Math.PI); }
 
     @Override
+    @Transactional
     public PlaceDetailResponse getPlaceDetail(Long placeId) {
-        PlaceEntity place = placeRepository.findById(placeId)
+        PlaceEntity place = placeRepository.findByIdWithReviews(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
 
         if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
@@ -300,10 +301,11 @@ public class PlaceServiceImpl implements PlaceService {
         // webclient로 데이터가 null일 경우 ai한테 크롤링 로직 호출
         if(isMissingData(place)) {
             fetchAndEnrichData(place);
-            place = placeRepository.findById(placeId).get();
         }
 
         PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
+
+        Double averageRating = place.getAverageRating();
 
         // rating 불러오는 로직 필요!!!!
         return PlaceDetailResponse.builder()
@@ -313,6 +315,7 @@ public class PlaceServiceImpl implements PlaceService {
                 .phone(place.getPhone())
                 .lat(place.getLat())
                 .lng(place.getLng())
+                .rating(averageRating)
                 .category(place.getCategory())
                 .description(place.getDescription())
                 .imageUrls(place.getImageUrl() != null ? List.of(place.getImageUrl()) : List.of())

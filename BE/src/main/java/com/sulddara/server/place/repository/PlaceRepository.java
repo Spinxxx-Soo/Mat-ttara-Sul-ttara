@@ -17,4 +17,7 @@ public interface PlaceRepository extends JpaRepository<PlaceEntity, Long> {
   List<Long> findIdsByLocation(@Param("lat") Double lat, @Param("lng") Double lng);
 
   Optional<PlaceEntity> findByProviderAndExternalPlaceId(String provider, String externalPlaceId);
+
+  @Query("SELECT p FROM PlaceEntity p LEFT JOIN FETCH p.reviews WHERE p.id = :id")
+  Optional<PlaceEntity> findByIdWithReviews(@Param("id") Long id);
 }
