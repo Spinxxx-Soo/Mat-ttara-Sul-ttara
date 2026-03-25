@@ -23,28 +23,38 @@ class ParsedStateManager:
         session_state: Optional[SessionState],
     ) -> dict[str, Any]:
         """
-        sessionState가 있으면 previous_parsed_state에 필요한 필드만 병합합니다.
+        BE가 보내주는 SessionState를 AI의 내부 parsed_state(ParsedState 스키마)로 병합합니다.
+
+        규칙:
         - None 값은 병합하지 않습니다.
-        - 기존 동작(인원/시간/목적/분위기/위치)은 유지합니다.
+        - lat/lng/time은 그대로 매핑합니다.
+        - session_state.extraData에 들어있는 cuisine/vibe/seat/outdoor/occasion_* 값을 ParsedState로 병합합니다.
+        - session_state.finalPlaceIds는 selectedPlaceIds로 매핑합니다.
         """
         if not session_state:
             return previous_parsed_state
 
-        session_state_dict = session_state.model_dump(
-            exclude={"excludedPlaceIds"},
-            include={
-                "lat",
-                "lng",
-                "people",
-                "time",
-                "purpose",
-                "mood",
-                "selectedPlaceIds",
-            },
-        )
-        for key, value in session_state_dict.items():
-            if value is not None:
-                previous_parsed_state[key] = value
+        # 1) lat/lng/time
+        if session_state.lat is not None:
+            previous_parsed_state["lat"] = session_state.lat
+        if session_state.lng is not None:
+            previous_parsed_state["lng"] = session_state.lng
+        if session_state.time is not None:
+            previous_parsed_state["time"] = session_state.time
+
+        # 2) extraData -> parsedState의 cuisine/vibe/seat/outdoor/occasion 키들
+        extra = session_state.extraData or {}
+        parsed_keys = ParsedState.model_fields.keys()
+        for key, value in extra.items():
+            if key not in parsed_keys:
+                continue
+            if value is None:
+                continue
+            previous_parsed_state[key] = value
+
+        # 3) finalPlaceIds -> selectedPlaceIds
+        if session_state.finalPlaceIds is not None:
+            previous_parsed_state["selectedPlaceIds"] = session_state.finalPlaceIds
         return previous_parsed_state
 
     def normalize_parsed_state(self, parsed_state: dict[str, Any]) -> dict[str, Any]:

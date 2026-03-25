@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Literal, TypeAlias
+from typing import Any, List, Optional, Literal, TypeAlias
 from enum import Enum
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
@@ -49,6 +49,7 @@ class BaseState(APIModel):
 class ChatResponseType(str, Enum):
     RECOMMENDATION = "RECOMMENDATION"
     FOLLOW_UP = "FOLLOW_UP"
+    PLACE_CANDIDATES = "PLACE_CANDIDATES"
 
 #단기 기억 저장
 class MemoryStatus(str, Enum):
@@ -57,42 +58,29 @@ class MemoryStatus(str, Enum):
 
 #스레드 정보 (요청용 SessionState)
 class SessionState(APIModel):
-    """플랜 파싱 정보 (요청에서 memoryStatus=MISSING 일 때만 채워지는 정보)."""
+    """
+    BE 요청/동기화에 사용되는 세션 상태 모델.
 
-    lat: Optional[float] = Field(
-        default=None,
-        description="위도",
+    - lat/lng/time: 위치/시간대 파싱 결과
+    - finalPlaceIds: 후보 장소 ID (BE가 PLACE_CANDIDATES 이후 주입)
+    - extraData: cuisine/vibe/seat/outdoor/occasion 등 파서 결과를 담는 Map
+    """
+
+    lat: Optional[float] = Field(default=None, description="위도")
+    lng: Optional[float] = Field(default=None, description="경도")
+    time: Optional[str] = Field(default=None, description="시간값 (HH:mm 또는 자연어)")
+
+    # BE가 SessionState에 함께 들고 넘기는 필드(현재 AI 로직에서는 선택적으로 사용)
+    title: Optional[str] = Field(default=None, description="세션/플랜 제목(옵션)")
+    meetingDate: Optional[str] = Field(default=None, description="약속 날짜(옵션: yyyy-MM-dd)")
+
+    finalPlaceIds: Optional[List[int]] = Field(
+        default=None, description="BE가 필터링한 후보 장소 ID 리스트"
     )
-    lng: Optional[float] = Field(
-        default=None,
-        description="경도",
-    )
-    people: Optional[int] = Field(
-        default=None,
-        description="인원수",
-        example=2,
-        ge=1,
-    )
-    time: Optional[str] = Field(
-        default=None,
-        description="시간(자연어)",
-        example="저녁",
-    )
-    purpose: Optional[str] = Field(
-        default=None,
-        description="목적",
-    )
-    mood: Optional[str] = Field(
-        default=None,
-        description="분위기",
-    )
-    excludedPlaceIds: List[int] = Field(
-        default_factory=list,
-        description="제외할 장소 ID 목록",
-    )
-    selectedPlaceIds: Optional[List[int]] = Field(
-        default=None,
-        description="동기화 시 선택된 후보 장소 ID (백엔드 주입)",
+
+    # cuisine_* / vibe_* / seat_private / outdoor_ok / occasion_* 등을 포함
+    extraData: Optional[dict[str, Any]] = Field(
+        default=None, description="추천용 파서 값 Map"
     )
 
 
@@ -177,27 +165,10 @@ def parsed_state_mergeable_keys() -> frozenset[str]:
 
 #사용자 장기 메모리
 class PreferenceSummary(APIModel):
-    preferredVibes: Optional[List[str]] = Field(
-        default=None,
-        description="선호 분위기 목록",
-        example=["조용함"],
-    )
-    avoidedVibes: Optional[List[str]] = Field(
-        default=None,
-        description="피하고 싶은 분위기 목록",
-        example=["시끄러움"],
-    )
-    preferredCategories: Optional[List[str]] = Field(
-        default=None,
-        description="선호 카테고리",
-        example=["이자카야"],
-    )
-    preferredPriceLevel: Optional[int] = Field(
-        default=None,
-        description="선호 가격대(1~N)",
-        example=2,
-        ge=1,
-    )
+    # BE 요청 스키마(usageType/ageGroup/gender)
+    usageType: Optional[str] = Field(default=None, description="사적/공적 모임 성격")
+    ageGroup: Optional[str] = Field(default=None, description="참여자 연령대")
+    gender: Optional[str] = Field(default=None, description="선호 성별/분위기")
 
 #장소 추천 
 class Filters(BaseState):
@@ -231,6 +202,8 @@ class ChatMessageRequest(APIModel):
     userId: int = Field(..., example=1)
     threadId: str = Field(..., example="chat-101")
     message: str = Field(..., min_length=1, example="강남 쪽이면 좋겠어")
+    # 제목 생성 필요 여부 (BE에서 전달)
+    needTitle: bool = Field(default=False, description="첫 채팅일 경우 제목 생성 요청 여부")
 
     # 내부 컨텍스트 주입용 (기존 로직 유지)
     contextInjection: Optional[ContextInjection] = None
@@ -312,6 +285,17 @@ class PlaceCandidatesRequest(APIModel):
     limit: int = Field(default=20, ge=1, le=100)
 
 
+class AiPlaceCandidatesRequest(APIModel):
+    """
+    BE가 PLACE_CANDIDATES 이후 내부로 AI 서버에 보내는 요청.
+    (AiService.sendCandidatesToAi -> /api/v1/internal/ai/place_candidates)
+    """
+
+    threadId: str
+    userId: int
+    sessionState: SessionState
+
+
 # ============================================================
 # Response Schemas (MVP Simple Version)
 # ============================================================
@@ -320,7 +304,7 @@ class ChatMessageResponse(APIModel):
     """챗봇 응답 (ChatResponse)."""
 
     threadId: str = Field(..., example="chat-101")
-    userId: str = Field(..., example="101")
+    userId: int = Field(..., example=101)
     chatResponse: str = Field(
         ...,
         min_length=1,
@@ -339,6 +323,18 @@ class ChatMessageResponse(APIModel):
     parsedState: Optional[ParsedState] = Field(
         default=None,
         description="AI가 파싱한 상태 정보 (ParsedState 단일 스키마)",
+    )
+
+    # 채팅방 제목(선택)
+    title: Optional[str] = Field(
+        default=None,
+        description="AI가 요약한 채팅방 제목",
+    )
+
+    # 추천 장소 목록(선택)
+    places: Optional[List[PlaceInfo]] = Field(
+        default=None,
+        description="추천 장소 리스트",
     )
 
     model_config = ConfigDict(
