@@ -286,6 +286,7 @@ public class PlaceServiceImpl implements PlaceService {
     private double rad2deg(double rad) { return (rad * 180 / Math.PI); }
 
     @Override
+    @Transactional
     public PlaceDetailResponse getPlaceDetail(Long placeId) {
         PlaceEntity place = placeRepository.findByIdWithReviews(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
@@ -300,7 +301,6 @@ public class PlaceServiceImpl implements PlaceService {
         // webclient로 데이터가 null일 경우 ai한테 크롤링 로직 호출
         if(isMissingData(place)) {
             fetchAndEnrichData(place);
-            place = placeRepository.findByIdWithReviews(placeId).get();
         }
 
         PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
