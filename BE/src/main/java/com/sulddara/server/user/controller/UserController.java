@@ -36,6 +36,12 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUserProfile(userId, requestDto));
     }
 
+    @GetMapping("/preference")
+    public ResponseEntity<UserPreferenceResponseDto> getMyPreference(@AuthenticationPrincipal CustomOAuth2User user) {
+        Long userId = user.getUserId();
+        return ResponseEntity.ok(userService.getUserPreference(userId));
+    }
+
     @PostMapping("/preference")
     public ResponseEntity<UserPreferenceResponseDto> registerPreference(
             @AuthenticationPrincipal CustomOAuth2User user,
