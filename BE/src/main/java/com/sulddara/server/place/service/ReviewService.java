@@ -7,8 +7,8 @@ import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
 import com.sulddara.server.place.exception.PlaceNotFoundException;
 import com.sulddara.server.place.exception.ReviewNotFoundException;
-import com.sulddara.server.place.exception.ReviewPermissionDeniedException;
 import com.sulddara.server.global.error.exception.DuplicateResourceException;
+import com.sulddara.server.global.error.exception.ForbiddenException;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.ReviewRepository;
 import com.sulddara.server.user.domain.UserEntity;
@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -38,7 +37,7 @@ public class ReviewService {
         return reviewRepository.findAllByPlaceIdOrderByCreatedAtDesc(placeId)
                 .stream()
                 .map(ReviewResponseDto::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
@@ -66,11 +65,7 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponseDto updateReview(Long userId, Long placeId, Long reviewId, ReviewUpdateRequestDto request) {
-        if (!placeRepository.existsById(placeId)) {
-            throw new PlaceNotFoundException();
-        }
-
-        ReviewEntity review = reviewRepository.findById(reviewId)
+        ReviewEntity review = reviewRepository.findByIdWithUser(reviewId)
                 .orElseThrow(ReviewNotFoundException::new);
 
         if (!review.getPlace().getId().equals(placeId)) {
@@ -86,11 +81,7 @@ public class ReviewService {
 
     @Transactional
     public void deleteReview(Long userId, Long placeId, Long reviewId) {
-        if (!placeRepository.existsById(placeId)) {
-            throw new PlaceNotFoundException();
-        }
-
-        ReviewEntity review = reviewRepository.findById(reviewId)
+        ReviewEntity review = reviewRepository.findByIdWithUser(reviewId)
                 .orElseThrow(ReviewNotFoundException::new);
 
         if (!review.getPlace().getId().equals(placeId)) {
@@ -99,12 +90,12 @@ public class ReviewService {
 
         validateReviewOwnership(review, userId);
 
-        review.softDelete();
+        reviewRepository.delete(review);
     }
 
     private void validateReviewOwnership(ReviewEntity review, Long userId) {
         if (!review.getUser().getId().equals(userId)) {
-            throw new ReviewPermissionDeniedException();
+            throw new ForbiddenException();
         }
     }
 }
