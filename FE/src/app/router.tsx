@@ -5,6 +5,7 @@ import { CompletedOnboardingRoute } from '@/components/auth/CompletedOnboardingR
 import { OnboardingOnlyRoute } from '@/components/auth/OnboardingOnlyRoute';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PublicRoute } from '@/components/auth/PublicRoute';
+import { RouteErrorFallback } from '@/components/ui/RouteErrorFallback';
 import Login from '@/pages/Login';
 import Main from '@/pages/Main';
 import MyPlan from '@/pages/MyPlan';
@@ -18,6 +19,7 @@ import Settings from '@/pages/Settings';
 export const router = createBrowserRouter([
   {
     element: <AuthInitializer />,
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         element: <PublicRoute />,

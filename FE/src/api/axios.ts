@@ -205,11 +205,13 @@ apiClient.interceptors.response.use(
     switch (status) {
       case 403:
         console.warn('Forbidden (403):', data.message);
-        toast.error('접근 권한이 없습니다.');
+        // UI에서 화면 단으로 403 처리 권한 위임 (S14P21B205-160)
+        // toast.error('접근 권한이 없습니다.');
         break;
 
       case 404:
         console.warn('Not Found (404):', data.message);
+        // UI에서 Not Found 화면 표시 (S14P21B205-160)
         break;
 
       case 500:
