@@ -5,14 +5,17 @@ import LoadingState from '@/components/ui/LoadingState'
 import ErrorState from '@/components/ui/ErrorState'
 import { usePlanDetailQuery, useDeletePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
 import toast from 'react-hot-toast'
+import { useApiError } from '@/hooks/useApiError'
 
 const MyPlanDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [showShareModal, setShowShareModal] = useState(false)
 
-  const { data: plan, isLoading, isError } = usePlanDetailQuery(id || '')
+  const { data: plan, isLoading, isError, error } = usePlanDetailQuery(id || '')
   const { mutate: deletePlan } = useDeletePlanMutation()
+  
+  const { title, message } = useApiError(error);
 
   // shareUrl은 plan이 존재할 때만 사용
   const shareUrl = plan ? `${window.location.origin}/my-plan/${plan.id}` : ''
@@ -88,8 +91,8 @@ const MyPlanDetail = () => {
           ) : isError || !plan ? (
             <ErrorState
               className="h-[60vh]"
-              title="플랜을 불러오지 못했습니다."
-              message="유효하지 않은 플랜이거나 서버 오류가 발생했습니다."
+              title={title}
+              message={message}
               actionText="목록으로 돌아가기"
               onRetry={() => navigate('/my-plan')}
             />
