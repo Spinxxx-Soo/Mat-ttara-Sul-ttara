@@ -50,6 +50,7 @@ ai:
             scope:
               - name
               - email
+              - profile_image
             client-name: Naver
             authorization-grant-type: authorization_code
             redirect-uri: "http://localhost:5173/login"
