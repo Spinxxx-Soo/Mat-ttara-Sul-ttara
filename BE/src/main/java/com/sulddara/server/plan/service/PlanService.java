@@ -1,22 +1,21 @@
 package com.sulddara.server.plan.service;
 
-import com.sulddara.server.plan.dto.PlanCreateRequestDto;
-import com.sulddara.server.plan.dto.PlanCreateResponseDto;
-import com.sulddara.server.plan.dto.PlanDetailResponseDto;
-import com.sulddara.server.plan.dto.PlanListResponseDto;
-import com.sulddara.server.plan.dto.PlanUpdateRequestDto;
+import com.sulddara.server.plan.dto.*;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface PlanService {
 
-  PlanCreateResponseDto createPlan(Long userId, PlanCreateRequestDto requestDto);
+    PlanCreateResponseDto createPlan(Long userId, PlanCreateRequestDto requestDto);
 
-  PlanListResponseDto getMyPlans(Long userId, Long cursor, int size);
+    PlanCreateResponseDto createPlanFromAi(Long userId, AiPlanCreateRequestDto request);
 
-  PlanDetailResponseDto getPlanDetail(Long userId, Long planId);
+    PlanListResponseDto getMyPlans(Long userId, Long cursor, int size);
 
-  PlanDetailResponseDto getSharedPlanDetail(String shareToken);
+    PlanDetailResponseDto getPlanDetail(Long userId, Long planId);
 
-  PlanDetailResponseDto updatePlan(Long userId, Long planId, PlanUpdateRequestDto requestDto);
+    PlanDetailResponseDto getSharedPlanDetail(String shareToken);
 
-  void deletePlan(Long userId, Long planId);
+    PlanDetailResponseDto updatePlan(Long userId, Long planId, PlanUpdateRequestDto requestDto);
+
+    void deletePlan(Long userId, Long planId);
 }

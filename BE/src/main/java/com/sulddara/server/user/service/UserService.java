@@ -12,6 +12,8 @@ public interface UserService {
 
     UserProfileResponseDto updateUserProfile(Long userId, UserUpdateNameRequestDto requestDto);
 
+    UserPreferenceResponseDto getUserPreference(Long userId);
+
     UserPreferenceResponseDto registerOrUpdatePreference(Long userId, UserPreferenceRequestDto requestDto);
 
     void deleteUser(Long userId);

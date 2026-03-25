@@ -10,10 +10,12 @@ public record SessionState(
         Double lat,
         Double lng,
         String time,
-        List<Long> selectedPlaceIds,
+        String title,
+        String meetingDate,
+        List<Long> finalPlaceIds,
         Map<String, Object> extraData
 ) {
-    public SessionState withSelectedPlaceIds(List<Long> ids) {
-        return new SessionState(lat, lng, time, ids, extraData);
+    public SessionState withFinalPlaceIds(List<Long> ids) {
+        return new SessionState(lat, lng, time, title, meetingDate, ids, extraData);
     }
 }
