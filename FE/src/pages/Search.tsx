@@ -3,7 +3,7 @@ import Sidebar from '../components/Sidebar'
 import KakaoMap from '@/components/map/KakaoMap'
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
-import { useSearchPlaces } from '@/hooks/queries/place/usePlaces'
+import { usePlaceDetail, useSearchPlaces } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
@@ -65,6 +65,9 @@ const Search = () => {
     () => places.find((p) => p.placeId === selectedPlaceId) ?? null,
     [places, selectedPlaceId]
   )
+
+  const { data: selectedPlaceDetail } = usePlaceDetail(selectedPlaceId ?? 0, selectedPlaceId != null)
+  const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
@@ -233,7 +236,7 @@ const Search = () => {
 
         {selectedPlace && !reviewPanel && (
           <PlaceMapDetailCard
-            place={selectedPlace}
+            place={selectedPlaceForDisplay ?? selectedPlace}
             onClose={() => setSelectedPlaceId(null)}
             onReviewClick={openReviewFromDetail}
           />

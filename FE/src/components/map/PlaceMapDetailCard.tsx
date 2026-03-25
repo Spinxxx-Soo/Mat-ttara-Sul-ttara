@@ -10,6 +10,12 @@ export interface PlaceMapDetailCardProps {
   onReviewClick: () => void
 }
 
+const formatPlaceRating = (place: Place): string | null => {
+  const rating = place.rating ?? place.reviewScore
+  if (rating == null) return null
+  return `${rating.toFixed(1)}`
+}
+
 export default function PlaceMapDetailCard({
   place,
   onClose,
@@ -48,11 +54,11 @@ export default function PlaceMapDetailCard({
       )}
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-        {place.rating != null && (
+        {formatPlaceRating(place) && (
           <div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 dark:bg-amber-900/30">
             <span className="material-symbols-outlined text-[16px] text-amber-500">star</span>
             <span className="text-sm font-black text-amber-800 dark:text-amber-400">
-              {place.rating}
+              {formatPlaceRating(place)}
             </span>
           </div>
         )}
