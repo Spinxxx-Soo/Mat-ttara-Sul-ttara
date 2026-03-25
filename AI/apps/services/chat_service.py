@@ -56,8 +56,31 @@ def _create_checkpointer():
 
 
 # 백엔드에서 제어하는 follow-up 질문 우선순위 (`ParsedState` 필드명과 일치)
-# 응답 스키마에서 people/purpose/mood 제거 후, 필수에 가깝게 쓰는 슬롯은 time 중심으로 둡니다.
-QUESTION_SLOT_PRIORITY: list[str] = ["time"]
+# 응답 스키마에서 people/purpose/mood 제거 후, 추천에 필요한 슬롯을 우선 채웁니다.
+QUESTION_SLOT_PRIORITY: list[str] = [
+    # 시간/방문 목적
+    "time",
+    # 음식
+    "cuisine_korean",
+    "cuisine_japanese",
+    "cuisine_chinese",
+    "cuisine_western",
+    "cuisine_bunsik",
+    "cuisine_asian_other",
+    # 분위기/좌석/야외
+    "vibe_quiet",
+    "vibe_lively",
+    "vibe_modern",
+    "vibe_traditional",
+    "seat_private",
+    "outdoor_ok",
+    # occasion
+    "occasion_date",
+    "occasion_business",
+    "occasion_family",
+    "occasion_solo",
+    "occasion_friends",
+]
 
 
 class ChatState(TypedDict):
@@ -161,16 +184,43 @@ class ChatService:
         # )
         # self._long_term_profiles[thread_id] = updated_profile
 
-        # 5) missing slot 탐지 -> 슬롯 1개 선택 -> follow-up 질문 생성 (AI 서버 내부 전용)
+        # 5) 제목(첫 응답) 생성
+        title: Optional[str] = None
+        if request.needTitle:
+            title = await self._generate_title(
+                user_message=user_message,
+                summary=updated_summary,
+            )
+
+        # 6) missing slot 탐지 -> 슬롯 1개 선택 -> follow-up 질문 생성 (AI 서버 내부 전용)
         missing_slots = self.parsed_state_manager.detect_missing_slots(normalized_parsed_state)
 
         if not missing_slots:
-            response = self.response_factory.create_recommendation_response(
-                thread_id=thread_id,
-                user_id=request.userId,
-                normalized_parsed_state=normalized_parsed_state,
-                memory_status=memory_status,
-            )
+            # PLACE_CANDIDATES 응답은 BE가 lat/lng로 반경 필터링할 수 있어야 합니다.
+            if normalized_parsed_state.get("lat") is None or normalized_parsed_state.get("lng") is None:
+                question = await self.followup_question_generator.generate_question(
+                    user_message=user_message,
+                    parsed_state=normalized_parsed_state,
+                    target_slot="lat",
+                    thread_id=thread_id,
+                )
+                response = self.response_factory.create_follow_up_response(
+                    thread_id=thread_id,
+                    user_id=request.userId,
+                    chat_response_text=question,
+                    normalized_parsed_state=normalized_parsed_state,
+                    memory_status=memory_status,
+                    title=title,
+                )
+            else:
+                response = self.response_factory.create_place_candidates_response(
+                    thread_id=thread_id,
+                    user_id=request.userId,
+                    normalized_parsed_state=normalized_parsed_state,
+                    memory_status=memory_status,
+                    chat_response_text="모이시는 장소가 이곳이 맞을까요? 맞다면 근처 후보 장소를 바로 찾아드릴게요.",
+                    title=title,
+                )
         else:
             target_slot = self.parsed_state_manager.select_target_slot(missing_slots)
             question = await self.followup_question_generator.generate_question(
@@ -186,6 +236,7 @@ class ChatService:
                 chat_response_text=question,
                 normalized_parsed_state=normalized_parsed_state,
                 memory_status=memory_status,
+                title=title,
             )
 
         # 6) AI 응답 저장
@@ -193,10 +244,59 @@ class ChatService:
 
         # 7) BE Redis Pub/Sub (BE는 ai:reply 구독 — 체크포인터 Redis와 별도 클라이언트)
         self.redis_reply_publisher.publish_chat_reply(
-            build_be_ai_reply_redis_payload(request, response)
+            build_be_ai_reply_redis_payload(
+                thread_id=thread_id,
+                user_id=request.userId,
+                response=response,
+            )
         )
 
         return response
+
+    async def _generate_title(self, *, user_message: str, summary: str) -> Optional[str]:
+        """
+        BE의 needTitle 플래그에 따라 채팅방 제목을 생성합니다.
+        """
+        prompt = (
+            "아래 대화의 핵심 목적을 20자 이내 한국어 제목으로 만들어 주세요.\n"
+            "- 제목은 길게 쓰지 말고, 공백 포함 1문장 이내\n"
+            "- 반드시 JSON만 출력\n"
+            "예: {\"title\":\"강남역 3인 술자리\"}\n\n"
+            f"[대화 요약]\n{summary or '없음'}\n\n"
+            f"[사용자 발화]\n{user_message}\n"
+        )
+
+        response = await self.client.chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=80,
+            temperature=0.3,
+        )
+
+        content = (
+            response.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+            .strip()
+        )
+
+        # JSON만 남기기 위한 방어
+        if content.startswith("```"):
+            content = content.replace("```json", "").replace("```", "").strip()
+        start = content.find("{")
+        end = content.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            content = content[start : end + 1]
+        try:
+            import json as _json
+
+            data = _json.loads(content)
+            title = data.get("title")
+            if isinstance(title, str) and title.strip():
+                return title.strip()
+        except Exception:
+            return None
+
+        return None
 
     async def _chatbot_node(self, state: ChatState) -> ChatState:
         """

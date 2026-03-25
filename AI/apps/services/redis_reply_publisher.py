@@ -10,7 +10,7 @@ from typing import Any
 
 import redis
 
-from apps.schemas.chat import ChatMessageRequest, ChatMessageResponse, ParsedState
+from apps.schemas.chat import ChatMessageResponse, ParsedState
 
 logger = logging.getLogger(__name__)
 
@@ -24,34 +24,44 @@ def parsed_state_to_be_session_state(parsed: ParsedState | None) -> dict[str, An
     """
     if parsed is None:
         return None
-    raw = parsed.model_dump(mode="json", exclude_none=True)
+
+    # BE SessionState.extraData에 대해 "없으면 null로" 요구사항을 만족하기 위해
+    # exclude_none=False로 전체 키를 유지합니다.
+    raw = parsed.model_dump(mode="json", exclude_none=False)
+
     lat = raw.pop("lat", None)
     lng = raw.pop("lng", None)
     time_val = raw.pop("time", None)
-    out: dict[str, Any] = {}
-    if lat is not None:
-        out["lat"] = lat
-    if lng is not None:
-        out["lng"] = lng
-    if time_val is not None:
-        out["time"] = time_val
-    if raw:
-        out["extraData"] = raw
-    return out or None
+    final_place_ids = raw.pop("selectedPlaceIds", None)
 
+    return {
+        "lat": lat,
+        "lng": lng,
+        "time": time_val,
+        "finalPlaceIds": final_place_ids,
+        "extraData": raw,
+    }
 
 def build_be_ai_reply_redis_payload(
-    request: ChatMessageRequest,
+    *,
+    thread_id: str,
+    user_id: int,
     response: ChatMessageResponse,
 ) -> dict[str, Any]:
     """BE RedisSubscribeListener → ObjectMapper → AiChatResponse 에 맞춘 JSON 객체."""
     return {
-        "threadId": response.threadId,
-        "userId": request.userId,
+        "threadId": thread_id,
+        "userId": user_id,
         "chatResponse": response.chatResponse,
         "type": response.type.value,
         "memoryStatus": response.memoryStatus.value,
         "parsedState": parsed_state_to_be_session_state(response.parsedState),
+        "title": response.title,
+        "places": (
+            [p.model_dump(mode="json") for p in response.places]
+            if response.places is not None
+            else None
+        ),
     }
 
 
