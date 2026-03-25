@@ -2,6 +2,7 @@ package com.sulddara.server.global.error;
 
 import com.sulddara.server.global.error.exception.BaseException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -17,6 +18,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
                 .body(ErrorResponse.of(e.getErrorCode(), e.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    protected ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException e) {
+        log.error("DataIntegrityViolationException: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.DUPLICATE_RESOURCE.getStatus())
+                .body(ErrorResponse.of(ErrorCode.DUPLICATE_RESOURCE));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

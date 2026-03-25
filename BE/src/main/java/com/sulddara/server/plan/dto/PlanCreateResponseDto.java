@@ -16,6 +16,6 @@ public class PlanCreateResponseDto {
   private Long planId;
   private String title;
   private String shareToken;
-  private String shareUrl;
+
   private LocalDateTime createdAt;
 }
