@@ -25,6 +25,7 @@ public enum ErrorCode {
     SESSION_NOT_FOUND(404, "AUTH_404", "해당 세션을 찾을 수 없습니다."),
     REVIEW_NOT_FOUND(404, "REVIEW_404", "리뷰를 찾을 수 없습니다."),
     ENTITY_NOT_FOUND(404, "COMMON_404", "엔티티를 찾을 수 없습니다."),
+    USER_PREFERENCE_NOT_FOUND(404, "USER_404", "설정된 취향 정보가 없습니다."),
 
     DUPLICATE_RESOURCE(409, "COMMON_409", "이미 존재하는 리소스입니다."),
 
