@@ -1,11 +1,5 @@
 """
 챗봇 관련 Request / Response 스키마 정의
-
-설계 원칙
-- API 명세의 camelCase 필드명 유지
-- 공통 필드는 베이스 모델로 추출
-- 조건부 응답은 타입별 모델로 분리
-- Pydantic v2 기준으로 검증 로직 구성
 """
 
 from __future__ import annotations
@@ -96,40 +90,89 @@ class SessionState(APIModel):
         default_factory=list,
         description="제외할 장소 ID 목록",
     )
+    selectedPlaceIds: Optional[List[int]] = Field(
+        default=None,
+        description="동기화 시 선택된 후보 장소 ID (백엔드 주입)",
+    )
 
 
-# 응답용 ParsedState
+# 응답용 ParsedState — API·파서·Redis state 단일 소스 (협약 스키마)
 class ParsedState(APIModel):
-    """LLM 또는 파서가 추출한 상태 정보 (응답에 포함되는 필드)."""
+    """
+    대화/파싱 상태의 단일 스키마.
+    - time, lat, lng: 파서·세션에서 채움
+    - selectedPlaceIds: 주로 백엔드가 후보 주입 (AI는 보통 비움)
+    - cuisine_*, vibe_*, seat_*, outdoor_ok, occasion_*: 추천용 선호 점수 0~1 (AI 파서가 단계적으로 채움)
+    """
 
-    lat: Optional[float] = Field(
-        default=None,
-        description="위도",
-    )
-    lng: Optional[float] = Field(
-        default=None,
-        description="경도",
-    )
+    lat: Optional[float] = Field(default=None, description="위도")
+    lng: Optional[float] = Field(default=None, description="경도")
     time: Optional[str] = Field(
         default=None,
-        description="파싱된 시간",
+        description="시간값 (예: 18:00)",
         example="18:00",
     )
-    people: Optional[int] = Field(
+
+    selectedPlaceIds: Optional[List[int]] = Field(
         default=None,
-        description="인원수",
-        example=3,
-        ge=1,
+        description="추천 후보 장소 ID (백엔드 주입 위주)",
     )
-    purpose: Optional[str] = Field(
-        default=None,
-        description="목적",
-        example="술자리",
+
+    cuisine_korean: Optional[float] = Field(default=None, description="한식 선호 0~1", ge=0, le=1)
+    cuisine_japanese: Optional[float] = Field(default=None, description="일식 선호 0~1", ge=0, le=1)
+    cuisine_chinese: Optional[float] = Field(default=None, description="중식 선호 0~1", ge=0, le=1)
+    cuisine_western: Optional[float] = Field(default=None, description="양식 선호 0~1", ge=0, le=1)
+    cuisine_bunsik: Optional[float] = Field(default=None, description="분식 선호 0~1", ge=0, le=1)
+    cuisine_asian_other: Optional[float] = Field(default=None, description="기타 아시안 선호 0~1", ge=0, le=1)
+
+    vibe_quiet: Optional[float] = Field(default=None, description="조용한 분위기 0~1", ge=0, le=1)
+    vibe_lively: Optional[float] = Field(default=None, description="활기찬 분위기 0~1", ge=0, le=1)
+    vibe_modern: Optional[float] = Field(default=None, description="모던/깔끔 0~1", ge=0, le=1)
+    vibe_traditional: Optional[float] = Field(default=None, description="전통/고풍 0~1", ge=0, le=1)
+
+    seat_private: Optional[float] = Field(default=None, description="프라이빗 좌석 선호 0~1", ge=0, le=1)
+    outdoor_ok: Optional[float] = Field(default=None, description="야외/테라스 OK 0~1", ge=0, le=1)
+
+    occasion_date: Optional[float] = Field(default=None, description="데이트 0~1", ge=0, le=1)
+    occasion_business: Optional[float] = Field(default=None, description="비즈니스/미팅 0~1", ge=0, le=1)
+    occasion_family: Optional[float] = Field(default=None, description="가족 0~1", ge=0, le=1)
+    occasion_solo: Optional[float] = Field(default=None, description="혼자 0~1", ge=0, le=1)
+    occasion_friends: Optional[float] = Field(default=None, description="친구/모임 0~1", ge=0, le=1)
+
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_assignment=True,
+        json_schema_extra={
+            "example": {
+                "lat": None,
+                "lng": None,
+                "time": "18:00",
+                "selectedPlaceIds": [101, 202, 303],
+                "cuisine_korean": 0.9,
+                "cuisine_japanese": 0.4,
+                "cuisine_chinese": None,
+                "cuisine_western": None,
+                "cuisine_bunsik": None,
+                "cuisine_asian_other": None,
+                "vibe_quiet": None,
+                "vibe_lively": None,
+                "vibe_modern": None,
+                "vibe_traditional": None,
+                "seat_private": None,
+                "outdoor_ok": None,
+                "occasion_date": None,
+                "occasion_business": None,
+                "occasion_family": None,
+                "occasion_solo": None,
+                "occasion_friends": 1.0,
+            }
+        },
     )
-    mood: Optional[str] = Field(
-        default=None,
-        description="분위기",
-    )
+
+
+def parsed_state_mergeable_keys() -> frozenset[str]:
+    """파서 출력으로 이전 state를 덮어쓸 수 있는 필드 (BE 전용 selectedPlaceIds 제외)."""
+    return frozenset(ParsedState.model_fields.keys()) - {"selectedPlaceIds"}
 
 
 #사용자 장기 메모리
@@ -277,7 +320,7 @@ class ChatMessageResponse(APIModel):
     """챗봇 응답 (ChatResponse)."""
 
     threadId: str = Field(..., example="chat-101")
-    userId: int = Field(..., example=101)
+    userId: str = Field(..., example="101")
     chatResponse: str = Field(
         ...,
         min_length=1,
@@ -288,12 +331,6 @@ class ChatMessageResponse(APIModel):
         description="응답 타입",
         example=ChatResponseType.FOLLOW_UP.value,
     )
-    # FOLLOW_UP일 때는 백엔드가 선택한 슬롯, RECOMMENDATION일 때는 None
-    targetSlot: Optional[str] = Field(
-        default=None,
-        description="이번 턴에 질문한 슬롯 키 (예: time, purpose, people, mood)",
-        example="time",
-    )
     memoryStatus: MemoryStatus = Field(
         ...,
         description="메모리 상태",
@@ -301,14 +338,45 @@ class ChatMessageResponse(APIModel):
     )
     parsedState: Optional[ParsedState] = Field(
         default=None,
-        description="AI가 파싱한 상태 정보",
-        example={
-            "lat": None,
-            "lng": None,
-            "time": "18:00",
-            "people": 3,
-            "purpose": "술자리",
-            "mood": None,
+        description="AI가 파싱한 상태 정보 (ParsedState 단일 스키마)",
+    )
+
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_assignment=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "threadId": "chat-101",
+                    "userId": "101",
+                    "chatResponse": "어떤 분위기를 원하세요?",
+                    "type": "FOLLOW_UP",
+                    "memoryStatus": "OK",
+                    "parsedState": {
+                        "lat": None,
+                        "lng": None,
+                        "time": "18:00",
+                        "selectedPlaceIds": [101, 202, 303],
+                        "cuisine_korean": 0.9,
+                        "cuisine_japanese": 0.4,
+                        "cuisine_chinese": None,
+                        "cuisine_western": None,
+                        "cuisine_bunsik": None,
+                        "cuisine_asian_other": None,
+                        "vibe_quiet": None,
+                        "vibe_lively": None,
+                        "vibe_modern": None,
+                        "vibe_traditional": None,
+                        "seat_private": None,
+                        "outdoor_ok": None,
+                        "occasion_date": None,
+                        "occasion_business": None,
+                        "occasion_family": None,
+                        "occasion_solo": None,
+                        "occasion_friends": 1.0,
+                    },
+                }
+            ]
         },
     )
 
