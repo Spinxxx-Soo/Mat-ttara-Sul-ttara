@@ -16,9 +16,9 @@ import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
-import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import com.sulddara.server.place.service.PlaceService;
+import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.s3.service.S3Service;
 import lombok.RequiredArgsConstructor;
@@ -286,6 +286,7 @@ public class PlaceServiceImpl implements PlaceService {
     private double rad2deg(double rad) { return (rad * 180 / Math.PI); }
 
     @Override
+    @Transactional
     public PlaceDetailResponse getPlaceDetail(Long placeId) {
         PlaceEntity place = placeRepository.findById(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
