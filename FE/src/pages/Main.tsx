@@ -6,7 +6,7 @@ import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import KakaoMap from '@/components/map/KakaoMap'
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
-import { useEnrichPlace, useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
+import { useEnrichPlace, useNearbyPlaces, usePlaceDetail } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
@@ -56,6 +56,9 @@ const Main = () => {
     if (selectedPlaceId == null) return null
     return mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null
   }, [mapPlaces, selectedPlaceId])
+
+  const { data: selectedPlaceDetail } = usePlaceDetail(selectedPlaceId ?? 0, selectedPlaceId != null)
+  const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
@@ -251,7 +254,7 @@ const Main = () => {
 
           {selectedPlace && !reviewPanel && (
             <PlaceMapDetailCard
-              place={selectedPlace}
+              place={selectedPlaceForDisplay ?? selectedPlace}
               onClose={() => setSelectedPlaceId(null)}
               onReviewClick={openReviewFromDetail}
             />

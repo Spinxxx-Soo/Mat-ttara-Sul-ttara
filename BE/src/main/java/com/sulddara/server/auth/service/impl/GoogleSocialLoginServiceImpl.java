@@ -84,6 +84,7 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
         params.add("client_id", clientId);
         params.add("client_secret", clientSecret);
         params.add("redirect_uri", redirectUri);
+        log.info("요청하는 redirect_uri: {}", redirectUri);
         params.add("grant_type", "authorization_code");
 
         HttpHeaders headers = new HttpHeaders();
