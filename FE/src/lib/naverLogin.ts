@@ -5,6 +5,12 @@
 /**
  * 네이버 로그인 인스턴스 초기화
  */
+declare global {
+  interface Window {
+    naver: any;
+  }
+}
+
 export const initNaverLogin = () => {
   const clientId = import.meta.env.VITE_NAVER_CLIENT_ID;
   const callbackUrl = import.meta.env.VITE_NAVER_CALLBACK_URL || window.location.origin + '/login';
