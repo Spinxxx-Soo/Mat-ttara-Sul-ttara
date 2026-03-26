@@ -3,53 +3,68 @@
 """
 from __future__ import annotations
 
-from typing import Optional
+import logging
+from typing import Any, Optional
 from typing_extensions import TypedDict, Annotated
 
 from langgraph.graph import StateGraph, add_messages
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import BaseMessage
 
+from apps.config import settings
 from apps.schemas.chat import (
     ChatMessageRequest,
     ChatMessageResponse,
     MemoryStatus,
-    PreferenceSummary,
 )
 from apps.domain.chat.client import OpenAIClient
-from apps.services.paser import ChatParser
+from apps.services.chat_paser import ChatParser
+from apps.services.redis_reply_publisher import (
+    RedisReplyPublisher,
+    build_be_ai_reply_redis_payload,
+)
 from apps.services import (
     ParsedStateManager,
     FollowupQuestionGenerator,
     ConversationStateStore,
     SummaryService,
     ResponseFactory,
-    MemoryService,
 )
 
 
 RECENT_MESSAGE_WINDOW = 6
+logger = logging.getLogger(__name__)
 
 
-class ParsedState(TypedDict, total=False):
-    lat: Optional[float]
-    lng: Optional[float]
-    people: Optional[int]
-    time: Optional[str]
-    purpose: Optional[str]
-    mood: Optional[str]
+def _create_checkpointer():
+    """
+    Redis URL이 설정되면 RedisSaver 사용 (단기 메모리 + parsed_state 저장),
+    아니면 InMemorySaver 사용.
+    """
+    redis_url = settings.redis_url
+    if redis_url:
+        try:
+            from langgraph.checkpoint.redis import RedisSaver
+
+            checkpointer = RedisSaver.from_conn_string(redis_url)
+            checkpointer.setup()
+            logger.info("Redis checkpointer initialized: %s", redis_url.split("@")[-1] if "@" in redis_url else redis_url)
+            return checkpointer
+        except Exception as e:
+            logger.warning("Redis connection failed, falling back to InMemorySaver: %s", e)
+    return InMemorySaver()
 
 
-# 백엔드에서 제어하는 follow-up 질문 우선순위
-# 요구사항의 area > purpose > time > people > mood 중, 현재 프로젝트 `parsedState` source-of-truth에는 `area`가 포함되어 있지 않아 제외했습니다.
-QUESTION_SLOT_PRIORITY: list[str] = ["purpose", "time", "people", "mood"]
+# 백엔드에서 제어하는 follow-up 질문 우선순위 (`ParsedState` 필드명과 일치)
+# 응답 스키마에서 people/purpose/mood 제거 후, 필수에 가깝게 쓰는 슬롯은 time 중심으로 둡니다.
+QUESTION_SLOT_PRIORITY: list[str] = ["time"]
 
 
 class ChatState(TypedDict):
-    """LangGraph 상태"""
+    """LangGraph 상태 — parsed_state는 schemas.ParsedState와 동일 키 구조."""
     messages: Annotated[list[BaseMessage], add_messages]
     summary: str
-    parsed_state: ParsedState
+    parsed_state: dict[str, Any]
 
 
 class ChatService:
@@ -59,14 +74,9 @@ class ChatService:
         self.client = OpenAIClient()
         self.parser = ChatParser(client=self.client)
 
-        # 개발용 checkpointer
-        # 운영에서는 Redis 기반으로 교체
-        self.checkpointer = InMemorySaver()
-
-        # 임시 장기 메모리 저장소
-        self._long_term_memories: dict[str, PreferenceSummary] = {}
-        # 장기 선호 프로필(키->점수). 현재 MVP에서는 in-memory로만 누적합니다.
-        self._long_term_profiles: dict[str, dict[str, float]] = {}
+        # 단기 메모리(messages, summary) + parsed_state 저장
+        # REDIS_URL 설정 시 Redis, 미설정 시 InMemorySaver
+        self.checkpointer = _create_checkpointer()
 
         self.graph = self._build_graph()
 
@@ -76,7 +86,8 @@ class ChatService:
         self.followup_question_generator = FollowupQuestionGenerator(client=self.client)
         self.summary_service = SummaryService(client=self.client)
         self.response_factory = ResponseFactory()
-        self.memory_service = MemoryService()
+        self.redis_reply_publisher = RedisReplyPublisher(settings.redis_url)
+        # self.memory_service = MemoryService()  # 장기 메모리 비활성화
 
     def _build_graph(self):
         workflow = StateGraph(ChatState)
@@ -96,8 +107,8 @@ class ChatService:
         has_history = bool(state and state.get("messages"))
         is_session_start = not has_history
 
-        if request.preferenceSummary:
-            self._long_term_memories[thread_id] = request.preferenceSummary
+        # if request.preferenceSummary:
+        #     self._long_term_memories[thread_id] = request.preferenceSummary  # 장기 메모리 비활성화
 
         memory_status = MemoryStatus.OK
         if is_session_start and request.contextInjection and request.contextInjection.reason == "MISSING_MEMORY":
@@ -127,7 +138,7 @@ class ChatService:
 
         await self.state_store.save_parsed_state(thread_id, merged_parsed_state)
 
-        normalized_parsed_state: ParsedState = self.parsed_state_manager.normalize_parsed_state(
+        normalized_parsed_state: dict[str, Any] = self.parsed_state_manager.normalize_parsed_state(
             merged_parsed_state
         )
 
@@ -141,16 +152,16 @@ class ChatService:
             )
             await self.state_store.save_summary(thread_id, updated_summary)
 
-        # 4-1) 장기 선호(장기 메모리) 업데이트
-        prev_profile = self._long_term_profiles.get(thread_id, {})
-        updated_profile, _events = self.memory_service.process_user_message_for_long_term_memory(
-            user_message=user_message,
-            summary=updated_summary,
-            previous_profile=prev_profile,
-        )
-        self._long_term_profiles[thread_id] = updated_profile
+        # 4-1) 장기 선호(장기 메모리) 업데이트 — MVP 비활성화
+        # prev_profile = self._long_term_profiles.get(thread_id, {})
+        # updated_profile, _events = self.memory_service.process_user_message_for_long_term_memory(
+        #     user_message=user_message,
+        #     summary=updated_summary,
+        #     previous_profile=prev_profile,
+        # )
+        # self._long_term_profiles[thread_id] = updated_profile
 
-        # 5) missing slot 탐지 -> targetSlot 선택 -> follow-up 질문 생성 (백엔드가 분기 제어)
+        # 5) missing slot 탐지 -> 슬롯 1개 선택 -> follow-up 질문 생성 (AI 서버 내부 전용)
         missing_slots = self.parsed_state_manager.detect_missing_slots(normalized_parsed_state)
 
         if not missing_slots:
@@ -173,13 +184,17 @@ class ChatService:
                 thread_id=thread_id,
                 user_id=request.userId,
                 chat_response_text=question,
-                target_slot=target_slot,
                 normalized_parsed_state=normalized_parsed_state,
                 memory_status=memory_status,
             )
 
         # 6) AI 응답 저장
         await self.state_store.save_ai_message(thread_id, response.chatResponse)
+
+        # 7) BE Redis Pub/Sub (BE는 ai:reply 구독 — 체크포인터 Redis와 별도 클라이언트)
+        self.redis_reply_publisher.publish_chat_reply(
+            build_be_ai_reply_redis_payload(request, response)
+        )
 
         return response
 

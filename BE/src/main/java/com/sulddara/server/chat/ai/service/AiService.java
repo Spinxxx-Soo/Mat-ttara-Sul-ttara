@@ -106,7 +106,8 @@ public class AiService {
                         response.getParsedState().lat(),
                         response.getParsedState().lng()
                 );
-                sendCandidatesToAi(sessionId, userId, response, candidateIds);
+                SessionState updatedState = response.getParsedState().withFinalPlaceIds(candidateIds);
+                sendCandidatesToAi(sessionId, userId, updatedState);
                 return;
             }
             if ("RECOMMENDATION".equals(response.getType()) && response.getPlaces() != null) {
@@ -186,12 +187,11 @@ public class AiService {
                 userPreference.getGender());
     }
 
-    public void sendCandidatesToAi(long sessionId, long userId, AiChatResponse response, List<Long> candidateIds) {
+    public void sendCandidatesToAi(long sessionId, long userId, SessionState updatedState) {
         var internalRequest = AiPlaceCandidatesRequest.builder()
                 .threadId("chat-" + sessionId)
                 .userId(userId)
-                .sessionState(response.getParsedState())
-                .finalPlaceIds(candidateIds)
+                .sessionState(updatedState)
                 .build();
 
         webClient.post()

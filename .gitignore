@@ -5,7 +5,6 @@
 .DS_Store
 .vscode/
 FE/.vexp/manifest.json
-.gitignore
 FE/.vexp/index.db-shm
 FE/.vexp/index.db-wal
 FE/.vexp/index.db
@@ -13,8 +12,8 @@ FE/vexp.toml
 FE/docs/*
 BE/build_log.txt
 .env.local
+../BE_backup/
 AGENTS.md
-.gitignore
 docs/HANDOFF.md
 docs/*
 FE/PLAN_FLOW_RESOLUTION_REPORT_2026-03-25.md

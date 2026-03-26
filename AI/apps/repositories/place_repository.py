@@ -1,3 +1,42 @@
+from typing import Any, Dict, List, Protocol
+
+
+class _SessionLike(Protocol):
+    def add(self, instance: Any) -> None: ...
+    def commit(self) -> None: ...
+    def query(self, model: Any) -> Any: ...
+
+
+class PlaceRepository:
+    def upsert_places(self, db: _SessionLike, PlaceModel: Any, places: List[Dict[str, Any]]) -> Dict[str, int]:
+        inserted = 0
+        updated = 0
+
+        for payload in places:
+            existing = (
+                db.query(PlaceModel)
+                .filter(PlaceModel.external_place_id == payload["external_place_id"])
+                .one_or_none()
+            )
+
+            if existing is None:
+                db.add(PlaceModel(**payload))
+                inserted += 1
+                continue
+
+            existing.name = payload["name"]
+            existing.address = payload["address"]
+            existing.category = payload["category"]
+            existing.lat = payload["lat"]
+            existing.lng = payload["lng"]
+            existing.url = payload["url"]
+            existing.description = payload["description"]
+            existing.last_updated_at = payload["last_updated_at"]
+            updated += 1
+
+        db.commit()
+        return {"inserted": inserted, "updated": updated}
+
 import requests
 
 BASE = "https://places.googleapis.com/v1"

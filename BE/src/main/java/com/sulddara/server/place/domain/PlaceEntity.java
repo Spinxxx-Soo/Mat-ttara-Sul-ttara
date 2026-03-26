@@ -74,6 +74,13 @@ public class PlaceEntity {
     @LastModifiedDate
     private LocalDateTime lastUpdatedAt;
 
+    @OneToMany(mappedBy = "place")
+    private List<ReviewEntity> reviews = new ArrayList<>();
+
+    public void addReview(ReviewEntity review) {
+        this.reviews.add(review);
+    }
+
     public PlaceEntity(String provider, String externalPlaceId, String name,
                        String address, Double lat, Double lng) {
         this.provider = provider;
@@ -97,11 +104,15 @@ public class PlaceEntity {
         if (phone != null) this.phone = phone;
         if (url != null) this.url = url;
         this.lastUpdatedAt = LocalDateTime.now();
+    }
 
-    @OneToMany(mappedBy = "place")
-    private List<ReviewEntity> reviews = new ArrayList<>();
-
-    public void addReview(ReviewEntity review) {
-        this.reviews.add(review);
+    public Double getAverageRating() {
+        if (reviews == null || reviews.isEmpty()) {
+            return 0.0;
+        }
+        double sum = reviews.stream()
+                .mapToInt(ReviewEntity::getRating)
+                .sum();
+        return sum / reviews.size();
     }
 }
