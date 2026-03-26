@@ -24,6 +24,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -55,7 +56,12 @@ public class AiService {
                 .retrieve()
                 .bodyToMono(Void.class)
                 .timeout(Duration.ofSeconds(10))
-                .doOnError(e -> log.error("AI 서버 통신 치명적 실패: session={}", sessionId, e))
+                .retryWhen(reactor.util.retry.Retry.fixedDelay(2, Duration.ofSeconds(2)))
+                .onErrorResume(e -> {
+                    log.error("AI 서버 통신 최종 실패 (session: {}): {}", sessionId, e.getMessage());
+                    handleAiFailure(sessionId, userId);
+                    return Mono.empty();
+                })
                 .subscribe();
 
     }
@@ -217,5 +223,22 @@ public class AiService {
         } catch (JsonProcessingException e) {
             throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private void handleAiFailure(long sessionId, long userId) {
+        String fallbackMsg = "죄송합니다. 현재 AI 상담원이 일시적인 점검 중입니다. 잠시 후 다시 말을 걸어주세요!";
+        long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), fallbackMsg);
+
+        publisher.publishEvent(new AiChatMessageCreatedEvent(
+                sessionId,
+                messageId,
+                userId,
+                RoleType.ASSISTANT.toString(),
+                fallbackMsg,
+                "ERROR",
+                null,
+                null,
+                Instant.now().toEpochMilli()
+        ));
     }
 }
