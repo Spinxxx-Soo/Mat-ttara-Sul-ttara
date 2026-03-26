@@ -10,6 +10,8 @@ export const mapPlanToUI = (plan: Plan | PlanDetail): PlanUIModel => {
   const now = dayjs();
   const isPast = meetingDate.isBefore(now, 'day');
   const daysDiff = meetingDate.diff(now, 'day');
+  const shareToken = (plan as { shareToken?: string; shareId?: string }).shareToken
+    || (plan as { shareToken?: string; shareId?: string }).shareId;
 
   // 임시 썸네일 선정 (나중에 plan.thumbnailUrl이 있으면 그것을 우선 사용)
   const defaultImages = [
@@ -33,6 +35,7 @@ export const mapPlanToUI = (plan: Plan | PlanDetail): PlanUIModel => {
   return {
     ...plan,
     id: plan.planId.toString(),
+    shareToken,
     memo: plan.memo || '',
     updatedAt: plan.updatedAt || '',
     thumbnailUrl,

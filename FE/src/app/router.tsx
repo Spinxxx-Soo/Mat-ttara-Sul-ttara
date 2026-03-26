@@ -11,6 +11,7 @@ import Main from '@/pages/Main';
 import MyPlan from '@/pages/MyPlan';
 import MyPlanCreate from '@/pages/MyPlanCreate';
 import MyPlanDetail from '@/pages/MyPlanDetail';
+import MyPlanSharedDetail from '@/pages/MyPlanSharedDetail';
 import MyPlanEdit from '@/pages/MyPlanEdit';
 import Onboarding from '@/pages/Onboarding';
 import Search from '@/pages/Search';
@@ -21,6 +22,10 @@ export const router = createBrowserRouter([
     element: <AuthInitializer />,
     errorElement: <RouteErrorFallback />,
     children: [
+      {
+        path: '/plan/share/:shareToken',
+        element: <MyPlanSharedDetail />,
+      },
       {
         element: <PublicRoute />,
         children: [
