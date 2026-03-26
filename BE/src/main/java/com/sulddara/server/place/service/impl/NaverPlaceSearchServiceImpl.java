@@ -1,7 +1,7 @@
 package com.sulddara.server.place.service.impl;
 
 import com.sulddara.server.global.error.exception.ExternalServiceException;
-import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
+import com.sulddara.server.place.dto.KakaoLocalSearchResponseDto;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,7 +10,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -18,7 +17,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 
 @Slf4j
-@Service
+//@Service
 @RequiredArgsConstructor
 public class NaverPlaceSearchServiceImpl implements ExternalPlaceSearchService {
 
@@ -37,7 +36,7 @@ public class NaverPlaceSearchServiceImpl implements ExternalPlaceSearchService {
     private String clientSecret;
 
     @Override
-    public NaverLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort) {
+    public KakaoLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort) {
         URI uri = UriComponentsBuilder.fromUriString(naverSearchUrl)
                 .queryParam("query", query)
                 .queryParam("display", display)
@@ -56,14 +55,14 @@ public class NaverPlaceSearchServiceImpl implements ExternalPlaceSearchService {
         log.debug("Calling Naver Local Search API : URI={}", uri);
 
         try {
-            ResponseEntity<NaverLocalSearchResponseDto> response = restTemplate.exchange(
+            ResponseEntity<KakaoLocalSearchResponseDto> response = restTemplate.exchange(
                     uri,
                     HttpMethod.GET,
                     requestEntity,
-                    NaverLocalSearchResponseDto.class
+                    KakaoLocalSearchResponseDto.class
             );
 
-            NaverLocalSearchResponseDto body = response.getBody();
+            KakaoLocalSearchResponseDto body = response.getBody();
             if (body == null) {
                 throw new ExternalServiceException("네이버 지역 검색 API 응답 바디가 비어있습니다.");
             }
