@@ -152,11 +152,25 @@ class ChatService:
             session_state=request.sessionState,
         )
 
+        previous_normalized_parsed_state: dict[str, Any] = (
+            self.parsed_state_manager.normalize_parsed_state(previous_parsed_state)
+        )
+        previous_missing_slots = self.parsed_state_manager.detect_missing_slots(
+            previous_normalized_parsed_state
+        )
+        target_slot_hint: Optional[str] = None
+        if previous_missing_slots:
+            target_slot_hint = self.parsed_state_manager.select_target_slot(
+                missing_slots=previous_missing_slots,
+                normalized_parsed_state=previous_normalized_parsed_state,
+            )
+
         # 3) 유저 발화 파싱 (파서에 위임)
         merged_parsed_state = await self.parser.parse(
             user_message=user_message,
             summary=current_summary,
             previous_parsed_state=previous_parsed_state,
+            target_slot_hint=target_slot_hint,
         )
 
         await self.state_store.save_parsed_state(thread_id, merged_parsed_state)
