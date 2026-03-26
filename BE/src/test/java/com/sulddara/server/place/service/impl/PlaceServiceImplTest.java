@@ -138,9 +138,9 @@ class PlaceServiceImplTest {
         Double userLng = 127.0000;
 
         // 1. 500m 거리 장소 (포함되어야 함)
-        RecommendedPlace nearPlace = new RecommendedPlace(101L, "가까운 곳", 37.5040, 127.0000, "주소1", "이유1", List.of());
+        RecommendedPlace nearPlace = new RecommendedPlace(101L, "가까운 곳", 37.5040, 127.0000, "주소1");
         // 2. 1.5km 거리 장소 (제외되어야 함)
-        RecommendedPlace farPlace = new RecommendedPlace(102L, "먼 곳", 37.5150, 127.0000, "주소2", "이유2", List.of());
+        RecommendedPlace farPlace = new RecommendedPlace(102L, "먼 곳", 37.5150, 127.0000, "주소2");
 
         List<RecommendedPlace> mockList = List.of(nearPlace, farPlace);
         String jsonList = objectMapper.writeValueAsString(mockList);

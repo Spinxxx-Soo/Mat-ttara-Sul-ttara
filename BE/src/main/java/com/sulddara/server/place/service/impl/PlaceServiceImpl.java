@@ -192,16 +192,16 @@ public class PlaceServiceImpl implements PlaceService {
             }
         }
 
-        // webclient로 데이터가 null일 경우 ai한테 크롤링 로직 호출
-        if(isMissingData(place)) {
+        if (isMissingData(place)) {
             fetchAndEnrichData(place);
+            place = placeRepository.findByIdWithReviews(placeId)
+                    .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
         }
 
         PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
 
-        Double averageRating = place.getAverageRating();
+        Double rating = place.getAverageRating();
 
-        // rating 불러오는 로직 필요!!!!
         return PlaceDetailResponse.builder()
                 .placeId(place.getId())
                 .name(place.getName())
@@ -209,9 +209,10 @@ public class PlaceServiceImpl implements PlaceService {
                 .phone(place.getPhone())
                 .lat(place.getLat())
                 .lng(place.getLng())
-                .rating(averageRating)
+                .rating(rating)
                 .category(place.getCategory())
                 .description(place.getDescription())
+                .rating(rating)
                 .imageUrls(place.getImageUrl() != null ? List.of(place.getImageUrl()) : List.of())
                 .openingHours(openingHours)
                 .url(place.getUrl())
@@ -305,6 +306,15 @@ public class PlaceServiceImpl implements PlaceService {
     @Transactional
     public void updatePlaceImageUrl(Long placeId, String s3Url) {
         placeRepository.findById(placeId).ifPresent(p -> p.updateImageUrl(s3Url));
+    }
+
+    @Override
+    @Transactional
+    public void enrichPlaceData(Long placeId) {
+        PlaceEntity place = placeRepository.findById(placeId)
+                .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
+
+        fetchAndEnrichData(place);
     }
 
     // ===== 검색 보조 메서드 =====
