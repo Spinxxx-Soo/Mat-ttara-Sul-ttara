@@ -6,7 +6,7 @@ import com.sulddara.server.chat.ai.controller.response.PlaceDetailResponse;
 import com.sulddara.server.chat.ai.controller.response.RecommendedPlace;
 import com.sulddara.server.global.error.exception.BaseException;
 import com.sulddara.server.place.domain.PlaceEntity;
-import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
+import com.sulddara.server.place.dto.KakaoLocalSearchResponseDto;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
@@ -22,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.security.core.parameters.P;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -63,6 +62,9 @@ class PlaceServiceImplTest {
     @Mock
     private WebClient webClient;
 
+    @Mock
+    private PlaceIndexingService placeIndexingService;
+
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -82,7 +84,7 @@ class PlaceServiceImplTest {
 
     @Test
     @DisplayName("searchPlaces - ES 캐시 미스 시 외부 API 검색 결과를 반환한다")
-    void searchPlaces_esCacheMiss_returnsNaverResults() {
+    void searchPlaces_esCacheMiss_returnsKakaoResults() {
         // given
         String keyword = "맛집";
         double userLat = 37.5665;
@@ -94,18 +96,23 @@ class PlaceServiceImplTest {
         given(emptyPage.hasContent()).willReturn(false);
         given(placeSearchRepository.findByNameContaining(eq(keyword), any())).willReturn(emptyPage);
 
-        NaverLocalSearchResponseDto.NaverPlaceItem mockItem = mock(NaverLocalSearchResponseDto.NaverPlaceItem.class);
-        given(mockItem.getTitle()).willReturn("<b>네이버</b> 맛집 1");
-        given(mockItem.getCategory()).willReturn("음식점>한식");
-        given(mockItem.getRoadAddress()).willReturn("도로명 주소 1");
-        given(mockItem.getMapx()).willReturn("314681");  // KATEC X (TM128)
-        given(mockItem.getMapy()).willReturn("544307");   // KATEC Y (TM128)
-        given(mockItem.getTelephone()).willReturn("02-1234-5678");
+        KakaoLocalSearchResponseDto.Document mockDoc = mock(KakaoLocalSearchResponseDto.Document.class);
+        given(mockDoc.getPlace_name()).willReturn("<b>카카오</b> 맛집 1");
+        given(mockDoc.getCategory_name()).willReturn("음식점 > 한식");
+        given(mockDoc.getRoad_address_name()).willReturn("도로명 주소 1");
+        given(mockDoc.getX()).willReturn("126.9780"); // lng
+        given(mockDoc.getY()).willReturn("37.5665");  // lat
+        given(mockDoc.getPhone()).willReturn("02-1234-5678");
+        given(mockDoc.getId()).willReturn("kakao_123");
 
-        NaverLocalSearchResponseDto mockNaverResponse = mock(NaverLocalSearchResponseDto.class);
-        given(mockNaverResponse.getItems()).willReturn(Collections.singletonList(mockItem));
+        KakaoLocalSearchResponseDto.Meta mockMeta = mock(KakaoLocalSearchResponseDto.Meta.class);
+        given(mockMeta.getTotal_count()).willReturn(1);
 
-        given(externalSearchService.searchPlaces(eq(keyword), anyInt(), anyInt(), anyString())).willReturn(mockNaverResponse);
+        KakaoLocalSearchResponseDto mockKakaoResponse = mock(KakaoLocalSearchResponseDto.class);
+        given(mockKakaoResponse.getDocuments()).willReturn(Collections.singletonList(mockDoc));
+        given(mockKakaoResponse.getMeta()).willReturn(mockMeta);
+
+        given(externalSearchService.searchPlaces(eq(keyword), anyInt(), anyInt(), anyString())).willReturn(mockKakaoResponse);
         given(placeRepository.findByProviderAndExternalPlaceId(anyString(), anyString())).willReturn(Optional.empty());
 
         // when
@@ -114,11 +121,10 @@ class PlaceServiceImplTest {
         // then
         assertThat(response.getContent()).hasSize(1);
         PlaceSearchResponseDto.PlaceItemDto responseItem = response.getContent().get(0);
-        assertThat(responseItem.getName()).isEqualTo("네이버 맛집 1"); // HTML stripped
-        assertThat(responseItem.getCategory()).isEqualTo("음식점>한식");
-        // KATEC(TM128) -> WGS84 변환 검증 (대략적인 범위 검증)
-        assertThat(responseItem.getLat()).isGreaterThan(37.0).isLessThan(38.0);
-        assertThat(responseItem.getLng()).isGreaterThan(126.0).isLessThan(128.0);
+        assertThat(responseItem.getName()).isEqualTo("카카오 맛집 1"); // HTML stripped
+        assertThat(responseItem.getCategory()).isEqualTo("음식점 > 한식");
+        assertThat(responseItem.getLat()).isEqualTo(37.5665);
+        assertThat(responseItem.getLng()).isEqualTo(126.9780);
         assertThat(responseItem.getDistance()).isZero();
         assertThat(responseItem.getRating()).isZero();
     }
