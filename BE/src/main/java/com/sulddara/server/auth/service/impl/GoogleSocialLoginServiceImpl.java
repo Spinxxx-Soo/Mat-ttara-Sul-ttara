@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
@@ -98,6 +99,18 @@ public class GoogleSocialLoginServiceImpl implements SocialLoginService {
                 throw new UnauthorizedException(ErrorCode.INVALID_SOCIAL_CODE);
             }
             return (String) body.get("access_token");
+        } catch (HttpStatusCodeException e) {
+            // Google OAuth 토큰 교환 실패(대표적으로 redirect_uri_mismatch, invalid_grant) 로그 명확화
+            log.error(
+                    "[Google OAuth] token exchange 실패 status={} body={} redirect_uri={}",
+                    e.getStatusCode(),
+                    e.getResponseBodyAsString(),
+                    redirectUri
+            );
+            if (e.getStatusCode().is4xxClientError()) {
+                throw new UnauthorizedException(ErrorCode.INVALID_SOCIAL_CODE);
+            }
+            throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
         } catch (Exception e) {
             log.error("[Google OAuth] getAccessToken 실패: {}", e.getMessage(), e);
             throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);

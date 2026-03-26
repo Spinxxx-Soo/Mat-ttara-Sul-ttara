@@ -162,15 +162,15 @@ export const placeApi = {
 
   /**
    * 채팅 세션 기준 AI 추천 장소 목록 (SSE 수신 후 갱신용)
-   * GET /api/v1/places/recommend?sessionId=
+   * GET /api/v1/places/recommend?lat=&lng=
    */
   getRecommendedPlaces: async (
-    sessionId: string | number,
+    params: { lat: number; lng: number },
   ): Promise<RecommendedPlace[]> => {
     const { data } = await apiClient.get<RecommendedPlace[] | { content: RecommendedPlace[] }>(
       '/api/v1/places/recommend',
       {
-        params: { sessionId: String(sessionId) },
+        params,
       },
     );
 

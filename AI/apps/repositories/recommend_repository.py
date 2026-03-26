@@ -104,3 +104,41 @@ class RecommendRepository:
             print(f"[-] get_place_vectors Error: {e}")
 
         return vectors
+
+    def get_places_details(self, place_ids: List[int]) -> Dict[int, Dict[str, object]]:
+        """
+        PLACES 테이블에서 추천 대상 장소 상세정보를 조회합니다.
+
+        Returns:
+            {place_id: {"name":..., "address":..., "lat":..., "lng":..., "category":...}}
+        """
+        if not place_ids:
+            return {}
+
+        format_strings = ",".join(["%s"] * len(place_ids))
+        query = f"""
+            SELECT place_id, name, address, lat, lng, category
+            FROM places
+            WHERE place_id IN ({format_strings})
+        """
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(query, tuple(place_ids))
+                    rows = cursor.fetchall()
+
+                    return {
+                        int(row["place_id"]): {
+                            "name": row.get("name"),
+                            "address": row.get("address"),
+                            "lat": row.get("lat"),
+                            "lng": row.get("lng"),
+                            "category": row.get("category"),
+                        }
+                        for row in rows
+                        if row and row.get("place_id") is not None
+                    }
+        except Exception as e:
+            print(f"[-] get_places_details Error: {e}")
+            return {}

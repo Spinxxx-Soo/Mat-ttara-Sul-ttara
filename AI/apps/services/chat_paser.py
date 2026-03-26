@@ -22,6 +22,7 @@ class ChatParser:
         user_message: str,
         summary: str,
         previous_parsed_state: dict[str, Any],
+        target_slot_hint: Optional[str] = None,
     ) -> dict[str, Any]:
         """
         유저 발화 파싱 및 상태 병합
@@ -38,6 +39,12 @@ class ChatParser:
             previous_parsed_state=previous_parsed_state,
         )
         parsed_update = self._merge_results(rule_result, llm_result)
+        hint_update = self._infer_short_answer_with_slot_hint(
+            user_message=user_message,
+            target_slot_hint=target_slot_hint,
+            previous_parsed_state=previous_parsed_state,
+        )
+        parsed_update = self._merge_results(parsed_update, hint_update)
 
         # 2) 이전 상태와 병합
         merged_state = self.merge_parsed_state(
@@ -52,6 +59,56 @@ class ChatParser:
             )
 
         return merged_state
+
+    def _infer_short_answer_with_slot_hint(
+        self,
+        *,
+        user_message: str,
+        target_slot_hint: Optional[str],
+        previous_parsed_state: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        짧은 응답(네/아니요/없어)을 직전 질문 슬롯에 매핑합니다.
+        LLM이 문맥 해석에 실패해도 같은 슬롯 재질문 루프를 줄이기 위한 보강 로직입니다.
+        """
+        if not target_slot_hint:
+            return {}
+        if target_slot_hint not in parsed_state_mergeable_keys():
+            return {}
+
+        # time/lat/lng은 짧은 응답만으로 확정하기 어렵기 때문에 제외합니다.
+        if target_slot_hint in {"time", "lat", "lng"}:
+            return {}
+
+        if previous_parsed_state.get(target_slot_hint) is not None:
+            return {}
+
+        normalized = re.sub(r"\s+", "", user_message.strip().lower())
+        if not normalized:
+            return {}
+
+        positive_tokens = {
+            "네", "예", "응", "엉", "ㅇㅇ", "넵", "넹",
+            "맞아", "맞아요", "맞음", "좋아", "좋아요",
+            "괜찮아", "괜찮아요", "가능", "오케이", "ok",
+        }
+        negative_tokens = {
+            "아니", "아뇨", "아니요", "ㄴㄴ", "노",
+            "싫어", "싫어요", "별로", "안돼", "안되",
+        }
+        no_preference_tokens = {
+            "없어", "없어요", "없습니다", "딱히", "상관없어", "아무거나",
+        }
+
+        if normalized in positive_tokens:
+            return {target_slot_hint: 1.0}
+        if normalized in negative_tokens:
+            return {target_slot_hint: 0.0}
+        if normalized in no_preference_tokens:
+            # 무관/미정 응답도 "답변 완료"로 간주하여 재질문 루프를 방지합니다.
+            return {target_slot_hint: 0.5}
+
+        return {}
 
     def _rule_based_parse(self, user_message: str) -> dict[str, Any]:
         result: dict[str, Any] = {
