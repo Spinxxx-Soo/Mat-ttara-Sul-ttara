@@ -39,6 +39,9 @@ export function useCreatePlaceReview(placeId: number) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.place.all,
+      });
     },
     meta: { errorMessage: extractApiErrorMessage },
   });
@@ -62,6 +65,9 @@ export function useUpdatePlaceReview(placeId: number) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.place.all,
+      });
     },
     meta: { errorMessage: extractApiErrorMessage },
   });
@@ -79,6 +85,9 @@ export function useDeletePlaceReview(placeId: number) {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.place.all,
       });
     },
     meta: { errorMessage: extractApiErrorMessage },
