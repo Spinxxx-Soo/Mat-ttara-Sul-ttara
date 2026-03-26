@@ -30,10 +30,9 @@ public class ChatController {
     @GetMapping("/messages")
     public ResponseEntity<?> getMessages(@AuthenticationPrincipal CustomOAuth2User user,
                                          @RequestParam long sessionId,
-                                         @RequestParam(required = false) Long cursor,
                                          @PageableDefault(size = 20) Pageable pageable){
         Long userId = user.getUserId();
-        var response = chatService.getMessages(userId, sessionId, cursor, pageable);
+        var response = chatService.getMessages(userId, sessionId, pageable);
         return ResponseEntity.ok(response);
     }
 
