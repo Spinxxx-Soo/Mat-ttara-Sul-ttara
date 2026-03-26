@@ -8,6 +8,7 @@ import { consumeSseStream } from '@/lib/sse/consumeSseStream';
 import { recommendedPlaceToPlace } from '@/lib/recommendedPlaceToPlace';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import type { AiSseResponsePayload } from '@/types/api';
+import { FALLBACK_LOCATION, useLocationStore } from '@/stores/locationStore';
 
 /**
  * 채팅 세션 SSE 구독 (/api/v1/chat/{sessionId}/stream)
@@ -17,6 +18,7 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
   const queryClient = useQueryClient();
   const setAiRecommendedPlaces = useChatMapStore((s) => s.setAiRecommendedPlaces);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const { lat, lng } = useLocationStore();
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -25,10 +27,13 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
     // SSE 연결만 기다리면(connected 이벤트만 받고) 과거 추천이 복원되지 않을 수 있어
     // 세션 전환 시점에 추천 장소를 1회 선조회해서 지도 핀을 즉시 복원합니다.
     let cancelled = false;
-    const currentSessionId = sessionId;
+    const coords = {
+      lat: lat ?? FALLBACK_LOCATION.lat,
+      lng: lng ?? FALLBACK_LOCATION.lng,
+    };
     (async () => {
       try {
-        const recommended = await placeApi.getRecommendedPlaces(currentSessionId);
+        const recommended = await placeApi.getRecommendedPlaces(coords);
         if (cancelled) return;
         const mapped = recommended.map(recommendedPlaceToPlace);
         setAiRecommendedPlaces(mapped);
@@ -76,8 +81,10 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
               });
 
               try {
-                const rawSession = String(payload.sessionId ?? sessionId);
-                const recommended = await placeApi.getRecommendedPlaces(rawSession);
+                const recommended = await placeApi.getRecommendedPlaces({
+                  lat: lat ?? FALLBACK_LOCATION.lat,
+                  lng: lng ?? FALLBACK_LOCATION.lng,
+                });
                 const mapped = recommended.map(recommendedPlaceToPlace);
                 setAiRecommendedPlaces(mapped);
               } catch (e) {
@@ -101,5 +108,5 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
       ac.abort();
       abortRef.current = null;
     };
-  }, [sessionId, enabled, accessToken, queryClient, setAiRecommendedPlaces]);
+  }, [sessionId, enabled, accessToken, queryClient, setAiRecommendedPlaces, lat, lng]);
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatMapStore } from '@/stores/chatMapStore'
 import { useChatSessionSse } from '@/hooks/useChatSessionSse'
@@ -16,22 +16,61 @@ const ChatWidget = () => {
   const [isSessionListOpen, setIsSessionListOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasInitializedSessionRef = useRef(false)
+  const [lastSessionCreateError, setLastSessionCreateError] = useState<string | null>(null)
+  const [lastSendError, setLastSendError] = useState<string | null>(null)
 
   const { data: sessionsData } = useChatSessions({ size: 20 })
   const sessions: ChatSession[] = sessionsData?.content || []
 
   const createSessionMutation = useCreateSession()
 
+  // 세션 생성 요청이 "pending에서 끝나지 않는" 상태(네트워크/환경 문제)가 종종 발생해
+  // 개발 단계에서 원인 파악이 쉽도록 타임아웃 감지 후 재시도 가능 상태로 복구합니다.
+  useEffect(() => {
+    if (!createSessionMutation.isPending) return
+
+    const timeoutMs = 12_000
+    const t = window.setTimeout(() => {
+      if (!createSessionMutation.isPending) return
+      setLastSessionCreateError(
+        `세션 생성 요청이 ${Math.round(timeoutMs / 1000)}초 이상 지연되고 있습니다. (Network에서 POST /api/v1/chat/sessions 상태 확인)`
+      )
+      hasInitializedSessionRef.current = false
+      createSessionMutation.reset()
+    }, timeoutMs)
+
+    return () => {
+      window.clearTimeout(t)
+    }
+  }, [createSessionMutation.isPending, createSessionMutation])
+
   useEffect(() => {
     // 로그인 직후 user 동기화가 늦게 도착할 수 있으므로,
     // 세션 생성은 user 유무가 아니라 isLoggedIn(=토큰 존재) 기준으로 수행합니다.
     if (!sessionId && isLoggedIn && !createSessionMutation.isPending && !hasInitializedSessionRef.current) {
       hasInitializedSessionRef.current = true
+      setLastSessionCreateError(null)
       createSessionMutation.mutate(
         { title: '새 대화' },
         {
           onSuccess: (data) => {
-            setSessionId(data.sessionId)
+            const raw = (data as unknown as { sessionId?: unknown; session_id?: unknown; id?: unknown }).sessionId
+              ?? (data as unknown as { sessionId?: unknown; session_id?: unknown; id?: unknown }).session_id
+              ?? (data as unknown as { sessionId?: unknown; session_id?: unknown; id?: unknown }).id
+
+            if (raw == null || String(raw).trim() === '') {
+              setLastSessionCreateError('세션 생성 응답에 sessionId가 없습니다.')
+              hasInitializedSessionRef.current = false
+              return
+            }
+
+            setSessionId(String(raw))
+          },
+          onError: (err: unknown) => {
+            const message = err instanceof Error ? err.message : '세션 생성에 실패했습니다.'
+            setLastSessionCreateError(message)
+            // 다음 렌더에서 재시도 가능하도록 풀어줌
+            hasInitializedSessionRef.current = false
           },
         }
       )
@@ -41,12 +80,26 @@ const ChatWidget = () => {
   const handleNewSession = () => {
     if (createSessionMutation.isPending) return
 
+    setLastSessionCreateError(null)
     createSessionMutation.mutate(
       { title: '새 대화' },
       {
         onSuccess: (data) => {
-          setSessionId(data.sessionId)
+          const raw = (data as unknown as { sessionId?: unknown; session_id?: unknown; id?: unknown }).sessionId
+            ?? (data as unknown as { sessionId?: unknown; session_id?: unknown; id?: unknown }).session_id
+            ?? (data as unknown as { sessionId?: unknown; session_id?: unknown; id?: unknown }).id
+
+          if (raw == null || String(raw).trim() === '') {
+            setLastSessionCreateError('세션 생성 응답에 sessionId가 없습니다.')
+            return
+          }
+
+          setSessionId(String(raw))
           setIsSessionListOpen(false)
+        },
+        onError: (err: unknown) => {
+          const message = err instanceof Error ? err.message : '세션 생성에 실패했습니다.'
+          setLastSessionCreateError(message)
         },
       }
     )
@@ -63,7 +116,14 @@ const ChatWidget = () => {
     size: 50,
   })
 
-  const messages: ChatMessage[] = messagesData?.content || []
+  const [displayMessages, setDisplayMessages] = useState<ChatMessage[]>([])
+  useEffect(() => {
+    if (!messagesData?.content) {
+      setDisplayMessages([])
+      return
+    }
+    setDisplayMessages([...messagesData.content].sort((a, b) => a.messageId - b.messageId))
+  }, [messagesData, sessionId])
 
   const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
   const prevSessionIdRef = useRef<string | null>(null)
@@ -84,19 +144,35 @@ const ChatWidget = () => {
     if (!input.trim() || !sessionId) return
 
     try {
-      await sendMessageMutation.mutateAsync({
+      setLastSendError(null)
+      const sent = await sendMessageMutation.mutateAsync({
         sessionId,
         content: input.trim(),
       })
+      setDisplayMessages((prev) => {
+        if (prev.some((m) => m.messageId === sent.messageId)) return prev
+        return [...prev, sent].sort((a, b) => a.messageId - b.messageId)
+      })
       setInput('')
     } catch (error) {
+      const message = error instanceof Error ? error.message : '메시지 전송에 실패했습니다.'
+      setLastSendError(message)
       console.error('메시지 전송 실패:', error)
     }
   }
 
+  const sendDisabledReason = useMemo(() => {
+    if (!isLoggedIn) return '로그인이 필요합니다.'
+    if (createSessionMutation.isPending) return '세션을 준비하는 중입니다...'
+    if (!sessionId) return '세션을 생성하지 못했습니다. (상단 “새 대화”를 눌러 재시도)'
+    if (!input.trim()) return '메시지를 입력해주세요.'
+    if (sendMessageMutation.isPending) return '메시지 전송 중입니다...'
+    return null
+  }, [isLoggedIn, sessionId, input, createSessionMutation.isPending, sendMessageMutation.isPending])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [displayMessages])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -183,17 +259,17 @@ const ChatWidget = () => {
 
       {/* Chat Area */}
       <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50 dark:bg-slate-900/50 text-sm">
-        {isLoadingMessages && messages.length === 0 && (
+        {isLoadingMessages && displayMessages.length === 0 && (
           <div className="flex items-center justify-center h-full min-h-[120px]">
             <p className="text-slate-500">메시지를 불러오는 중...</p>
           </div>
         )}
-        {!isLoadingMessages && messages.length === 0 && (
+        {!isLoadingMessages && displayMessages.length === 0 && (
           <div className="flex items-center justify-center h-full min-h-[120px]">
             <p className="text-slate-500">대화를 시작해보세요!</p>
           </div>
         )}
-        {messages.map((message) => {
+        {displayMessages.map((message) => {
           const isUser = message.role === 'USER'
           return (
             <div
@@ -238,6 +314,45 @@ const ChatWidget = () => {
 
       {/* Input Area */}
       <div className="shrink-0 p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        {(sendDisabledReason || lastSessionCreateError || lastSendError) && (
+          <div className="mb-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            {sendDisabledReason && (
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-[16px] text-slate-400">info</span>
+                <span>{sendDisabledReason}</span>
+              </div>
+            )}
+            {import.meta.env.DEV && (
+              <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                debug: isLoggedIn={String(isLoggedIn)} / sessionId={sessionId ? sessionId : '(empty)'} / createPending=
+                {String(createSessionMutation.isPending)} / sendPending={String(sendMessageMutation.isPending)}
+              </div>
+            )}
+            {lastSessionCreateError && (
+              <div className="mt-1 flex items-start gap-2 text-red-600 dark:text-red-400">
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                <span className="flex-1">세션 생성 실패: {lastSessionCreateError}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    hasInitializedSessionRef.current = false
+                    createSessionMutation.reset()
+                    handleNewSession()
+                  }}
+                  className="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 dark:border-red-900/40 dark:bg-slate-950 dark:text-red-300 dark:hover:bg-red-950/30"
+                >
+                  재시도
+                </button>
+              </div>
+            )}
+            {lastSendError && (
+              <div className="mt-1 flex items-start gap-2 text-red-600 dark:text-red-400">
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                <span>전송 실패: {lastSendError}</span>
+              </div>
+            )}
+          </div>
+        )}
         <div className="relative flex items-end gap-2 bg-slate-100 dark:bg-slate-800 rounded-2xl p-2.5 border border-slate-200 dark:border-slate-700 focus-within:ring-2 focus-within:ring-primary/50 focus-within:border-primary transition-all">
           <textarea
             value={input}
