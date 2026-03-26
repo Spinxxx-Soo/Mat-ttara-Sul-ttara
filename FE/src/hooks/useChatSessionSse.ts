@@ -110,13 +110,13 @@ export function useChatSessionSse(
             debugLog('event received', { eventName, rawData: data });
             if (eventName === 'connected') return;
 
-            if (eventName === 'chat_message') {
-              let payload: ChatMessageEventPayload;
+            if (eventName === 'chat_message' || eventName === 'ai_response') {
+              let payload: ChatMessageEventPayload & AiSseResponsePayload;
               try {
-                payload = JSON.parse(data) as ChatMessageEventPayload;
-                debugLog('chat_message parsed', payload);
+                payload = JSON.parse(data) as ChatMessageEventPayload & AiSseResponsePayload;
+                debugLog(`${eventName} parsed`, payload);
               } catch (e) {
-                console.warn('[chat-sse] chat_message JSON.parse failed', e, data);
+                console.warn(`[chat-sse] ${eventName} JSON.parse failed`, e, data);
                 return;
               }
 
@@ -124,22 +124,9 @@ export function useChatSessionSse(
               if (normalized && String(normalized.sessionId ?? '') === String(sessionId)) {
                 onMessage?.(normalized);
               }
-              return;
-            }
 
-            if (eventName === 'ai_response') {
-              let payload: AiSseResponsePayload;
-              try {
-                payload = JSON.parse(data) as AiSseResponsePayload;
-                debugLog('ai_response parsed', payload);
-              } catch (e) {
-                console.warn('[chat-sse] ai_response JSON.parse failed', e, data);
+              if (eventName !== 'ai_response') {
                 return;
-              }
-
-              const normalized = toChatMessage(payload as ChatMessageEventPayload, sessionId);
-              if (normalized && String(normalized.sessionId ?? '') === String(sessionId)) {
-                onMessage?.(normalized);
               }
 
               const payloadType = String((payload as { type?: unknown }).type ?? '');

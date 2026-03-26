@@ -18,12 +18,7 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasInitializedSessionRef = useRef(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const shouldDebug = import.meta.env.DEV
-  const debugLog = (...args: unknown[]) => {
-    if (shouldDebug) {
-      console.log('[chat-widget]', ...args)
-    }
-  }
+  const toSessionId = (value: string | number) => String(value)
 
   
 
@@ -34,7 +29,7 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
       { title: '새 대화' },
       {
         onSuccess: (data) => {
-          setSessionId(data.sessionId)
+          setSessionId(toSessionId(data.sessionId))
           setIsSessionListOpen(false)
         },
       }
@@ -42,7 +37,7 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   }
 
   const handleSelectSession = (id: string) => {
-    setSessionId(id)
+    setSessionId(toSessionId(id))
     setIsSessionListOpen(false)
   }
 // 세션 목록 조회
@@ -53,21 +48,7 @@ const sessions: ChatSession[] = sessionsData?.content || []
 const createSessionMutation = useCreateSession()
 
 /**
- * 1. 디버깅 로그
- */
-useEffect(() => {
-  debugLog('render', {
-    embedded,
-    isOpen,
-    sessionId,
-    sessionsLength: sessions.length,
-    userId: user?.userId ?? null,
-    createSessionPending: createSessionMutation.isPending,
-  })
-}, [embedded, isOpen, sessionId, sessions.length, user?.userId, createSessionMutation.isPending])
-
-/**
- * 2. embedded면 항상 열림 유지
+ * 1. embedded면 항상 열림 유지
  */
 useEffect(() => {
   if (embedded && !isOpen) {
@@ -76,21 +57,19 @@ useEffect(() => {
 }, [embedded, isOpen])
 
 /**
- * 3. 기존 세션 복원 (최우선)
+ * 2. 기존 세션 복원 (최우선)
  */
 useEffect(() => {
   if (!isOpen) return
   if (sessionId) return
   if (sessions.length === 0) return
 
-  const latest = sessions[0].sessionId
+  const latest = toSessionId(sessions[0].sessionId)
   setSessionId(latest)
-
-  debugLog('restore latest session', latest)
 }, [isOpen, sessionId, sessions])
 
 /**
- * 4. 세션이 없을 때만 새로 생성
+ * 3. 세션이 없을 때만 새로 생성
  */
 useEffect(() => {
   if (!isOpen) return
@@ -106,8 +85,7 @@ useEffect(() => {
     { title: '새 대화' },
     {
       onSuccess: (data) => {
-        setSessionId(data.sessionId)
-        debugLog('create session success', data.sessionId)
+        setSessionId(toSessionId(data.sessionId))
       },
       onError: (error) => {
         hasInitializedSessionRef.current = false
@@ -129,21 +107,20 @@ useEffect(() => {
       return
     }
     if (!messagesData?.content) return
-    setMessages(
-      [...messagesData.content].sort(
-        (a, b) => a.messageId - b.messageId
-      )
-    )
-  }, [sessionId, messagesData])
+    setMessages((prev) => {
+      const map = new Map<number, ChatMessage>()
 
-  useEffect(() => {
-    debugLog('messages state', {
-      sessionId,
-      isLoadingMessages,
-      messagesLength: messages.length,
-      firstMessageId: messages[0]?.messageId ?? null,
+      prev.forEach((msg) => {
+        map.set(msg.messageId, msg)
+      })
+
+      messagesData.content.forEach((msg) => {
+        map.set(msg.messageId, msg)
+      })
+
+      return [...map.values()].sort((a, b) => a.messageId - b.messageId)
     })
-  }, [sessionId, isLoadingMessages, messages])
+  }, [sessionId, messagesData])
 
   const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
   const prevSessionIdRef = useRef<string | null>(null)
@@ -155,39 +132,25 @@ useEffect(() => {
     }
   }, [sessionId, clearAiRecommendedPlaces])
 
-  /** SSE(ai_response) → GET /api/v1/places/recommend 로 추천 장소 동기화 */
-  useChatSessionSse(sessionId, !!user && !!sessionId)
-
   const sendMessageMutation = useSendMessage()
-  const isLoading = createSessionMutation.isPending || isLoadingMessages
   const isSending = sendMessageMutation.isPending
-  // 현재는 스트리밍 상태를 별도 state로 관리하지 않음(연결 기반 실시간 수신)
-  const isStreaming = false
-  const selectedPlaceId: number | null = null
-  const selectedPlace: unknown = null
-  const sendDisabledReasons = {
-    emptyInput: !input.trim(),
-    missingSessionId: !sessionId,
-    isLoading,
-    isSending,
-    isStreaming,
-  }
   // 최소 조건: 텍스트 + 세션ID만 있으면 전송 가능
-  const isSendDisabled = sendDisabledReasons.emptyInput || sendDisabledReasons.missingSessionId || isSending
+  const isSendDisabled = !input.trim() || !sessionId || isSending
 
   const ensureSessionId = async (): Promise<string | null> => {
     if (sessionId) return sessionId
 
     if (sessions.length > 0) {
-      const restored = sessions[0].sessionId
+      const restored = toSessionId(sessions[0].sessionId)
       setSessionId(restored)
       return restored
     }
 
     try {
       const created = await createSessionMutation.mutateAsync({ title: '새 대화' })
-      setSessionId(created.sessionId)
-      return created.sessionId
+      const createdSessionId = toSessionId(created.sessionId)
+      setSessionId(createdSessionId)
+      return createdSessionId
     } catch (error) {
       console.error('메시지 전송 전 세션 생성 실패:', error)
       return null
@@ -196,14 +159,12 @@ useEffect(() => {
 
   const handleIncomingMessage = useCallback((incoming: ChatMessage) => {
     setMessages((prev) => {
-      if (String(incoming.sessionId ?? '') !== String(sessionId ?? '')) {
+      if (String(incoming.sessionId) !== String(sessionId)) {
         return prev
       }
 
       const exists = prev.some((m) => m.messageId === incoming.messageId)
-      if (exists) {
-        return prev.map((m) => (m.messageId === incoming.messageId ? { ...m, ...incoming } : m))
-      }
+      if (exists) return prev
       return [...prev, incoming]
     })
   }, [sessionId])
@@ -230,31 +191,6 @@ useEffect(() => {
       console.error('메시지 전송 실패:', error)
     }
   }
-
-  useEffect(() => {
-    if (!shouldDebug) return
-    console.log('[chat-widget] send-button debug', {
-      input,
-      sessionId,
-      selectedPlace,
-      selectedPlaceId,
-      isLoading,
-      isSending,
-      isStreaming,
-      disabled: isSendDisabled,
-      disabledReasons: sendDisabledReasons,
-    })
-  }, [
-    input,
-    sessionId,
-    selectedPlace,
-    selectedPlaceId,
-    isLoading,
-    isSending,
-    isStreaming,
-    isSendDisabled,
-    shouldDebug,
-  ])
 
   useEffect(() => {
     if (!isOpen) return
