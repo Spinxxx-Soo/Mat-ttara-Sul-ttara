@@ -53,7 +53,6 @@ public class PlaceServiceImpl implements PlaceService {
     private final WebClient webClient;
     private final S3Service s3Service;
 
-    // ===== 검색 API (ssf14 담당) =====
 
     @Override
     @Transactional(readOnly = true)
@@ -151,7 +150,6 @@ public class PlaceServiceImpl implements PlaceService {
                 .build();
     }
 
-    // ===== AI 추천/상세조회 (yi 담당 - 원본 유지) =====
 
     @Override
     public List<RecommendedPlace> getRecommendedFromRedis(Long userId, Double lat, Double lng) {
