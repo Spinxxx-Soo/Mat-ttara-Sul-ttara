@@ -1,6 +1,7 @@
 // FE/src/pages/Main.tsx
 
 import { useEffect, useMemo, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
@@ -12,6 +13,8 @@ import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { hasNullFields } from '@/lib/placeUtils'
+import { placeApi } from '@/api/placeApi'
+import { extractApiErrorMessage } from '@/lib/apiUtils'
 
 const Main = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
@@ -95,12 +98,17 @@ const Main = () => {
   )
   const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
+  // internal id가 확보된 뒤, 필수 필드가 비어 있으면 backend enrich를 시도한다.
+  useEffect(() => {
+    if (selectedInternalPlaceId == null) return
+    if (!selectedPlaceForDisplay) return
+    if (!hasNullFields(selectedPlaceForDisplay)) return
+
+    enrichPlace(selectedInternalPlaceId)
+  }, [selectedInternalPlaceId, selectedPlaceForDisplay, enrichPlace])
+
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
-
-    if (hasNullFields(place)) {
-      enrichPlace(place.placeId)
-    }
   }
 
   const handleMapIdle = (
@@ -111,16 +119,43 @@ const Main = () => {
     setZoom(currentZoom)
   }
 
+  const upsertPlaceMutation = useMutation({
+    mutationFn: async (place: Place) =>
+      placeApi.upsertPlace({
+        provider: 'KAKAO',
+        externalPlaceId: String(place.placeId),
+        name: place.name,
+        address: place.address,
+        phone: place.phone ?? null,
+        lat: place.lat,
+        lng: place.lng,
+        category: place.category ?? null,
+        imageUrl: place.imageUrl ?? null,
+      }),
+    onSuccess: (res, place) => {
+      setReviewPanel({
+        placeId: res.placeId,
+        placeName: place.name,
+      })
+    },
+    onError: (err) => {
+      toast.error(extractApiErrorMessage(err, '장소 저장에 실패했습니다.'))
+    },
+  })
+
   const openReviewFromDetail = () => {
     if (!selectedPlace) return
-    if (selectedInternalPlaceId == null) {
-      toast.error('장소 정보를 준비 중입니다. 잠시 후 다시 시도해주세요.')
-      return
-    }
 
     const reviewsEnabled = import.meta.env.VITE_REVIEWS_ENABLED === 'true'
     if (!reviewsEnabled) {
       toast.error('리뷰 기능은 준비 중입니다.')
+      return
+    }
+
+    if (selectedInternalPlaceId == null) {
+      // internal id가 아직 없으면 upsert로 internal id를 만든 뒤 review를 연다.
+      if (upsertPlaceMutation.isPending) return
+      upsertPlaceMutation.mutate(selectedPlace)
       return
     }
 
@@ -129,7 +164,6 @@ const Main = () => {
       placeName: selectedPlace.name,
     })
   }
-
   useEffect(() => {
     if (selectedPlaceId == null) return
     if (!mapPlaces.some((p) => p.placeId === selectedPlaceId)) {
