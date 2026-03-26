@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
 import {
   usePlaceReviewsList,
@@ -13,6 +14,7 @@ import {
   useDeletePlaceReview,
 } from '@/hooks/queries/place/usePlaceReviews'
 import { extractApiErrorMessage } from '@/lib/apiUtils'
+import { queryKeys } from '@/hooks/queries/queryKeys'
 import type { Review } from '@/types/api'
 
 const PAGE_SIZE = 10
@@ -78,6 +80,7 @@ export default function PlaceReviewPanel({
   onBack,
 }: PlaceReviewPanelProps) {
   const { user, isLoggedIn } = useAuthStore()
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [newRating, setNewRating] = useState(5)
   const [newContent, setNewContent] = useState('')
@@ -114,11 +117,52 @@ export default function PlaceReviewPanel({
       return
     }
     try {
-      await createMutation.mutateAsync({
+      const created = await createMutation.mutateAsync({
         rating: newRating,
         content: newContent.trim(),
       })
       toast.success('리뷰가 등록되었습니다.')
+      // 새 리뷰는 보통 최신순 1페이지에 위치하므로, 작성 직후 바로 보이도록 1페이지로 이동
+      setPage(1)
+
+      // 빨간 네모 영역(리뷰 목록)에 즉시 표시되도록 1페이지 캐시를 낙관적으로 갱신
+      queryClient.setQueryData(queryKeys.place.reviews(placeId, 1, PAGE_SIZE), (old: any) => {
+        if (!old) {
+          return {
+            content: [created],
+            pageInfo: {
+              page: 1,
+              size: PAGE_SIZE,
+              totalElements: 1,
+              totalPages: 1,
+              hasNext: false,
+            },
+            averageRating: old?.averageRating,
+          }
+        }
+
+        const prevContent: Review[] = Array.isArray(old.content) ? old.content : []
+        const exists = prevContent.some((r) => r.reviewId === created.reviewId)
+        const nextContent = exists ? prevContent : [created, ...prevContent]
+
+        return {
+          ...old,
+          content: nextContent,
+          pageInfo: old.pageInfo
+            ? {
+                ...old.pageInfo,
+                page: 1,
+                totalElements:
+                  typeof old.pageInfo.totalElements === 'number'
+                    ? old.pageInfo.totalElements + (exists ? 0 : 1)
+                    : old.pageInfo.totalElements,
+              }
+            : old.pageInfo,
+        }
+      })
+
+      // 서버 정렬/평균별점까지 최신으로 맞추기 위해 백그라운드 재조회도 트리거
+      void refetch()
       setNewContent('')
       setNewRating(5)
     } catch {

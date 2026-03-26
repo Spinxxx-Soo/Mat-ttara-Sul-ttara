@@ -10,6 +10,51 @@ import type { CreateReviewRequest, UpdateReviewRequest } from '@/types/api';
 
 const DEFAULT_PAGE_SIZE = 10;
 
+const patchPlacesRatingInLists = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  placeDetail: { externalPlaceId?: string | null; rating?: number | null; reviewScore?: number | null; placeId: number }
+) => {
+  const externalPlaceId = placeDetail.externalPlaceId ?? null;
+  if (!externalPlaceId) return;
+
+  // 1) 주변 맛집(nearby): select로 Place[]만 캐시에 들어있음
+  queryClient.setQueriesData(
+    { queryKey: [...queryKeys.place.all, 'nearby'] },
+    (oldData: unknown) => {
+      if (!Array.isArray(oldData)) return oldData;
+      return oldData.map((p: any) => {
+        if (!p || p.externalPlaceId !== externalPlaceId) return p;
+        return {
+          ...p,
+          internalPlaceId: placeDetail.placeId,
+          rating: placeDetail.rating ?? p.rating,
+          reviewScore: placeDetail.reviewScore ?? p.reviewScore,
+        };
+      });
+    }
+  );
+
+  // 2) 검색(search): PlaceSearchResponse 형태로 캐시에 들어있음
+  queryClient.setQueriesData(
+    { queryKey: [...queryKeys.place.all, 'search'] },
+    (oldData: any) => {
+      if (!oldData || !Array.isArray(oldData.content)) return oldData;
+      return {
+        ...oldData,
+        content: oldData.content.map((p: any) => {
+          if (!p || p.externalPlaceId !== externalPlaceId) return p;
+          return {
+            ...p,
+            internalPlaceId: placeDetail.placeId,
+            rating: placeDetail.rating ?? p.rating,
+            reviewScore: placeDetail.reviewScore ?? p.reviewScore,
+          };
+        }),
+      };
+    }
+  );
+};
+
 export function usePlaceReviewsList(
   placeId: number | null,
   page: number,
@@ -32,13 +77,25 @@ export function useCreatePlaceReview(placeId: number) {
   return useMutation({
     mutationFn: (body: CreateReviewRequest) =>
       placeApi.createPlaceReview(placeId, body),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({
         queryKey: [...queryKeys.place.all, 'reviews', placeId],
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
       });
+
+      // 리스트(검색/주변맛집)에는 카카오 원본 데이터가 캐시되어 별점이 즉시 반영되지 않을 수 있어,
+      // 최신 place detail을 가져와 동일 externalPlaceId 항목의 rating을 패치한다.
+      try {
+        const detail = await queryClient.fetchQuery({
+          queryKey: queryKeys.place.detail(placeId),
+          queryFn: () => placeApi.getPlaceDetail(placeId),
+        });
+        patchPlacesRatingInLists(queryClient, detail);
+      } catch {
+        // detail fetch 실패 시에는 invalidate로만 갱신(백그라운드 재시도)한다.
+      }
     },
     meta: { errorMessage: extractApiErrorMessage },
   });
@@ -55,13 +112,23 @@ export function useUpdatePlaceReview(placeId: number) {
       reviewId: number;
       body: UpdateReviewRequest;
     }) => placeApi.updatePlaceReview(placeId, reviewId, body),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({
         queryKey: [...queryKeys.place.all, 'reviews', placeId],
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
       });
+
+      try {
+        const detail = await queryClient.fetchQuery({
+          queryKey: queryKeys.place.detail(placeId),
+          queryFn: () => placeApi.getPlaceDetail(placeId),
+        });
+        patchPlacesRatingInLists(queryClient, detail);
+      } catch {
+        // ignore
+      }
     },
     meta: { errorMessage: extractApiErrorMessage },
   });
@@ -73,13 +140,23 @@ export function useDeletePlaceReview(placeId: number) {
   return useMutation({
     mutationFn: (reviewId: number) =>
       placeApi.deletePlaceReview(placeId, reviewId),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({
         queryKey: [...queryKeys.place.all, 'reviews', placeId],
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
       });
+
+      try {
+        const detail = await queryClient.fetchQuery({
+          queryKey: queryKeys.place.detail(placeId),
+          queryFn: () => placeApi.getPlaceDetail(placeId),
+        });
+        patchPlacesRatingInLists(queryClient, detail);
+      } catch {
+        // ignore
+      }
     },
     meta: { errorMessage: extractApiErrorMessage },
   });
