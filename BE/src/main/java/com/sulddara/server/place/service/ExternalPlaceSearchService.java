@@ -13,5 +13,5 @@ public interface ExternalPlaceSearchService {
      * @param sort 정렬 옵션 (random, comment)
      * @return 검색 결과 응답 DTO
      */
-    KakaoLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort);
+    KakaoLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort, Double lat, Double lng);
 }
