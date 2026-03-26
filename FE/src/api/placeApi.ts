@@ -15,6 +15,8 @@ import type {
   CreateReviewRequest,
   UpdateReviewRequest,
   Review,
+  PlaceUpsertRequest,
+  PlaceUpsertResponse,
   PlaceSyncRequest,
   PlaceSyncResponse,
 } from '@/types/api';
@@ -35,14 +37,24 @@ const mapKakaoPlaceToPlace = (item: any): Place => ({
     url: item.place_url || null,
 });
 
+/** 카카오 Places.keywordSearch / Local API: 페이지당 최대 15 (초과 시 400) */
 const KAKAO_KEYWORD_SEARCH_MAX_SIZE = 15;
 
 function clampKakaoKeywordPageSize(size?: number): number {
-    const n = size ?? 10;
-    return Math.min(KAKAO_KEYWORD_SEARCH_MAX_SIZE, Math.max(1, n));
+  const n = size ?? 10;
+  return Math.min(KAKAO_KEYWORD_SEARCH_MAX_SIZE, Math.max(1, n));
 }
 
 export const placeApi = {
+  /**
+   * 외부 지도 결과(예: Kakao)로 들어온 장소를 DB에 저장하고
+   * 내부 PK인 `places.id`를 반환합니다.
+   */
+  upsertPlace: async (body: PlaceUpsertRequest): Promise<PlaceUpsertResponse> => {
+    const { data } = await apiClient.post<PlaceUpsertResponse>(`/api/v1/places/upsert`, body);
+    return data;
+  },
+
 /**
  * 주변 장소 목록 조회
  */
@@ -59,7 +71,7 @@ export const placeApi = {
             const options: any = {
                 location: new kakao.maps.LatLng(params.lat, params.lng),
                 radius: params.radius || 1000,
-                size: clampKakaoKeywordPageSize(params.size || 15),
+                size: clampKakaoKeywordPageSize(params.size ?? 15),
                 page: params.page || 1,
                 sort: kakao.maps.services.SortBy.DISTANCE,
             };
@@ -133,6 +145,15 @@ export const placeApi = {
    */
   syncPlace: async (body: PlaceSyncRequest): Promise<PlaceSyncResponse> => {
     const { data } = await apiClient.post<PlaceSyncResponse>('/api/v1/places/sync', body);
+    return data;
+  },
+
+  /**
+   * 내부 placeId 기반 장소 AI 보강
+   * POST /api/v1/places/{placeId}/enrich
+   */
+  enrichPlace: async (placeId: number): Promise<Place> => {
+    const { data } = await apiClient.post<Place>(`/api/v1/places/${placeId}/enrich`);
     return data;
   },
 

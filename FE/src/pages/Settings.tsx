@@ -105,7 +105,7 @@ const Settings = () => {
                   <img
                     alt="Profile"
                     className="w-full h-full object-cover"
-                    src="https://via.placeholder.com/128"
+                    src={user?.profileImage || "https://via.placeholder.com/128"}
                   />
                 </div>
                 <button className="absolute bottom-0 right-0 size-10 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform">

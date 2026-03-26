@@ -1,6 +1,7 @@
 package com.sulddara.server.chat.repository;
 
 import com.sulddara.server.chat.domain.ChatMessages;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,4 +21,7 @@ public interface ChatMessagesRepository extends JpaRepository<ChatMessages,Long>
     Optional<ChatMessages> findByMessageIdAndUserId(Long messageId, Long userId);
 
     boolean existsBySessionId(long sessionId);
+
+    @Query("SELECT m FROM ChatMessages m WHERE m.sessionId = :sessionId ORDER BY m.messageId DESC")
+    Page<ChatMessages> findBySessionIdOrderByMessageIdDesc(@Param("sessionId") Long sessionId, Pageable pageable);
 }

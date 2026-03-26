@@ -17,6 +17,7 @@ import com.sulddara.server.chat.event.ChatMessageUpdatedEvent;
 import com.sulddara.server.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -75,7 +76,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public MessageResponse getMessages(Long userId, long sessionId, Long cursor, Pageable pageable) {
+    public MessageResponse getMessages(Long userId, long sessionId, Pageable pageable) {
         ChatSessions session = chatSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BaseException(ErrorCode.SESSION_NOT_FOUND));
 
@@ -83,12 +84,20 @@ public class ChatServiceImpl implements ChatService {
             throw new BaseException(ErrorCode.FORBIDDEN);
         }
 
-        Slice<ChatMessages> slice = chatMessageRepository.findMessagesByCursor(sessionId, cursor, pageable);
+        Page<ChatMessages> page = chatMessageRepository.findBySessionIdOrderByMessageIdDesc(sessionId, pageable);
 
-        List<MessageDetailResponse> responses = slice.getContent().stream()
+        List<MessageDetailResponse> responses = page.getContent().stream()
                 .map(MessageDetailResponse::fromEntity).toList();
-        Long nextCursor = responses.isEmpty() ? null : responses.getLast().getMessageId();
-        return new MessageResponse(responses, nextCursor, slice.hasNext());
+
+        MessageResponse.PageInfoResponse pageInfo = MessageResponse.PageInfoResponse.builder()
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .hasNext(page.hasNext())
+                .build();
+
+        return new MessageResponse(responses, pageInfo);
     }
 
     @Override
