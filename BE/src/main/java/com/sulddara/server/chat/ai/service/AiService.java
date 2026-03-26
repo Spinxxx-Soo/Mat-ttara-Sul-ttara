@@ -183,14 +183,9 @@ public class AiService {
     }
 
     public PreferenceSummary getPreferenceSummary(long userId){
-        var userPreference = userPreferenceRepository.findById(userId).orElse(null);
-        if (userPreference == null){
-            throw new BaseException(ErrorCode.USER_NOT_FOUND);
-        }
-        return new PreferenceSummary(
-                userPreference.getUsageType(),
-                userPreference.getAgeGroup(),
-                userPreference.getGender());
+        return userPreferenceRepository.findByUserIdWithUser(userId)
+                .map(up -> new PreferenceSummary(up.getUsageType(), up.getAgeGroup(), up.getGender()))
+                .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
     }
 
     public void sendCandidatesToAi(long sessionId, long userId, SessionState updatedState) {
