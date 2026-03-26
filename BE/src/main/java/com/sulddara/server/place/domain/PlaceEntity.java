@@ -81,6 +81,28 @@ public class PlaceEntity {
         this.reviews.add(review);
     }
 
+    /**
+     * 외부 지도 API로부터 들어오는 장소 정보를 DB에 반영합니다.
+     * 이미 존재하는 경우에는 값이 넘어오는 항목만 덮어씁니다.
+     */
+    public void updateFromExternal(
+            String name,
+            String address,
+            Double lat,
+            Double lng,
+            String category,
+            String phone,
+            String imageUrl
+    ) {
+        if (name != null) this.name = name;
+        if (address != null) this.address = address;
+        if (lat != null) this.lat = lat;
+        if (lng != null) this.lng = lng;
+        if (category != null) this.category = category;
+        if (phone != null) this.phone = phone;
+        if (imageUrl != null) this.imageUrl = imageUrl;
+    }
+
     public PlaceEntity(String provider, String externalPlaceId, String name,
                        String address, Double lat, Double lng) {
         this.provider = provider;

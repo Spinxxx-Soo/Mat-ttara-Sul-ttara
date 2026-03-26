@@ -5,6 +5,7 @@ import com.sulddara.server.place.domain.ReviewEntity;
 import com.sulddara.server.place.dto.ReviewCreateRequestDto;
 import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
+import com.sulddara.server.place.dto.PlaceReviewsResponseDto;
 import com.sulddara.server.place.exception.ReviewNotFoundException;
 import com.sulddara.server.global.error.exception.DuplicateResourceException;
 import com.sulddara.server.global.error.exception.ForbiddenException;
@@ -19,6 +20,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -49,6 +53,8 @@ class ReviewServiceTest {
     void getReviews_validPlaceId_returnsReviewList() {
         // given
         Long placeId = 1L;
+        int page = 1;
+        int size = 10;
         given(placeRepository.existsById(placeId)).willReturn(true);
 
         UserEntity user = new UserEntity("test@test.com", "testUser", "bio", "img", com.sulddara.server.user.domain.enums.SocialType.NAVER, "12345", "ROLE_USER");
@@ -58,16 +64,22 @@ class ReviewServiceTest {
         ReviewEntity review = new ReviewEntity(place, user, 5, "Great place!");
         ReflectionTestUtils.setField(review, "id", 100L);
 
-        given(reviewRepository.findAllByPlaceIdOrderByCreatedAtDesc(placeId))
-                .willReturn(List.of(review));
+        PageImpl<ReviewEntity> reviewPage =
+                new PageImpl<>(List.of(review), PageRequest.of(page - 1, size), 1);
+        given(reviewRepository.findAllByPlaceIdOrderByCreatedAtDesc(
+                        eq(placeId),
+                        any()
+                ))
+                .willReturn(reviewPage);
+        given(placeRepository.getAverageRatingByPlaceId(placeId)).willReturn(5.0);
 
         // when
-        List<ReviewResponseDto> result = reviewService.getReviews(placeId);
+        PlaceReviewsResponseDto result = reviewService.getReviews(placeId, page, size);
 
         // then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).rating()).isEqualTo(5);
-        assertThat(result.get(0).content()).isEqualTo("Great place!");
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).rating()).isEqualTo(5);
+        assertThat(result.getContent().get(0).content()).isEqualTo("Great place!");
     }
 
     @Test

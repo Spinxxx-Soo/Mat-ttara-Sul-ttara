@@ -1,6 +1,7 @@
 // FE/src/pages/Main.tsx
 
 import { useEffect, useMemo, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
@@ -11,6 +12,8 @@ import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 import { hasNullFields } from '@/lib/placeUtils'
+import { placeApi } from '@/api/placeApi'
+import { extractApiErrorMessage } from '@/lib/apiUtils'
 
 const Main = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
@@ -66,6 +69,30 @@ const Main = () => {
     setZoom(currentZoom)
   }
 
+  const upsertPlaceMutation = useMutation({
+    mutationFn: async (place: Place) =>
+      placeApi.upsertPlace({
+        provider: 'KAKAO',
+        externalPlaceId: String(place.placeId),
+        name: place.name,
+        address: place.address,
+        phone: place.phone ?? null,
+        lat: place.lat,
+        lng: place.lng,
+        category: place.category ?? null,
+        imageUrl: place.imageUrl ?? null,
+      }),
+    onSuccess: (res, place) => {
+      setReviewPanel({
+        placeId: res.placeId,
+        placeName: place.name,
+      })
+    },
+    onError: (err) => {
+      toast.error(extractApiErrorMessage(err, '장소 저장에 실패했습니다.'))
+    },
+  })
+
   const openReviewFromDetail = () => {
     if (!selectedPlace) return
 
@@ -75,10 +102,8 @@ const Main = () => {
       return
     }
 
-    setReviewPanel({
-      placeId: selectedPlace.placeId,
-      placeName: selectedPlace.name,
-    })
+    if (upsertPlaceMutation.isPending) return
+    upsertPlaceMutation.mutate(selectedPlace)
   }
 
   useEffect(() => {

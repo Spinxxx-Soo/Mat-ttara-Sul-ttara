@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import Sidebar from '@/components/Sidebar'
 import KakaoMap from '@/components/map/KakaoMap'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
@@ -7,6 +8,8 @@ import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId } from '@/stores/chatMapStore'
+import { placeApi } from '@/api/placeApi'
+import { extractApiErrorMessage } from '@/lib/apiUtils'
 
 // ==========================================
 // 가게 검색: keyword + page + size + 지도 중심(lat/lng) → 카카오 반경·거리순(placeApi)
@@ -198,6 +201,30 @@ const Search = () => {
     }
   }
 
+  const upsertPlaceMutation = useMutation({
+    mutationFn: async (place: Place) =>
+      placeApi.upsertPlace({
+        provider: 'KAKAO',
+        externalPlaceId: String(place.placeId),
+        name: place.name,
+        address: place.address,
+        phone: place.phone ?? null,
+        lat: place.lat,
+        lng: place.lng,
+        category: place.category ?? null,
+        imageUrl: place.imageUrl ?? null,
+      }),
+    onSuccess: (res, place) => {
+      setReviewPanel({
+        placeId: res.placeId,
+        placeName: place.name,
+      })
+    },
+    onError: (err) => {
+      toast.error(extractApiErrorMessage(err, '장소 저장에 실패했습니다.'))
+    },
+  })
+
   const openReviewFromDetail = () => {
     if (!selectedPlace) return
 
@@ -207,10 +234,8 @@ const Search = () => {
       return
     }
 
-    setReviewPanel({
-      placeId: selectedPlace.placeId,
-      placeName: selectedPlace.name,
-    })
+    if (upsertPlaceMutation.isPending) return
+    upsertPlaceMutation.mutate(selectedPlace)
   }
 
   useEffect(() => {

@@ -4,11 +4,15 @@ import com.sulddara.server.auth.oauth.CustomOAuth2User;
 import com.sulddara.server.chat.ai.controller.response.PlaceDetailResponse;
 import com.sulddara.server.chat.ai.controller.response.RecommendedPlace;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
+import com.sulddara.server.place.dto.PlaceUpsertRequestDto;
+import com.sulddara.server.place.dto.PlaceUpsertResponseDto;
 import com.sulddara.server.place.service.PlaceService;
+import com.sulddara.server.place.service.PlaceUpsertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -18,6 +22,7 @@ import java.util.List;
 public class PlaceController {
 
     private final PlaceService placeService;
+    private final PlaceUpsertService placeUpsertService;
 
     @GetMapping("/search")
     public ResponseEntity<PlaceSearchResponseDto> searchPlaces(
@@ -47,5 +52,16 @@ public class PlaceController {
     public ResponseEntity<PlaceDetailResponse> getPlaceDetail(@PathVariable Long placeId) {
         var response = placeService.getPlaceDetail(placeId);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 외부 지도(예: Kakao)에서 내려오는 장소를 DB에 저장하고,
+     * 내부 PK인 `places.id`를 반환합니다.
+     */
+    @PostMapping("/upsert")
+    public ResponseEntity<PlaceUpsertResponseDto> upsertPlace(
+            @RequestBody @Valid PlaceUpsertRequestDto request
+    ) {
+        return ResponseEntity.ok(placeUpsertService.upsert(request));
     }
 }

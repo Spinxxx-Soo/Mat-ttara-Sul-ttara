@@ -15,6 +15,8 @@ import type {
   CreateReviewRequest,
   UpdateReviewRequest,
   Review,
+  PlaceUpsertRequest,
+  PlaceUpsertResponse,
 } from '@/types/api';
 import type { NearbyPlacesParams } from '@/types/map';
 
@@ -27,6 +29,15 @@ function clampKakaoKeywordPageSize(size?: number): number {
 }
 
 export const placeApi = {
+  /**
+   * 외부 지도 결과(예: Kakao)로 들어온 장소를 DB에 저장하고
+   * 내부 PK인 `places.id`를 반환합니다.
+   */
+  upsertPlace: async (body: PlaceUpsertRequest): Promise<PlaceUpsertResponse> => {
+    const { data } = await apiClient.post<PlaceUpsertResponse>(`/api/v1/places/upsert`, body);
+    return data;
+  },
+
 /**
  * 주변 장소 목록 조회
  */

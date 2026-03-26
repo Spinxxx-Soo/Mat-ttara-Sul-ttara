@@ -5,6 +5,7 @@ import com.sulddara.server.auth.jwt.JwtUtil;
 import com.sulddara.server.place.dto.ReviewCreateRequestDto;
 import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
+import com.sulddara.server.place.dto.PlaceReviewsResponseDto;
 import com.sulddara.server.place.service.ReviewService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -124,15 +125,29 @@ class ReviewControllerTest {
         // given
         Long placeId = 1L;
         ReviewResponseDto response = new ReviewResponseDto(10L, 1L, "TestUser", 4, "Great!", LocalDateTime.now(), LocalDateTime.now());
+        int page = 1;
+        int size = 10;
 
-        given(reviewService.getReviews(placeId))
-                .willReturn(Collections.singletonList(response));
+        PlaceReviewsResponseDto payload = PlaceReviewsResponseDto.builder()
+                .content(Collections.singletonList(response))
+                .pageInfo(PlaceReviewsResponseDto.PageInfoDto.builder()
+                        .page(page)
+                        .size(size)
+                        .totalElements(1)
+                        .totalPages(1)
+                        .hasNext(false)
+                        .build())
+                .averageRating(4.0)
+                .build();
+
+        given(reviewService.getReviews(placeId, page, size))
+                .willReturn(payload);
 
         // when & then
         mockMvc.perform(get("/api/v1/places/{placeId}/reviews", placeId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].rating").value(4))
-                .andExpect(jsonPath("$[0].content").value("Great!"));
+                .andExpect(jsonPath("$.content[0].rating").value(4))
+                .andExpect(jsonPath("$.content[0].content").value("Great!"));
     }
 
     @Test

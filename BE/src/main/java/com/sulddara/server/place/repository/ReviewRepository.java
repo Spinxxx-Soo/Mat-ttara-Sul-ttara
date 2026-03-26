@@ -9,11 +9,16 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     @EntityGraph(attributePaths = {"user"})
     List<ReviewEntity> findAllByPlaceIdOrderByCreatedAtDesc(Long placeId);
+
+    @EntityGraph(attributePaths = {"user"})
+    Page<ReviewEntity> findAllByPlaceIdOrderByCreatedAtDesc(Long placeId, Pageable pageable);
     
     @EntityGraph(attributePaths = {"user", "place"})
     @Query("SELECT r FROM ReviewEntity r WHERE r.id = :id")

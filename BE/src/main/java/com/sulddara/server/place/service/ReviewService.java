@@ -3,6 +3,7 @@ package com.sulddara.server.place.service;
 import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.domain.ReviewEntity;
 import com.sulddara.server.place.dto.ReviewCreateRequestDto;
+import com.sulddara.server.place.dto.PlaceReviewsResponseDto;
 import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
 import com.sulddara.server.place.exception.PlaceNotFoundException;
@@ -18,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.PageRequest;
+
 import java.util.List;
 
 @Service
@@ -29,15 +32,37 @@ public class ReviewService {
     private final PlaceRepository placeRepository;
     private final UserRepository userRepository;
 
-    public List<ReviewResponseDto> getReviews(Long placeId) {
+    public PlaceReviewsResponseDto getReviews(Long placeId, int page, int size) {
         if (!placeRepository.existsById(placeId)) {
             throw new PlaceNotFoundException();
         }
 
-        return reviewRepository.findAllByPlaceIdOrderByCreatedAtDesc(placeId)
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+
+        var pageable = PageRequest.of(safePage - 1, safeSize);
+        var reviewPage = reviewRepository.findAllByPlaceIdOrderByCreatedAtDesc(placeId, pageable);
+
+        List<ReviewResponseDto> content = reviewPage.getContent()
                 .stream()
                 .map(ReviewResponseDto::from)
                 .toList();
+
+        Double averageRating = placeRepository.getAverageRatingByPlaceId(placeId);
+
+        PlaceReviewsResponseDto.PageInfoDto pageInfo = PlaceReviewsResponseDto.PageInfoDto.builder()
+                .page(safePage)
+                .size(safeSize)
+                .totalElements((int) reviewPage.getTotalElements())
+                .totalPages(reviewPage.getTotalPages())
+                .hasNext(reviewPage.hasNext())
+                .build();
+
+        return PlaceReviewsResponseDto.builder()
+                .content(content)
+                .pageInfo(pageInfo)
+                .averageRating(averageRating)
+                .build();
     }
 
     @Transactional

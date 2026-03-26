@@ -2,6 +2,7 @@ package com.sulddara.server.place.controller;
 
 import com.sulddara.server.auth.oauth.CustomOAuth2User;
 import com.sulddara.server.place.dto.ReviewCreateRequestDto;
+import com.sulddara.server.place.dto.PlaceReviewsResponseDto;
 import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
 import com.sulddara.server.place.service.ReviewService;
@@ -22,10 +23,13 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     @GetMapping
-    public ResponseEntity<List<ReviewResponseDto>> getReviews(
-            @PathVariable Long placeId) {
+    public ResponseEntity<PlaceReviewsResponseDto> getReviews(
+            @PathVariable Long placeId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
         
-        List<ReviewResponseDto> response = reviewService.getReviews(placeId);
+        PlaceReviewsResponseDto response = reviewService.getReviews(placeId, page, size);
         return ResponseEntity.ok(response);
     }
 

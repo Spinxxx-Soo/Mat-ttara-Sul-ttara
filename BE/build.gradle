@@ -9,9 +9,10 @@ version = '0.0.1-SNAPSHOT'
 description = 'Demo project for Spring Boot'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+	// toolchain(특히 OS/아키텍처별 매칭)을 사용할 때 WSL 환경에서 잘못된 플랫폼(WINDOWS)로
+	// toolchain 매칭이 실패하는 문제가 있어, 현재 실행 중인 JDK를 그대로 사용하도록 설정합니다.
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
 }
 
 configurations {
