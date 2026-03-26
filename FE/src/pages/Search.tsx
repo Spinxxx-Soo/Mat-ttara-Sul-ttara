@@ -3,7 +3,8 @@ import Sidebar from '../components/Sidebar'
 import KakaoMap from '@/components/map/KakaoMap'
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
-import { usePlaceDetail, useSearchPlaces } from '@/hooks/queries/place/usePlaces'
+import { usePlaceDetail, useSearchPlaces, useSyncPlace } from '@/hooks/queries/place/usePlaces'
+import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
@@ -19,6 +20,7 @@ const Search = () => {
     placeId: number
     placeName: string
   } | null>(null)
+  const [resolvedPlaceIds, setResolvedPlaceIds] = useState<Record<string, number>>({})
   const [page, setPage] = useState(1)
   const pageSize = 10
 
@@ -40,6 +42,7 @@ const Search = () => {
     },
     !!searchQuery
   )
+  const { mutateAsync: syncPlace } = useSyncPlace()
 
   const places = data?.content ?? []
   const pageInfo = data?.pageInfo
@@ -66,7 +69,49 @@ const Search = () => {
     [places, selectedPlaceId]
   )
 
-  const { data: selectedPlaceDetail } = usePlaceDetail(selectedPlaceId ?? 0, selectedPlaceId != null)
+  const selectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
+  const selectedInternalPlaceId = selectedPlace
+    ? (getInternalPlaceId(selectedPlace) ?? (selectedPlaceKey ? resolvedPlaceIds[selectedPlaceKey] ?? null : null))
+    : null
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedPlace || selectedPlaceKey == null) {
+      return
+    }
+
+    if (selectedInternalPlaceId != null) {
+      return
+    }
+
+    const run = async () => {
+      try {
+        const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response || cancelled) return
+
+        setResolvedPlaceIds((prev) => ({
+          ...prev,
+          [selectedPlaceKey]: response.placeId,
+        }))
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to sync selected place:', error)
+        }
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedInternalPlaceId, selectedPlace, selectedPlaceKey, syncPlace])
+
+  const { data: selectedPlaceDetail } = usePlaceDetail(
+    selectedInternalPlaceId ?? 0,
+    selectedInternalPlaceId != null,
+  )
   const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
   const handlePlaceClick = (place: Place) => {
@@ -75,6 +120,10 @@ const Search = () => {
 
   const openReviewFromDetail = () => {
     if (!selectedPlace) return
+    if (selectedInternalPlaceId == null) {
+      toast.error('장소 정보를 준비 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
 
     const reviewsEnabled = import.meta.env.VITE_REVIEWS_ENABLED === 'true'
     if (!reviewsEnabled) {
@@ -83,7 +132,7 @@ const Search = () => {
     }
 
     setReviewPanel({
-      placeId: selectedPlace.placeId,
+      placeId: selectedInternalPlaceId,
       placeName: selectedPlace.name,
     })
   }
