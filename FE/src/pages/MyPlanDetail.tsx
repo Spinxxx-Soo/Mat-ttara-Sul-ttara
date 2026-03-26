@@ -27,9 +27,11 @@ const MyPlanDetail = () => {
   const showDeleteDelay = usePendingDelay(isDeleting)
 
   // shareUrl은 plan이 존재할 때만 사용
-  const shareUrl = plan ? `${window.location.origin}/my-plan/${plan.id}` : ''
+  const shareToken = plan?.shareToken || (plan as { shareId?: string }).shareId
+  const shareUrl = shareToken ? `${window.location.origin}/plan/share/${shareToken}` : ''
 
   const handleCopyLink = () => {
+    if (!shareUrl) return;
     navigator.clipboard.writeText(shareUrl)
     toast.success(PLAN_MESSAGES.copySuccess)
   }
@@ -253,19 +255,30 @@ const MyPlanDetail = () => {
               />
               <button
                 onClick={handleCopyLink}
+                disabled={!shareUrl}
                 className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
               >
                 복사
               </button>
             </div>
+            {!shareUrl && (
+              <p className="text-xs text-amber-500 mb-3">
+                공유 토큰이 아직 준비되지 않았습니다.
+              </p>
+            )}
             <button
               onClick={() => {
+                if (!shareUrl) return;
                 window.open(
                   `https://talk.kakao.com/share?url=${encodeURIComponent(shareUrl)}`,
                   '_blank'
                 )
               }}
-              className="w-full px-4 py-3 bg-[#FEE500] text-slate-900 rounded-lg font-semibold hover:bg-[#FEE500]/90 transition-colors"
+              className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${
+                shareUrl
+                  ? 'bg-[#FEE500] text-slate-900 hover:bg-[#FEE500]/90'
+                  : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+              }`}
             >
               {PLAN_MESSAGES.shareKakao}
             </button>
