@@ -35,6 +35,13 @@ const mapKakaoPlaceToPlace = (item: any): Place => ({
     url: item.place_url || null,
 });
 
+const KAKAO_KEYWORD_SEARCH_MAX_SIZE = 15;
+
+function clampKakaoKeywordPageSize(size?: number): number {
+    const n = size ?? 10;
+    return Math.min(KAKAO_KEYWORD_SEARCH_MAX_SIZE, Math.max(1, n));
+}
+
 export const placeApi = {
 /**
  * 주변 장소 목록 조회
@@ -52,7 +59,7 @@ export const placeApi = {
             const options: any = {
                 location: new kakao.maps.LatLng(params.lat, params.lng),
                 radius: params.radius || 1000,
-                size: params.size || 15,
+                size: clampKakaoKeywordPageSize(params.size || 15),
                 page: params.page || 1,
                 sort: kakao.maps.services.SortBy.DISTANCE,
             };
@@ -74,7 +81,7 @@ export const placeApi = {
                 } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
                     resolve({
                         content: [],
-                        pageInfo: { page: 1, size: 15, totalElements: 0, totalPages: 0, hasNext: false }
+                        pageInfo: { page: 1, size: options.size, totalElements: 0, totalPages: 0, hasNext: false }
                     });
                 } else {
                     reject(new Error('장소 검색 중 오류가 발생했습니다.'));
@@ -105,7 +112,7 @@ export const placeApi = {
 
             const ps = new kakao.maps.services.Places();
             const options: any = {
-                size: params.size || 10,
+                size: clampKakaoKeywordPageSize(params.size),
                 page: params.page || 1,
             };
 
@@ -132,7 +139,7 @@ export const placeApi = {
                 } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
                     resolve({
                         content: [],
-                        pageInfo: { page: 1, size: 10, totalElements: 0, totalPages: 0, hasNext: false }
+                        pageInfo: { page: 1, size: options.size, totalElements: 0, totalPages: 0, hasNext: false }
                     });
                 } else {
                     reject(new Error('검색 중 오류가 발생했습니다.'));
