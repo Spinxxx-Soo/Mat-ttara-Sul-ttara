@@ -84,7 +84,7 @@ public class PlaceServiceImpl implements PlaceService {
             int displaySize = Math.min(size, KAKAO_DISPLAY_MAX);
 
             // ⚠️ Fix: 카카오 API page 오프셋 (1-based, size는 요청한대로)
-            KakaoLocalSearchResponseDto kakaoResponse = externalPlaceSearchService.searchPlaces(keyword, displaySize, page, "accuracy");
+            KakaoLocalSearchResponseDto kakaoResponse = externalPlaceSearchService.searchPlaces(keyword, displaySize, page, "accuracy", lat, lng);
 
             items = kakaoResponse.getDocuments().stream().map(doc -> {
                 String cleanTitle = stripHtmlTags(doc.getPlace_name());
@@ -209,7 +209,7 @@ public class PlaceServiceImpl implements PlaceService {
                 .phone(place.getPhone())
                 .lat(place.getLat())
                 .lng(place.getLng())
-                .rating(averageRating)
+                .rating(rating)
                 .category(place.getCategory())
                 .description(place.getDescription())
                 .rating(rating)
