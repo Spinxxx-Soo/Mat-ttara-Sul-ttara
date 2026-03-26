@@ -1,6 +1,8 @@
 spring:
   application:
     name: server
+  config:
+    import: optional:file:./BE/.env[.properties],optional:file:./.env[.properties]
 
   mvc:
     async:
@@ -41,9 +43,7 @@ spring:
           google:
             client-id: ${GOOGLE_ID}
             client-secret: ${GOOGLE_SECRET}
-            # @react-oauth/google auth-code popup(flow='auth-code')는 redirect_uri=postmessage로 code를 교환합니다.
-            # 환경변수로 덮어쓸 수 있게 두되 기본값은 postmessage로 설정합니다.
-            redirect-uri: ${GOOGLE_REDIRECT_URI:postmessage}
+            redirect-uri: "postmessage"
             scope:
               - email
               - profile

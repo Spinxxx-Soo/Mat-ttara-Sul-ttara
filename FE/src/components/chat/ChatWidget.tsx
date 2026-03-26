@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuthStore } from '@/stores/authStore'
-import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
+import { useChatMapStore } from '@/stores/chatMapStore'
 import { useChatSessionSse } from '@/hooks/useChatSessionSse'
+import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
 import type { ChatMessage, ChatSession } from '@/types/api'
 
 interface ChatWidgetProps {
@@ -43,7 +44,8 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   const handleSelectSession = (id: string) => {
     setSessionId(id)
     setIsSessionListOpen(false)
-  }// 세션 목록 조회
+  }
+// 세션 목록 조회
 const { data: sessionsData } = useChatSessions({ size: 20 })
 const sessions: ChatSession[] = sessionsData?.content || []
 
@@ -115,11 +117,10 @@ useEffect(() => {
   )
 }, [isOpen, sessionId, sessions.length, user, createSessionMutation])
 
-  // 메시지 기록 조회
   const { data: messagesData, isLoading: isLoadingMessages } = useChatMessages({
     sessionId,
     page: 1,
-    size: 50, // 최근 50개 메시지
+    size: 50,
   })
 
   useEffect(() => {
@@ -144,7 +145,19 @@ useEffect(() => {
     })
   }, [sessionId, isLoadingMessages, messages])
 
-  // 메시지 전송
+  const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
+  const prevSessionIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (prevSessionIdRef.current !== sessionId) {
+      clearAiRecommendedPlaces()
+      prevSessionIdRef.current = sessionId || null
+    }
+  }, [sessionId, clearAiRecommendedPlaces])
+
+  /** SSE(ai_response) → GET /api/v1/places/recommend 로 추천 장소 동기화 */
+  useChatSessionSse(sessionId, !!user && !!sessionId)
+
   const sendMessageMutation = useSendMessage()
   const isLoading = createSessionMutation.isPending || isLoadingMessages
   const isSending = sendMessageMutation.isPending
@@ -218,7 +231,6 @@ useEffect(() => {
     }
   }
 
-  // 메시지가 업데이트되면 스크롤을 맨 아래로
   useEffect(() => {
     if (!shouldDebug) return
     console.log('[chat-widget] send-button debug', {
@@ -298,7 +310,6 @@ useEffect(() => {
                     {isSessionListOpen ? 'expand_less' : 'expand_more'}
                   </span>
                 </button>
-
                 {isSessionListOpen && (
                   <div className="relative">
                     <div className="absolute left-0 mt-2 w-64 max-h-64 overflow-y-auto rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700 z-50">
@@ -308,7 +319,7 @@ useEffect(() => {
                       </div>
                       {sessions.length === 0 && (
                         <div className="px-3 py-4 text-xs text-slate-400 dark:text-slate-500 text-center">
-                          아직 저장된 대화가 없습니다.
+                          저장된 대화가 없습니다.
                         </div>
                       )}
                       {sessions.map((session) => (
@@ -316,18 +327,12 @@ useEffect(() => {
                           key={session.sessionId}
                           type="button"
                           onClick={() => handleSelectSession(session.sessionId)}
-                          className={`w-full px-3 py-2 text-left text-xs hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors ${
+                          className={`w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
                             session.sessionId === sessionId ? 'bg-primary/5 dark:bg-primary/15' : ''
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-slate-700 dark:text-slate-100 truncate">
-                              {session.title || '제목 없는 대화'}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[12px]">schedule</span>
-                            <span>{session.lastMessageAt || session.createdAt}</span>
+                          <div className="font-medium text-slate-700 dark:text-slate-100 truncate">
+                            {session.title || '제목 없는 대화'}
                           </div>
                         </button>
                       ))}
@@ -387,7 +392,6 @@ useEffect(() => {
                 </div>
               </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Input Area */}

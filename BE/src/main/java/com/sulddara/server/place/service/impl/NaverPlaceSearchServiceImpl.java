@@ -36,7 +36,7 @@ public class NaverPlaceSearchServiceImpl implements ExternalPlaceSearchService {
     private String clientSecret;
 
     @Override
-    public KakaoLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort) {
+    public KakaoLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort, Double lat, Double lng) {
         URI uri = UriComponentsBuilder.fromUriString(naverSearchUrl)
                 .queryParam("query", query)
                 .queryParam("display", display)

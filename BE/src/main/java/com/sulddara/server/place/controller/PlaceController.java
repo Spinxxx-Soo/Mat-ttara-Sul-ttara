@@ -53,6 +53,13 @@ public class PlaceController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/{placeId}/enrich")
+    public ResponseEntity<PlaceDetailResponse> enrichPlace(@PathVariable Long placeId) {
+        placeService.enrichPlaceData(placeId);
+        var updatedPlace = placeService.getPlaceDetail(placeId);
+        return ResponseEntity.ok(updatedPlace);
+    }
+
     @PostMapping("/sync")
     public ResponseEntity<PlaceSyncResponseDto> syncPlace(@Valid @RequestBody PlaceSyncRequestDto request) {
         PlaceSyncResponseDto response = placeService.syncPlace(request);

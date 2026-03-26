@@ -139,6 +139,21 @@ export interface UpdatePlanRequest {
   details?: { placeId: number; seqNo: number }[]; // 수정 시에도 장소 목록 수정 가능하도록 추가
 }
 
+export interface PlaceSyncRequest {
+  externalPlaceId: string;
+  name: string;
+  address?: string | null;
+  category?: string | null;
+  lat: number;
+  lng: number;
+  phone?: string | null;
+  url?: string | null;
+}
+
+export interface PlaceSyncResponse {
+  placeId: number;
+}
+
 // --- 장소 (Place) ---
 /** 장소 상세 조회 응답의 영업시간 구조 */
 export interface PlaceOpeningHours {
@@ -148,6 +163,8 @@ export interface PlaceOpeningHours {
 
 export interface Place {
   placeId: number;
+  externalPlaceId?: string | null;
+  internalPlaceId?: number | null;
   name: string;
   address: string;
   phone?: string | null;
@@ -162,6 +179,7 @@ export interface Place {
   category?: string | null;
   description?: string | null; // 장소 상세 조회 응답에 포함
   url?: string | null; // 지도 링크(백엔드 스키마에 따름)
+  isOpen?: boolean | null;
   /** AI 추천 등에서만 사용 (선택) */
   tags?: string[] | null;
   /** 크롤링으로 보강된 데이터인지 여부 */
