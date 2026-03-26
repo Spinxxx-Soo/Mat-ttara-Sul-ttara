@@ -6,12 +6,12 @@ import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import KakaoMap from '@/components/map/KakaoMap'
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
-import { useEnrichPlace, useNearbyPlaces, usePlaceDetail } from '@/hooks/queries/place/usePlaces'
+import { useNearbyPlaces, usePlaceDetail, useSyncPlace } from '@/hooks/queries/place/usePlaces'
+import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
-import { hasNullFields } from '@/lib/placeUtils'
 
 const Main = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
@@ -20,6 +20,7 @@ const Main = () => {
     placeId: number
     placeName: string
   } | null>(null)
+  const [resolvedPlaceIds, setResolvedPlaceIds] = useState<Record<string, number>>({})
 
   const { lat: storeLat, lng: storeLng } = useLocationStore()
   const currentLat = storeLat ?? 37.5665
@@ -36,9 +37,7 @@ const Main = () => {
     },
     true
   )
-
-  // 선택된 장소의 필수 정보가 비어있으면(=null fields) 보강 호출
-  const { mutate: enrichPlace } = useEnrichPlace()
+  const { mutateAsync: syncPlace } = useSyncPlace()
 
   const categories = ['전체', '한식', '일식', '중식', '양식', '카페', '술집']
 
@@ -57,27 +56,59 @@ const Main = () => {
     return mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null
   }, [mapPlaces, selectedPlaceId])
 
-  const { data: selectedPlaceDetail } = usePlaceDetail(selectedPlaceId ?? 0, selectedPlaceId != null)
+  const selectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
+  const selectedInternalPlaceId = selectedPlace
+    ? (getInternalPlaceId(selectedPlace) ?? (selectedPlaceKey ? resolvedPlaceIds[selectedPlaceKey] ?? null : null))
+    : null
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedPlace || selectedPlaceKey == null) {
+      return
+    }
+
+    if (selectedInternalPlaceId != null) {
+      return
+    }
+
+    const run = async () => {
+      try {
+        const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response || cancelled) return
+
+        setResolvedPlaceIds((prev) => ({
+          ...prev,
+          [selectedPlaceKey]: response.placeId,
+        }))
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to sync selected place:', error)
+        }
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedInternalPlaceId, selectedPlace, selectedPlaceKey, syncPlace])
+
+  const { data: selectedPlaceDetail } = usePlaceDetail(
+    selectedInternalPlaceId ?? 0,
+    selectedInternalPlaceId != null,
+  )
   const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
-
-    // Pin click으로 상세 카드 표시될 때, 정보가 비어있으면 보강 요청
-    if (hasNullFields(place)) {
-      enrichPlace(place.placeId)
-    }
   }
 
   // 리스트 클릭 시 목록/지도를 함께 동기화하기 위해 중심 이동도 수행
   const handleListPlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
     setMapCenter({ lat: place.lat, lng: place.lng })
-
-    // 리스트에서 선택해도 상세 카드에 바로 반영되도록 보강 요청
-    if (hasNullFields(place)) {
-      enrichPlace(place.placeId)
-    }
   }
 
   const handleMapIdle = (
@@ -90,6 +121,10 @@ const Main = () => {
 
   const openReviewFromDetail = () => {
     if (!selectedPlace) return
+    if (selectedInternalPlaceId == null) {
+      toast.error('장소 정보를 준비 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
 
     const reviewsEnabled = import.meta.env.VITE_REVIEWS_ENABLED === 'true'
     if (!reviewsEnabled) {
@@ -98,7 +133,7 @@ const Main = () => {
     }
 
     setReviewPanel({
-      placeId: selectedPlace.placeId,
+      placeId: selectedInternalPlaceId,
       placeName: selectedPlace.name,
     })
   }
