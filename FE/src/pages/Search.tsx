@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import KakaoMap from '@/components/map/KakaoMap'
-import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import { useNearbyPlaces, usePlaceDetail, useSearchPlaces } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
@@ -493,17 +492,14 @@ const Search = () => {
             lng={mapCenter.lng}
             places={mapPlaces}
             selectedPlaceId={selectedPlaceId}
+            detailPlace={
+              selectedPlace && !reviewPanel ? (selectedPlaceForDisplay ?? selectedPlace) : null
+            }
+            onDetailClose={() => setSelectedPlaceId(null)}
+            onDetailReviewClick={openReviewFromDetail}
             onPlaceClick={handlePlaceClick}
             onIdle={handleMapIdle}
           />
-
-          {selectedPlace && !reviewPanel && (
-            <PlaceMapDetailCard
-              place={selectedPlaceForDisplay ?? selectedPlace}
-              onClose={() => setSelectedPlaceId(null)}
-              onReviewClick={openReviewFromDetail}
-            />
-          )}
 
           <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 -translate-x-1/2">
             <button
