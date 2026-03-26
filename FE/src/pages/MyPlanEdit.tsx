@@ -5,14 +5,20 @@ import { useNavigate, useParams } from 'react-router-dom'
 import KakaoMap from '@/components/map/KakaoMap'
 import ErrorState from '@/components/ui/ErrorState'
 import LoadingState from '@/components/ui/LoadingState'
-import { useEnrichPlace, useNearbyPlaces } from '@/hooks/queries/place/usePlaces'
+import { useNearbyPlaces, useSyncPlace } from '@/hooks/queries/place/usePlaces'
 import {
   usePlanDetailQuery,
   useUpdatePlanMutation,
 } from '@/hooks/queries/plan/usePlanQueries'
 import { usePendingDelay } from '@/hooks/usePendingDelay'
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning'
-import { hasNullFields } from '@/lib/placeUtils'
+import {
+  buildPlaceSyncRequest,
+  getInternalPlaceId,
+  getPlaceKey,
+  isSamePlace,
+  withInternalPlaceId,
+} from '@/lib/placeIdentity'
 import {
   PLAN_MESSAGES,
   confirmDiscardPlanChanges,
@@ -52,7 +58,7 @@ const MyPlanEdit = () => {
     error: planError,
   } = usePlanDetailQuery(id || '')
   const { mutate: updatePlan, isPending: isUpdating } = useUpdatePlanMutation()
-  const { mutate: enrichPlace } = useEnrichPlace()
+  const { mutateAsync: syncPlace } = useSyncPlace()
 
   // 폼 상태
   const [title, setTitle] = useState('')
@@ -73,7 +79,7 @@ const MyPlanEdit = () => {
   const currentSelectedPlaces = useMemo(
     () =>
       selectedPlaces.map((place, index) => ({
-        placeId: place.placeId,
+        placeId: getInternalPlaceId(place) ?? -1,
         seqNo: index + 1,
       })),
     [selectedPlaces]
@@ -120,6 +126,7 @@ const MyPlanEdit = () => {
       if (plan.places) {
         setSelectedPlaces(plan.places.map(p => ({
           placeId: p.placeId,
+          internalPlaceId: p.placeId,
           name: p.name,
           address: p.address,
           category: p.category,
@@ -145,25 +152,41 @@ const MyPlanEdit = () => {
   }, [])
 
   const handlePlaceClick = (place: Place) => {
-    // Lazy Loading: 정보가 부족하면 크롤링 요청
-    if (hasNullFields(place)) {
-      enrichPlace(place.placeId)
-    }
-
     setSelectedPlaces(prev => {
-      const exists = prev.find(p => p.placeId === place.placeId)
+      const exists = prev.find((selectedPlace) => isSamePlace(selectedPlace, place))
       if (exists) {
-        return prev.filter(p => p.placeId !== place.placeId)
+        return prev.filter((selectedPlace) => !isSamePlace(selectedPlace, place))
       }
       return [...prev, place]
     })
   }
 
-  const removePlace = (placeId: number) => {
-    setSelectedPlaces(prev => prev.filter(p => p.placeId !== placeId))
+  const removePlace = (placeToRemove: Place) => {
+    setSelectedPlaces((prev) => prev.filter((place) => !isSamePlace(place, placeToRemove)))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const syncSelectedPlaces = async () => {
+    const syncedPlaces = await Promise.all(
+      selectedPlaces.map(async (place) => {
+        const internalPlaceId = getInternalPlaceId(place)
+        if (internalPlaceId != null) {
+          return withInternalPlaceId(place, internalPlaceId)
+        }
+
+        const response = await syncPlace(buildPlaceSyncRequest(place))
+        if (!response) {
+          throw new Error('장소 동기화에 실패했습니다.')
+        }
+
+        return withInternalPlaceId(place, response.placeId)
+      }),
+    )
+
+    setSelectedPlaces(syncedPlaces)
+    return syncedPlaces
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!id) return;
@@ -173,30 +196,35 @@ const MyPlanEdit = () => {
       return
     }
 
-    // S14P21B205-255: 실제 수정 API 요청 규격 준수 (Payload Assembly)
-    updatePlan({
-      planId: id,
-      data: {
-        title,
-        meetingAt: meetingAt ? new Date(meetingAt).toISOString() : new Date().toISOString(),
-        participantCount: Number(participantCount),
-        totalBudget: Number(totalBudget),
-        planType,
-        memo,
-        details: selectedPlaces.map((p, index) => ({
-          placeId: p.placeId,
-          seqNo: index + 1
-        })),
-      }
-    }, {
-      onSuccess: () => {
-        toast.success(PLAN_MESSAGES.updateSuccess)
-        navigate(`/my-plan/${id}`)
-      },
-      onError: (error: unknown) => {
-        toast.error(getPlanMutationErrorMessage(error, 'update'))
-      }
-    })
+    try {
+      const syncedPlaces = await syncSelectedPlaces()
+
+      updatePlan({
+        planId: id,
+        data: {
+          title,
+          meetingAt: meetingAt ? new Date(meetingAt).toISOString() : new Date().toISOString(),
+          participantCount: Number(participantCount),
+          totalBudget: Number(totalBudget),
+          planType,
+          memo,
+          details: syncedPlaces.map((place, index) => ({
+            placeId: getInternalPlaceId(place)!,
+            seqNo: index + 1
+          })),
+        }
+      }, {
+        onSuccess: () => {
+          toast.success(PLAN_MESSAGES.updateSuccess)
+          navigate(`/my-plan/${id}`)
+        },
+        onError: (error: unknown) => {
+          toast.error(getPlanMutationErrorMessage(error, 'update'))
+        }
+      })
+    } catch (error) {
+      toast.error(getPlanMutationErrorMessage(error, 'update'))
+    }
   }
 
   if (isPlanLoading) {
@@ -332,7 +360,7 @@ const MyPlanEdit = () => {
               <div className="space-y-2">
                 {selectedPlaces.length > 0 ? (
                   selectedPlaces.map((place, idx) => (
-                    <div key={place.placeId} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/10 bg-background-light dark:bg-slate-800 group animate-in slide-in-from-left-2 duration-200">
+                    <div key={getPlaceKey(place)} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/10 bg-background-light dark:bg-slate-800 group animate-in slide-in-from-left-2 duration-200">
                       <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
                         {idx + 1}
                       </div>
@@ -346,7 +374,7 @@ const MyPlanEdit = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => removePlace(place.placeId)}
+                        onClick={() => removePlace(place)}
                         className="p-1 hover:text-red-500 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <span className="material-symbols-outlined text-lg">close</span>
@@ -408,7 +436,7 @@ const MyPlanEdit = () => {
         <section className="flex-1 relative">
            <KakaoMap 
             places={places}
-            selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.placeId}
+            selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.externalPlaceId ?? selectedPlaces[selectedPlaces.length - 1]?.placeId}
             onPlaceClick={handlePlaceClick}
             onIdle={handleIdle}
             lat={mapCenter.lat}
