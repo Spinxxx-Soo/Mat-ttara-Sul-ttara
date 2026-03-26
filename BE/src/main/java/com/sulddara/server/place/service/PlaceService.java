@@ -3,6 +3,8 @@ package com.sulddara.server.place.service;
 import com.sulddara.server.chat.ai.controller.response.PlaceDetailResponse;
 import com.sulddara.server.chat.ai.controller.response.RecommendedPlace;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
+import com.sulddara.server.place.dto.PlaceSyncRequestDto;
+import com.sulddara.server.place.dto.PlaceSyncResponseDto;
 
 import java.util.List;
 
@@ -27,4 +29,6 @@ public interface PlaceService {
     PlaceDetailResponse getPlaceDetail(Long placeId);
 
     void enrichPlaceData(Long placeId);
+
+    PlaceSyncResponseDto syncPlace(PlaceSyncRequestDto request);
 }
