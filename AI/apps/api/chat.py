@@ -46,9 +46,24 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
     후보 장소 조회 API -> 추후 redis 변경
     """
     try:
+        # BE -> AI internal call
+        # - finalPlaceIds: BE가 후보 반경 필터링한 place_id 리스트
+        # - 이 값으로 AI가 추천 TopK를 산출하고, Redis(ai:reply)로 RECOMMENDATION을 보냅니다.
         # BE -> AI internalRequest
         session_state = request.sessionState
         final_place_ids = session_state.finalPlaceIds or []
+        # logging은 fastapi/uvicorn stdout로 찍힙니다(서버 로그 확인용)
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        _logger.info(
+            "[ai:place_candidates] thread=%s user=%s finalPlaceIds=%s lat=%s lng=%s time=%s",
+            request.threadId,
+            request.userId,
+            final_place_ids,
+            session_state.lat,
+            session_state.lng,
+            session_state.time,
+        )
 
         # 추천용 short_term: extraData 그대로 사용 (필요 키는 merge_vectors에서 누락(None) 처리)
         short_term: dict[str, object] = session_state.extraData or {}
@@ -72,6 +87,7 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
             short_term=short_term,  # 타입은 런타임에서 None 허용
             top_k=3,
         )
+        _logger.info("[ai:place_candidates] results=%s", results)
 
         place_details = recommend_repo.get_places_details([pid for pid, _ in results])
 

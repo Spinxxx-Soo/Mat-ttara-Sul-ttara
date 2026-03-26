@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
+import { useChatSessionSse } from '@/hooks/useChatSessionSse'
 import type { ChatMessage, ChatSession } from '@/types/api'
 
 const ChatWidget = () => {
@@ -65,6 +66,11 @@ const ChatWidget = () => {
 
   // 메시지 전송
   const sendMessageMutation = useSendMessage()
+
+  // AI 응답(SSE) 구독:
+  // - `ai_response` 이벤트 수신 시 메시지 쿼리 invalidate
+  // - 추천 장소도 같이 동기화
+  useChatSessionSse(sessionId, isOpen)
 
   const handleSend = async () => {
     if (!input.trim() || !sessionId) return

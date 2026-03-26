@@ -33,6 +33,7 @@ AI/
 
 ```bash
 pip install -r requirements.txt
+python -m pip install mysql-connector-python
 ```
 
 ### 2. 환경 변수 설정

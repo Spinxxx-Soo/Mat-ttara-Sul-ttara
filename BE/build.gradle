@@ -35,6 +35,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'io.awspring.cloud:spring-cloud-starter-aws:2.4.4'
+	// S3Config/S3Service에서 사용하는 AWS SDK v1 의존성 (AWSCredentials/AmazonS3)
+	implementation 'com.amazonaws:aws-java-sdk-core'
+	implementation 'com.amazonaws:aws-java-sdk-s3'
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
