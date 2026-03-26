@@ -55,7 +55,7 @@ public class ReviewService {
         return ReviewListResponseDto.builder()
                 .content(content)
                 .pageInfo(pageInfo)
-                .averageRating(place.getAverageRating())
+                .averageRating(placeRepository.getAverageRatingByPlaceId(placeId))
                 .build();
     }
 
