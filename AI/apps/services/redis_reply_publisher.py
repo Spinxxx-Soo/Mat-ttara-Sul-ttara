@@ -49,7 +49,7 @@ def build_be_ai_reply_redis_payload(
     response: ChatMessageResponse,
 ) -> dict[str, Any]:
     """BE RedisSubscribeListener → ObjectMapper → AiChatResponse 에 맞춘 JSON 객체."""
-    return {
+    payload = {
         "threadId": thread_id,
         "userId": user_id,
         "chatResponse": response.chatResponse,
@@ -63,6 +63,26 @@ def build_be_ai_reply_redis_payload(
             else None
         ),
     }
+
+    # 디버깅용: BE에서 값이 안 보일 때 어떤 payload가 나갔는지 확인
+    # (너무 큰 parsedState/places를 통째로 찍지 않기 위해 일부만 요약 출력)
+    try:
+        ps = payload.get("parsedState") or {}
+        logger.info(
+            "[ai:reply publish] type=%s title=%s lat=%s lng=%s time=%s finalPlaceIds=%s places=%s",
+            payload.get("type"),
+            payload.get("title"),
+            ps.get("lat"),
+            ps.get("lng"),
+            ps.get("time"),
+            (ps.get("finalPlaceIds") if isinstance(ps, dict) else None),
+            (len(payload["places"]) if isinstance(payload.get("places"), list) else None),
+        )
+    except Exception:
+        # 로깅 실패는 서비스 동작에 영향 주지 않음
+        pass
+
+    return payload
 
 
 class RedisReplyPublisher:

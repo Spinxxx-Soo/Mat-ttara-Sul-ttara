@@ -192,8 +192,20 @@ class ChatService:
                 summary=updated_summary,
             )
 
+        logger.info(
+            "[ai:chat] thread=%s user=%s needTitle=%s title=%s lat=%s lng=%s time=%s",
+            thread_id,
+            request.userId,
+            request.needTitle,
+            title,
+            normalized_parsed_state.get("lat"),
+            normalized_parsed_state.get("lng"),
+            normalized_parsed_state.get("time"),
+        )
+
         # 6) missing slot 탐지 -> 슬롯 1개 선택 -> follow-up 질문 생성 (AI 서버 내부 전용)
         missing_slots = self.parsed_state_manager.detect_missing_slots(normalized_parsed_state)
+        logger.info("[ai:chat] missing_slots=%s normalized_state_keys=%s", missing_slots, list(normalized_parsed_state.keys()))
 
         if not missing_slots:
             # PLACE_CANDIDATES 응답은 BE가 lat/lng로 반경 필터링할 수 있어야 합니다.
@@ -213,6 +225,7 @@ class ChatService:
                     title=title,
                 )
             else:
+                logger.info("[ai:chat] switching to PLACE_CANDIDATES lat=%s lng=%s", normalized_parsed_state.get("lat"), normalized_parsed_state.get("lng"))
                 response = self.response_factory.create_place_candidates_response(
                     thread_id=thread_id,
                     user_id=request.userId,
@@ -238,6 +251,8 @@ class ChatService:
                 memory_status=memory_status,
                 title=title,
             )
+
+        logger.info("[ai:chat] response_type=%s chatResponse_preview=%s", getattr(response, "type", None), (response.chatResponse or "")[:80])
 
         # 6) AI 응답 저장
         await self.state_store.save_ai_message(thread_id, response.chatResponse)

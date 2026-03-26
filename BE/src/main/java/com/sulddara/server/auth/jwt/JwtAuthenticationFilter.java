@@ -50,7 +50,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 Claims claims = jwtUtil.getClaims(jwt);
 
-                Long userId = claims.get("userId", Long.class);
+                // JJWT numeric claim은 Integer/Long 등으로 역직렬화될 수 있어,
+                // Long으로 단정하지 않고 Number로 받아 long으로 변환합니다.
+                Number userIdNumber = claims.get("userId", Number.class);
+                Long userId = userIdNumber != null ? userIdNumber.longValue() : null;
                 String email = claims.getSubject();
                 String role = claims.get("role", String.class);
 
