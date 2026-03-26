@@ -62,6 +62,9 @@ class PlaceServiceImplTest {
     @Mock
     private WebClient webClient;
 
+    @Mock
+    private PlaceIndexingService placeIndexingService;
+
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 
