@@ -101,3 +101,24 @@ export const useSyncPlace = () => {
         },
     });
 };
+
+/**
+ * 내부 placeId 기반 장소 AI 보강 훅
+ * POST /api/v1/places/{placeId}/enrich
+ */
+export const useEnrichPlace = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (placeId: number) => {
+            return await placeApi.enrichPlace(placeId);
+        },
+        onSuccess: () => {
+            // 보강 후 상세 캐시를 비워 최신 place detail을 보장
+            queryClient.invalidateQueries({ queryKey: queryKeys.place.all });
+        },
+        meta: {
+            errorMessage: extractApiErrorMessage,
+        },
+    });
+};
