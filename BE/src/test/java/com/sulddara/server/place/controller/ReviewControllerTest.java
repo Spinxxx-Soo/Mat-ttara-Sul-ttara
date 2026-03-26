@@ -3,6 +3,7 @@ package com.sulddara.server.place.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sulddara.server.auth.jwt.JwtUtil;
 import com.sulddara.server.place.dto.ReviewCreateRequestDto;
+import com.sulddara.server.place.dto.ReviewListResponseDto;
 import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
 import com.sulddara.server.place.service.ReviewService;
@@ -123,16 +124,23 @@ class ReviewControllerTest {
     void getReviews_ShouldReturn200AndResults() throws Exception {
         // given
         Long placeId = 1L;
-        ReviewResponseDto response = new ReviewResponseDto(10L, 1L, "TestUser", 4, "Great!", LocalDateTime.now(), LocalDateTime.now());
+        ReviewResponseDto reviewResponse = new ReviewResponseDto(10L, 1L, "TestUser", 4, "Great!", LocalDateTime.now(), LocalDateTime.now());
+        ReviewListResponseDto response = ReviewListResponseDto.builder()
+                .content(List.of(reviewResponse))
+                .averageRating(4.0)
+                .build();
 
-        given(reviewService.getReviews(placeId))
-                .willReturn(Collections.singletonList(response));
+        given(reviewService.getReviews(eq(placeId), eq(1), eq(10)))
+                .willReturn(response);
 
         // when & then
-        mockMvc.perform(get("/api/v1/places/{placeId}/reviews", placeId))
+        mockMvc.perform(get("/api/v1/places/{placeId}/reviews", placeId)
+                        .param("page", "1")
+                        .param("size", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].rating").value(4))
-                .andExpect(jsonPath("$[0].content").value("Great!"));
+                .andExpect(jsonPath("$.content[0].rating").value(4))
+                .andExpect(jsonPath("$.content[0].content").value("Great!"))
+                .andExpect(jsonPath("$.averageRating").value(4.0));
     }
 
     @Test
