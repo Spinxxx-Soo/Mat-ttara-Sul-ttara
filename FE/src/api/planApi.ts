@@ -30,6 +30,14 @@ export const planApi = {
   },
 
   /**
+   * 공유 플랜 상세 조회 (S14P21B205-428)
+   */
+  getSharedPlanDetail: async (shareToken: string): Promise<PlanDetail> => {
+    const { data } = await apiClient.get<PlanDetail>(`/api/v1/plans/share/${shareToken}`);
+    return data;
+  },
+
+  /**
    * 플랜 생성
    */
   createPlan: async (planData: CreatePlanRequest): Promise<Plan> => {
