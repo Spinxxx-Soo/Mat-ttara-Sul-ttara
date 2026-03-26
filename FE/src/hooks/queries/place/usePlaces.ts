@@ -8,7 +8,12 @@ import { placeApi } from '@/api/placeApi';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { extractApiErrorMessage } from '@/lib/apiUtils';
 import type { NearbyPlacesParams } from '@/types/map';
-import type { PlaceSearchRequest, ApiPaginationResponse, Place } from '@/types/api';
+import type {
+    PlaceSearchRequest,
+    ApiPaginationResponse,
+    Place,
+    PlaceSyncRequest,
+} from '@/types/api';
 
 /**
  * 주변 장소 목록을 조회하는 훅
@@ -63,39 +68,57 @@ export const useSearchPlaces = (
     });
 };
 
-// 모듈 레벨에서 현재 보강 중인 장소 ID 관리 (클라이언트 사이드 중복 요청 방지)
-const enrichingIds = new Set<number>();
+// 모듈 레벨에서 현재 동기화 중인 외부 장소 ID 관리 (클라이언트 사이드 중복 요청 방지)
+const syncingExternalIds = new Set<string>();
 
 /**
- * 부족한 장소 정보를 크롤링으로 보강 요청하는 뮤테이션 훅
- * S14P21B205-LazyLoading 전략 반영: 동일 장소 중복 호출 방지 로직 추가
+ * 카카오 외부 장소를 백엔드 내부 placeId로 동기화하는 뮤테이션 훅
+ */
+export const useSyncPlace = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (body: PlaceSyncRequest) => {
+            if (syncingExternalIds.has(body.externalPlaceId)) {
+                return null;
+            }
+
+            syncingExternalIds.add(body.externalPlaceId);
+            try {
+                return await placeApi.syncPlace(body);
+            } finally {
+                syncingExternalIds.delete(body.externalPlaceId);
+            }
+        },
+        onSuccess: (data) => {
+            if (!data) return;
+
+            // 동기화 후 상세 조회가 가능해지므로 장소 관련 캐시를 비워 최신 상태를 보장
+            queryClient.invalidateQueries({ queryKey: queryKeys.place.all });
+        },
+        meta: {
+            errorMessage: extractApiErrorMessage,
+        },
+    });
+};
+
+/**
+ * 내부 placeId 기반 장소 AI 보강 훅
+ * POST /api/v1/places/{placeId}/enrich
  */
 export const useEnrichPlace = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async (placeId: number) => {
-            // 이미 보강 작업이 진행 중인 ID라면 중복 요청 방지를 위해 중단
-            if (enrichingIds.has(placeId)) {
-                return null;
-            }
-
-            enrichingIds.add(placeId);
-            try {
-                return await placeApi.enrichPlaceData(placeId);
-            } finally {
-                // 작업 완료 후(성공/실패 무관) 관리 큐에서 제거
-                enrichingIds.delete(placeId);
-            }
+            return await placeApi.enrichPlace(placeId);
         },
-        onSuccess: (data, placeId) => {
-            // 중복 요청 등으로 인해 API 호출이 스킵된 경우(null 반환) 무시
-            if (!data) return;
-
-            // 상세 정보 쿼리 캐시 갱신
-            queryClient.invalidateQueries({ queryKey: queryKeys.place.detail(placeId) });
-            // 검색 결과나 주변 장소 목록에도 영향이 있을 수 있으므로 관련 쿼리 무효화
+        onSuccess: () => {
+            // 보강 후 상세 캐시를 비워 최신 place detail을 보장
             queryClient.invalidateQueries({ queryKey: queryKeys.place.all });
+        },
+        meta: {
+            errorMessage: extractApiErrorMessage,
         },
     });
 };

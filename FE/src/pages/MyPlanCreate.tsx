@@ -1,14 +1,29 @@
-import { useState, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
-import KakaoMap from '@/components/map/KakaoMap'
-import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces'
-import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
-import { useAuthStore } from '@/stores/authStore'
-import { useLocationStore, FALLBACK_LOCATION } from '@/stores/locationStore'
-import { hasNullFields } from '@/lib/placeUtils'
-import { Place } from '@/types/api'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
+
+import KakaoMap from '@/components/map/KakaoMap'
+import { useNearbyPlaces, useSyncPlace } from '@/hooks/queries/place/usePlaces'
+import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
+import { usePendingDelay } from '@/hooks/usePendingDelay'
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning'
+import {
+  buildPlaceSyncRequest,
+  getInternalPlaceId,
+  getPlaceKey,
+  isSamePlace,
+  withInternalPlaceId,
+} from '@/lib/placeIdentity'
+import {
+  PLAN_MESSAGES,
+  confirmDiscardPlanChanges,
+  getPlanMutationErrorMessage,
+} from '@/lib/planUi'
+import { useAuthStore } from '@/stores/authStore'
+import { FALLBACK_LOCATION, useLocationStore } from '@/stores/locationStore'
+import type { Place } from '@/types/api'
+
+import Sidebar from '../components/Sidebar'
 
 const MyPlanCreate = () => {
   const navigate = useNavigate()
@@ -30,7 +45,7 @@ const MyPlanCreate = () => {
     true
   )
   const { mutate: createPlan, isPending: isCreating } = useCreatePlanMutation()
-  const { mutate: enrichPlace } = useEnrichPlace()
+  const { mutateAsync: syncPlace } = useSyncPlace()
 
   // 폼 상태
   const [title, setTitle] = useState('')
@@ -39,6 +54,30 @@ const MyPlanCreate = () => {
   const [totalBudget, setTotalBudget] = useState('50000')
   const [planType, setPlanType] = useState('친목/회식')
   const [memo, setMemo] = useState('')
+  const initialTitle = user?.name ? `${user.name}님의 맛집 모임` : ''
+  const isDirty = useMemo(
+    () =>
+      title !== initialTitle ||
+      Boolean(meetingAt) ||
+      participantCount !== '2' ||
+      totalBudget !== '50000' ||
+      planType !== '친목/회식' ||
+      Boolean(memo.trim()) ||
+      selectedPlaces.length > 0,
+    [
+      initialTitle,
+      meetingAt,
+      memo,
+      participantCount,
+      planType,
+      selectedPlaces.length,
+      title,
+      totalBudget,
+    ]
+  )
+  const showDelayedPending = usePendingDelay(isCreating)
+
+  useUnsavedChangesWarning(isDirty && !isCreating, PLAN_MESSAGES.leaveWarning)
 
   useEffect(() => {
     if (user?.name && !title) {
@@ -52,25 +91,41 @@ const MyPlanCreate = () => {
   }, [])
 
   const handlePlaceClick = (place: Place) => {
-    // Lazy Loading: 정보가 부족하면 크롤링 요청
-    if (hasNullFields(place)) {
-      enrichPlace(place.placeId)
-    }
-
     setSelectedPlaces(prev => {
-      const exists = prev.find(p => p.placeId === place.placeId)
+      const exists = prev.find((selectedPlace) => isSamePlace(selectedPlace, place))
       if (exists) {
-        return prev.filter(p => p.placeId !== place.placeId)
+        return prev.filter((selectedPlace) => !isSamePlace(selectedPlace, place))
       }
       return [...prev, place]
     })
   }
 
-  const removePlace = (placeId: number) => {
-    setSelectedPlaces(prev => prev.filter(p => p.placeId !== placeId))
+  const removePlace = (placeToRemove: Place) => {
+    setSelectedPlaces((prev) => prev.filter((place) => !isSamePlace(place, placeToRemove)))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const syncSelectedPlaces = async () => {
+    const syncedPlaces = await Promise.all(
+      selectedPlaces.map(async (place) => {
+        const internalPlaceId = getInternalPlaceId(place)
+        if (internalPlaceId != null) {
+          return withInternalPlaceId(place, internalPlaceId)
+        }
+
+        const response = await syncPlace(buildPlaceSyncRequest(place))
+        if (!response) {
+          throw new Error('장소 동기화에 실패했습니다.')
+        }
+
+        return withInternalPlaceId(place, response.placeId)
+      }),
+    )
+
+    setSelectedPlaces(syncedPlaces)
+    return syncedPlaces
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (selectedPlaces.length === 0) {
@@ -78,34 +133,32 @@ const MyPlanCreate = () => {
       return
     }
 
-    // S14P21B205-132: 실제 생성 API 요청 규격 준수 (Payload Assembly)
-    createPlan({
-      title,
-      meetingAt: meetingAt ? new Date(meetingAt).toISOString() : new Date().toISOString(),
-      participantCount: Number(participantCount),
-      totalBudget: Number(totalBudget),
-      planType,
-      memo,
-      details: selectedPlaces.map((p, index) => ({
-        placeId: p.placeId,
-        seqNo: index + 1
-      })),
-    }, {
-      onSuccess: () => {
-        toast.success('플랜이 생성되었습니다!')
-        navigate('/my-plan')
-      },
-      onError: (error: any) => {
-        // Validation Error 처리 로직 (S14P21B205-258)
-        const errors = error.response?.data?.errors;
-        if (errors && Object.keys(errors).length > 0) {
-          const firstKey = Object.keys(errors)[0];
-          toast.error(`${errors[firstKey][0]}`);
-        } else {
-          toast.error(error.response?.data?.message || '플랜 생성 중 오류가 발생했습니다.')
+    try {
+      const syncedPlaces = await syncSelectedPlaces()
+
+      createPlan({
+        title,
+        meetingAt: meetingAt ? new Date(meetingAt).toISOString() : new Date().toISOString(),
+        participantCount: Number(participantCount),
+        totalBudget: Number(totalBudget),
+        planType,
+        memo,
+        details: syncedPlaces.map((place, index) => ({
+          placeId: getInternalPlaceId(place)!,
+          seqNo: index + 1,
+        })),
+      }, {
+        onSuccess: () => {
+          toast.success(PLAN_MESSAGES.createSuccess)
+          navigate('/my-plan')
+        },
+        onError: (error: unknown) => {
+          toast.error(getPlanMutationErrorMessage(error, 'create'))
         }
-      }
-    })
+      })
+    } catch (error) {
+      toast.error(getPlanMutationErrorMessage(error, 'create'))
+    }
   }
 
   return (
@@ -212,7 +265,7 @@ const MyPlanCreate = () => {
               <div className="space-y-2">
                 {selectedPlaces.length > 0 ? (
                   selectedPlaces.map((place, idx) => (
-                    <div key={place.placeId} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/10 bg-background-light dark:bg-slate-800 group animate-in slide-in-from-left-2 duration-200">
+                    <div key={getPlaceKey(place)} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/10 bg-background-light dark:bg-slate-800 group animate-in slide-in-from-left-2 duration-200">
                       <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
                         {idx + 1}
                       </div>
@@ -226,7 +279,7 @@ const MyPlanCreate = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => removePlace(place.placeId)}
+                        onClick={() => removePlace(place)}
                         className="p-1 hover:text-red-500 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <span className="material-symbols-outlined text-lg">close</span>
@@ -236,7 +289,7 @@ const MyPlanCreate = () => {
                 ) : (
                   <div className="px-4 py-8 rounded-xl border border-dashed border-primary/30 bg-background-light dark:bg-slate-800 text-center">
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      오른쪽 지도에서 방문할 장소들을 클릭하세요.
+                      {PLAN_MESSAGES.emptyPlaces}
                     </p>
                   </div>
                 )}
@@ -259,7 +312,11 @@ const MyPlanCreate = () => {
             <div className="pt-4 flex gap-3 justify-end">
               <button
                 type="button"
-                onClick={() => navigate('/my-plan')}
+                onClick={() => {
+                  if (!isDirty || confirmDiscardPlanChanges(PLAN_MESSAGES.createCancel)) {
+                    navigate('/my-plan')
+                  }
+                }}
                 className="px-5 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 취소
@@ -269,9 +326,14 @@ const MyPlanCreate = () => {
                 disabled={isCreating}
                 className="px-6 py-2 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isCreating ? '생성 중...' : '플랜 생성하기'}
+                {isCreating ? PLAN_MESSAGES.createPending : '플랜 생성하기'}
               </button>
             </div>
+            {showDelayedPending && (
+              <p className="text-right text-xs text-slate-500">
+                {PLAN_MESSAGES.delayedPending}
+              </p>
+            )}
           </form>
         </section>
 
@@ -279,7 +341,7 @@ const MyPlanCreate = () => {
         <section className="flex-1 relative">
            <KakaoMap 
             places={places}
-            selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.placeId}
+            selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.externalPlaceId ?? selectedPlaces[selectedPlaces.length - 1]?.placeId}
             onPlaceClick={handlePlaceClick}
             onIdle={handleIdle}
             lat={mapCenter.lat}
