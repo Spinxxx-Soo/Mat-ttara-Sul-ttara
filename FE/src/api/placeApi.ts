@@ -204,13 +204,40 @@ export const placeApi = {
     page: number,
     size: number
   ): Promise<PlaceReviewsResponse> => {
-    const { data } = await apiClient.get<PlaceReviewsResponse>(
+    // BE는 현재 페이지네이션 래퍼 없이 ReviewResponseDto[]를 반환한다.
+    // FE에서 기존 UI/훅 시그니처를 유지하기 위해 클라이언트에서 페이지네이션 형태로 래핑한다.
+    const { data } = await apiClient.get<Review[]>(
       `/api/v1/places/${placeId}/reviews`,
       {
         params: { page, size },
       }
     );
-    return data;
+    const all = Array.isArray(data) ? data : [];
+    const safeSize = Math.max(1, size || 10);
+    const safePage = Math.max(1, page || 1);
+    const totalElements = all.length;
+    const totalPages = Math.ceil(totalElements / safeSize);
+    const start = (safePage - 1) * safeSize;
+    const end = start + safeSize;
+    const content = all.slice(start, end);
+    const hasNext = safePage < totalPages;
+
+    const avg =
+      totalElements > 0
+        ? all.reduce((acc, r) => acc + (Number(r?.rating) || 0), 0) / totalElements
+        : undefined;
+
+    return {
+      content,
+      pageInfo: {
+        page: safePage,
+        size: safeSize,
+        totalElements,
+        totalPages,
+        hasNext,
+      },
+      averageRating: Number.isFinite(avg) ? avg : undefined,
+    };
   },
 
   /**
@@ -237,7 +264,8 @@ export const placeApi = {
     reviewId: number,
     body: UpdateReviewRequest
   ): Promise<Review> => {
-    const { data } = await apiClient.patch<Review>(
+    // BE는 PUT 매핑이다. (PATCH로 호출하면 405/404가 날 수 있음)
+    const { data } = await apiClient.put<Review>(
       `/api/v1/places/${placeId}/reviews/${reviewId}`,
       body
     );
