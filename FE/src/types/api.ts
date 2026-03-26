@@ -98,6 +98,8 @@ export interface Plan {
   planType: string;
   memo?: string;
   thumbnailUrl?: string; // 추가: 목록에서 보여줄 이미지
+  shareToken?: string;
+  shareId?: string;
   createdAt: string;
   updatedAt?: string;
 }
