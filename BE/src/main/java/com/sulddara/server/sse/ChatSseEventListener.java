@@ -33,10 +33,20 @@ public class ChatSseEventListener {
                 e.sentAtEpochMs()
         );
         log.info("브로드캐스트 시작: channelId={}", e.sessionId());
-        sseHub.broadcast(payload);
+        try {
+            sseHub.broadcast(payload);
+        } catch (Exception ex) {
+            log.error("[sse-listener] 사용자 메시지 브로드캐스트 실패 sessionId={}", e.sessionId(), ex);
+            throw ex;
+        }
 
-        if(e.role().equals(RoleType.USER.toString())){
-            aiService.sendChat(e.sessionId(), e.userId(), e.content(), e.isFirst());
+        if (e.role().equals(RoleType.USER.toString())) {
+            try {
+                aiService.sendChat(e.sessionId(), e.userId(), e.content(), e.isFirst());
+            } catch (Exception ex) {
+                log.error("[sse-listener] AI 서버 호출(sendChat) 실패 sessionId={} — 사용자 메시지는 이미 브로드캐스트됨",
+                        e.sessionId(), ex);
+            }
         }
     }
 
@@ -55,7 +65,12 @@ public class ChatSseEventListener {
                 e.sentAtEpochMs()
         );
         log.info("AI 브로드캐스트 시작: channelId={}", e.sessionId());
-        sseHub.broadcast(payload);
+        try {
+            sseHub.broadcast(payload);
+        } catch (Exception ex) {
+            log.error("[sse-listener] AI 응답 브로드캐스트 실패 sessionId={}", e.sessionId(), ex);
+            throw ex;
+        }
     }
 
     @EventListener
@@ -68,6 +83,11 @@ public class ChatSseEventListener {
                 .updatedAtEpochMs(e.updatedAtEpochMs())
                 .build();
 
-        sseHub.broadcast(payload);
+        try {
+            sseHub.broadcast(payload);
+        } catch (Exception ex) {
+            log.error("[sse-listener] 메시지 수정 브로드캐스트 실패 sessionId={}", e.sessionId(), ex);
+            throw ex;
+        }
     }
 }
