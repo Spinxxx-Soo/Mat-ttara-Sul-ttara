@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 public interface ChatService {
     ChatResponse sendMessage(long sessionId, Long userId, String content);
 
-    MessageResponse getMessages(Long userId, long sessionId, Long cursor, Pageable pageable);
+    MessageResponse getMessages(Long userId, long sessionId, Pageable pageable);
 
     ChatUpdateResponse updateMessages(Long userId, long messageId, String content);
 }
