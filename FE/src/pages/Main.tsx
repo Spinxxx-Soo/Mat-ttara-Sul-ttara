@@ -5,7 +5,6 @@ import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import KakaoMap from '@/components/map/KakaoMap'
-import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard'
 import { useEnrichPlace, useNearbyPlaces, usePlaceDetail } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
@@ -114,17 +113,14 @@ const Main = () => {
           lng={mapCenter.lng}
           places={mapPlaces}
           selectedPlaceId={selectedPlaceId}
+          detailPlace={
+            selectedPlace && !reviewPanel ? (selectedPlaceForDisplay ?? selectedPlace) : null
+          }
+          onDetailClose={() => setSelectedPlaceId(null)}
+          onDetailReviewClick={openReviewFromDetail}
           onPlaceClick={handlePlaceClick}
           onIdle={handleMapIdle}
         />
-
-        {selectedPlace && !reviewPanel && (
-          <PlaceMapDetailCard
-            place={selectedPlaceForDisplay ?? selectedPlace}
-            onClose={() => setSelectedPlaceId(null)}
-            onReviewClick={openReviewFromDetail}
-          />
-        )}
       </main>
     </div>
   )
