@@ -83,13 +83,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             filterChain.doFilter(request, response);
         }catch (BaseException e) {
+            if (response.isCommitted()) {
+                return;
+            }
             setErrorResponse(response, e.getErrorCode());
         } catch (Exception e) {
+            if (response.isCommitted()) {
+                return;
+            }
             setErrorResponse(response, ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
     }
+
+    /**
+     * SSE/AsyncContext 재디스패치에서도 JWT 인증 컨텍스트가 유지되도록
+     * async dispatch 시에도 필터를 적용합니다.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
     private void setErrorResponse(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+        if (response.isCommitted()) {
+            return;
+        }
         response.setStatus(errorCode.getStatus());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");

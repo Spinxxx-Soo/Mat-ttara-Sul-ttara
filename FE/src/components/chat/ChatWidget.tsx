@@ -1,17 +1,28 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
 import { useChatSessionSse } from '@/hooks/useChatSessionSse'
 import type { ChatMessage, ChatSession } from '@/types/api'
 
-const ChatWidget = () => {
+interface ChatWidgetProps {
+  embedded?: boolean
+}
+
+const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   const { user } = useAuthStore()
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(embedded)
   const [sessionId, setSessionId] = useState<string>('')
   const [input, setInput] = useState('')
   const [isSessionListOpen, setIsSessionListOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasInitializedSessionRef = useRef(false)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const shouldDebug = import.meta.env.DEV
+  const debugLog = (...args: unknown[]) => {
+    if (shouldDebug) {
+      console.log('[chat-widget]', ...args)
+    }
+  }
 
   // 세션 목록 조회 (상단 드롭다운용)
   const { data: sessionsData } = useChatSessions({ size: 20 })
@@ -21,20 +32,57 @@ const ChatWidget = () => {
   const createSessionMutation = useCreateSession()
 
   useEffect(() => {
+    debugLog('render', {
+      embedded,
+      isOpen,
+      sessionId,
+      sessionsLength: sessions.length,
+      userId: user?.userId ?? null,
+      createSessionPending: createSessionMutation.isPending,
+    })
+  }, [embedded, isOpen, sessionId, sessions.length, user?.userId, createSessionMutation.isPending])
+
+  useEffect(() => {
+    if (embedded && !isOpen) {
+      setIsOpen(true)
+    }
+  }, [embedded, isOpen])
+
+  useEffect(() => {
+    // 기존 세션이 있으면 우선 최신 세션을 선택해 즉시 메시지 렌더링
+    if (isOpen && !sessionId && sessions.length > 0) {
+      setSessionId(sessions[0].sessionId)
+      debugLog('restore latest session', sessions[0].sessionId)
+    }
+  }, [isOpen, sessionId, sessions])
+
+  useEffect(() => {
     // 세션이 없고 로그인된 상태이며 챗봇이 열렸을 때 새 대화 세션 생성
-    if (isOpen && !sessionId && user && !createSessionMutation.isPending && !hasInitializedSessionRef.current) {
+    if (
+      isOpen &&
+      !sessionId &&
+      sessions.length === 0 &&
+      user &&
+      !createSessionMutation.isPending &&
+      !hasInitializedSessionRef.current
+    ) {
       hasInitializedSessionRef.current = true
       createSessionMutation.mutate(
         { title: '새 대화' },
         {
           onSuccess: (data) => {
             setSessionId(data.sessionId)
+            debugLog('create session success', data.sessionId)
+          },
+          onError: (error) => {
+            hasInitializedSessionRef.current = false
+            console.error('[chat-widget] create session failed', error)
           },
         }
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, sessionId, user])
+  }, [isOpen, sessionId, user, sessions.length])
 
   const handleNewSession = () => {
     if (createSessionMutation.isPending) return
@@ -62,15 +110,44 @@ const ChatWidget = () => {
     size: 50, // 최근 50개 메시지
   })
 
-  const messages: ChatMessage[] = messagesData?.content || []
+  useEffect(() => {
+    if (!sessionId) {
+      setMessages([])
+      return
+    }
+    setMessages(messagesData?.content || [])
+  }, [sessionId, messagesData])
+
+  useEffect(() => {
+    debugLog('messages state', {
+      sessionId,
+      isLoadingMessages,
+      messagesLength: messages.length,
+      firstMessageId: messages[0]?.messageId ?? null,
+    })
+  }, [sessionId, isLoadingMessages, messages])
 
   // 메시지 전송
   const sendMessageMutation = useSendMessage()
 
+  const handleIncomingMessage = useCallback((incoming: ChatMessage) => {
+    setMessages((prev) => {
+      if (String(incoming.sessionId ?? '') !== String(sessionId ?? '')) {
+        return prev
+      }
+
+      const exists = prev.some((m) => m.messageId === incoming.messageId)
+      if (exists) {
+        return prev.map((m) => (m.messageId === incoming.messageId ? { ...m, ...incoming } : m))
+      }
+      return [...prev, incoming]
+    })
+  }, [sessionId])
+
   // AI 응답(SSE) 구독:
-  // - `ai_response` 이벤트 수신 시 메시지 쿼리 invalidate
+  // - `chat_message`, `ai_response` 이벤트 수신 시 로컬 messages 누적
   // - 추천 장소도 같이 동기화
-  useChatSessionSse(sessionId, isOpen)
+  useChatSessionSse(sessionId, isOpen, handleIncomingMessage)
 
   const handleSend = async () => {
     if (!input.trim() || !sessionId) return
@@ -101,9 +178,15 @@ const ChatWidget = () => {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className={embedded ? 'h-full w-full min-h-0' : 'fixed bottom-6 right-6 z-50 flex flex-col items-end'}>
       {isOpen && (
-        <aside className="w-[400px] h-[650px] max-h-[80vh] mb-4 flex flex-col bg-white dark:bg-slate-900 shadow-2xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <aside
+          className={
+            embedded
+              ? 'h-full min-h-0 w-full flex flex-col bg-white dark:bg-slate-900 overflow-hidden'
+              : 'w-[400px] h-[650px] max-h-[80vh] mb-4 flex flex-col bg-white dark:bg-slate-900 shadow-2xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-4 duration-300'
+          }
+        >
           {/* Header */}
           <div className="p-5 border-b border-primary/10 bg-white dark:bg-slate-900 flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -183,7 +266,7 @@ const ChatWidget = () => {
           </div>
 
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50 dark:bg-slate-900/50 text-sm">
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4 bg-slate-50/50 dark:bg-slate-900/50 text-sm">
             {isLoadingMessages && messages.length === 0 && (
               <div className="flex items-center justify-center h-full">
                 <p className="text-slate-500">메시지를 불러오는 중...</p>
@@ -250,7 +333,7 @@ const ChatWidget = () => {
       )}
       
       {/* Floating Action Button */}
-      {!isOpen && (
+      {!embedded && !isOpen && (
         <button
           onClick={() => setIsOpen(true)}
           className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-orange-600 text-white shadow-2xl flex items-center justify-center hover:scale-105 transition-transform animate-in zoom-in duration-300"

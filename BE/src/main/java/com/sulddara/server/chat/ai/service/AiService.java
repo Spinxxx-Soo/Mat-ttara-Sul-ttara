@@ -46,18 +46,27 @@ public class AiService {
 
     @Transactional
     public void sendChat(long sessionId, long userId, String content, boolean isNew){
-        boolean isSync = isNew || redisTemplate.hasKey("ai:flag:" + sessionId);
-        var aiChatRequest = createRequest(userId, sessionId, content, isSync, isNew);
+        boolean isSync = isNew || Boolean.TRUE.equals(redisTemplate.hasKey("ai:flag:" + sessionId));
+        final AiChatRequest aiChatRequest;
+        try {
+            aiChatRequest = createRequest(userId, sessionId, content, isSync, isNew);
+        } catch (Exception e) {
+            log.error("[ai] 요청 본문 생성 실패 sessionId={} userId={}", sessionId, userId, e);
+            return;
+        }
 
         webClient.post()
                 .uri("/api/v1/ai/chat/message")
                 .bodyValue(aiChatRequest)
                 .retrieve()
                 .bodyToMono(Void.class)
-                .timeout(Duration.ofSeconds(10))
-                .doOnError(e -> log.error("AI 서버 통신 치명적 실패: session={}", sessionId, e))
-                .subscribe();
-
+                .timeout(Duration.ofSeconds(120))
+                .doOnSuccess(v -> log.debug("[ai] chat/message 수락됨 sessionId={}", sessionId))
+                .doOnError(e -> log.error("[ai] chat/message 호출 실패 sessionId={}", sessionId, e))
+                .subscribe(
+                        v -> {},
+                        e -> log.error("[ai] chat/message subscribe 에러 sessionId={}", sessionId, e)
+                );
     }
 
     public AiChatRequest createRequest(long userId, long sessionId, String content, boolean isSync, boolean isNew){
@@ -98,15 +107,22 @@ public class AiService {
         // SSE 방송을 위한 이벤트 발행
 
         if (response == null) {
+            log.warn("[ai] handleResponse: response 가 null sessionId={}", sessionId);
             return;
         }
         try {
             if ("PLACE_CANDIDATES".equals(response.getType())) {
+                SessionState parsed = response.getParsedState();
+                if (parsed == null || parsed.lat() == null || parsed.lng() == null) {
+                    log.error("[ai] PLACE_CANDIDATES 인데 parsedState/lat/lng 누락 sessionId={} threadId={}",
+                            sessionId, response.getThreadId());
+                    return;
+                }
                 List<Long> candidateIds = placeRepository.findIdsByLocation(
-                        response.getParsedState().lat(),
-                        response.getParsedState().lng()
+                        parsed.lat(),
+                        parsed.lng()
                 );
-                SessionState updatedState = response.getParsedState().withFinalPlaceIds(candidateIds);
+                SessionState updatedState = parsed.withFinalPlaceIds(candidateIds);
                 sendCandidatesToAi(sessionId, userId, updatedState);
                 return;
             }
@@ -116,7 +132,12 @@ public class AiService {
                 redisTemplate.opsForValue().set(redisKey, placesJson, Duration.ofMinutes(30));
             }
 
-            long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), response.getChatResponse()); // ai 답변 저장
+            String assistantText = response.getChatResponse();
+            if (assistantText == null) {
+                log.warn("[ai] chatResponse 가 null — 빈 문자열로 저장 sessionId={}", sessionId);
+                assistantText = "";
+            }
+            long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), assistantText);
 
             chatSessionRepository.findById(sessionId).ifPresent(session -> {
                 session.touch();
@@ -124,13 +145,13 @@ public class AiService {
                 if (response.getTitle() != null && !response.getTitle().isBlank()) {
                     session.updateTitle(response.getTitle());
                 }
-                if (response.getParsedState() != null){
+                if (response.getParsedState() != null) {
                     try {
                         String parsedJson = objectMapper.writeValueAsString(response.getParsedState());
                         session.updateState(parsedJson);
                         redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
                     } catch (JsonProcessingException e) {
-                        throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+                        log.error("[ai] parsedState JSON 직렬화 실패 sessionId={}", sessionId, e);
                     }
                 }
             });
@@ -146,14 +167,15 @@ public class AiService {
                     messageId,
                     userId,
                     RoleType.ASSISTANT.toString(),
-                    response.getChatResponse(),
+                    assistantText,
                     response.getType(),
                     response.getParsedState(),
                     response.getTitle(),
                     Instant.now().toEpochMilli()
             ));
         } catch (Exception e) {
-            throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+            log.error("[ai] handleResponse 처리 중 예외 sessionId={} userId={} type={}",
+                    sessionId, userId, response.getType(), e);
         }
 
     }
@@ -199,6 +221,12 @@ public class AiService {
                 .bodyValue(internalRequest)
                 .retrieve()
                 .bodyToMono(Void.class)
-                .subscribe(v -> log.info("AI 서버로 후보지 리스트 전송 완료"));
+                .timeout(Duration.ofSeconds(120))
+                .doOnSuccess(v -> log.info("[ai] 후보지 리스트 전송 완료 sessionId={}", sessionId))
+                .doOnError(e -> log.error("[ai] 후보지 리스트 전송 실패 sessionId={}", sessionId, e))
+                .subscribe(
+                        v -> {},
+                        e -> log.error("[ai] place_candidates subscribe 에러 sessionId={}", sessionId, e)
+                );
     }
 }
