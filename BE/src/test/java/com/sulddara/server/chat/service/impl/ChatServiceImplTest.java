@@ -18,9 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.SliceImpl;
+import org.springframework.data.domain.*;
 
 import com.sulddara.server.chat.controller.response.ChatResponse;
 import com.sulddara.server.chat.controller.response.ChatUpdateResponse;
@@ -94,23 +92,41 @@ class ChatServiceImplTest {
     class GetMessagesTest {
 
         @Test
-        @DisplayName("성공: 본인의 세션 메시지 기록을 조회한다")
+        @DisplayName("성공: 본인의 세션 메시지 기록을 Offset 기반으로 조회한다")
         void getMessages_Success() {
             // given
             Pageable pageable = PageRequest.of(0, 10);
             ChatSessions session = ChatSessions.builder().sessionId(SESSION_ID).userId(USER_ID).build();
-            ChatMessages message = ChatMessages.builder().messageId(MESSAGE_ID).content("hi").role(RoleType.USER.toString()).createdAt(LocalDateTime.now()).build();
+
+            // 테스트용 메시지 생성
+            ChatMessages message = ChatMessages.builder()
+                    .messageId(MESSAGE_ID)
+                    .sessionId(SESSION_ID)
+                    .content("hi")
+                    .role(RoleType.USER.toString())
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            // Mock 설정: Page 객체 반환 (프론트 명세 대응)
+            Page<ChatMessages> messagePage = new PageImpl<>(List.of(message), pageable, 1);
 
             when(chatSessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
-            when(chatMessageRepository.findMessagesByCursor(SESSION_ID, null, pageable))
-                    .thenReturn(new SliceImpl<>(List.of(message)));
+            // [수정] findMessagesByCursor -> findBySessionIdOrderByMessageIdDesc
+            when(chatMessageRepository.findBySessionIdOrderByMessageIdDesc(SESSION_ID, pageable))
+                    .thenReturn(messagePage);
 
             // when
-            MessageResponse result = chatService.getMessages(USER_ID, SESSION_ID, null, pageable);
+            // [수정] cursor 파라미터 제거
+            MessageResponse result = chatService.getMessages(USER_ID, SESSION_ID, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getNextCursor()).isEqualTo(MESSAGE_ID);
+            assertThat(result.getContent().get(0).getContent()).isEqualTo("hi");
+
+            // [추가] 프론트엔드가 요구하는 pageInfo 검증
+            assertThat(result.getPageInfo().getTotalElements()).isEqualTo(1);
+            assertThat(result.getPageInfo().getPage()).isEqualTo(0);
+            assertThat(result.getPageInfo().isHasNext()).isFalse();
         }
 
         @Test
@@ -120,8 +136,8 @@ class ChatServiceImplTest {
             ChatSessions otherSession = ChatSessions.builder().sessionId(SESSION_ID).userId(999L).build();
             when(chatSessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(otherSession));
 
-            // when & then
-            assertThatThrownBy(() -> chatService.getMessages(USER_ID, SESSION_ID, null, PageRequest.of(0, 10)))
+            // when & then [수정] cursor 파라미터 제거
+            assertThatThrownBy(() -> chatService.getMessages(USER_ID, SESSION_ID, PageRequest.of(0, 10)))
                     .isInstanceOf(BaseException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
         }

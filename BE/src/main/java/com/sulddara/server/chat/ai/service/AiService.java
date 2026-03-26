@@ -24,6 +24,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -55,7 +56,12 @@ public class AiService {
                 .retrieve()
                 .bodyToMono(Void.class)
                 .timeout(Duration.ofSeconds(10))
-                .doOnError(e -> log.error("AI 서버 통신 치명적 실패: session={}", sessionId, e))
+                .retryWhen(reactor.util.retry.Retry.fixedDelay(2, Duration.ofSeconds(2)))
+                .onErrorResume(e -> {
+                    log.error("AI 서버 통신 최종 실패 (session: {}): {}", sessionId, e.getMessage());
+                    handleAiFailure(sessionId, userId);
+                    return Mono.empty();
+                })
                 .subscribe();
 
     }
@@ -177,14 +183,9 @@ public class AiService {
     }
 
     public PreferenceSummary getPreferenceSummary(long userId){
-        var userPreference = userPreferenceRepository.findById(userId).orElse(null);
-        if (userPreference == null){
-            throw new BaseException(ErrorCode.USER_NOT_FOUND);
-        }
-        return new PreferenceSummary(
-                userPreference.getUsageType(),
-                userPreference.getAgeGroup(),
-                userPreference.getGender());
+        return userPreferenceRepository.findByUserIdWithUser(userId)
+                .map(up -> new PreferenceSummary(up.getUsageType(), up.getAgeGroup(), up.getGender()))
+                .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
     }
 
     public void sendCandidatesToAi(long sessionId, long userId, SessionState updatedState) {
@@ -200,5 +201,47 @@ public class AiService {
                 .retrieve()
                 .bodyToMono(Void.class)
                 .subscribe(v -> log.info("AI 서버로 후보지 리스트 전송 완료"));
+    }
+
+    public void processMapLocation(Long sessionId, Long userId, Double lat, Double lng) {
+        ChatSessions session = chatSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BaseException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (!session.getUserId().equals(userId)) {
+            throw new BaseException(ErrorCode.FORBIDDEN);
+        }
+
+        SessionState currentSessionState = getSessionState(sessionId);
+        if (currentSessionState == null){
+            currentSessionState = new SessionState(lat, lng, null, null, null, null, null);
+        }
+        SessionState sessionState = new SessionState(lat, lng, currentSessionState.time(), currentSessionState.title(),
+                currentSessionState.meetingDate(), currentSessionState.finalPlaceIds(), currentSessionState.extraData());
+        try {
+            String parsedJson = objectMapper.writeValueAsString(sessionState);
+            redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
+            chatSessionRepository.updateSessionState(sessionId, parsedJson);
+            redisTemplate.opsForValue().set("ai:flag:" + sessionId, "true", Duration.ofMinutes(5));
+            sendChat(sessionId, userId, "지정한 위치 주변 맛집을 찾아줘", false);
+        } catch (JsonProcessingException e) {
+            throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private void handleAiFailure(long sessionId, long userId) {
+        String fallbackMsg = "죄송합니다. 현재 AI 상담원이 일시적인 점검 중입니다. 잠시 후 다시 말을 걸어주세요!";
+        long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), fallbackMsg);
+
+        publisher.publishEvent(new AiChatMessageCreatedEvent(
+                sessionId,
+                messageId,
+                userId,
+                RoleType.ASSISTANT.toString(),
+                fallbackMsg,
+                "ERROR",
+                null,
+                null,
+                Instant.now().toEpochMilli()
+        ));
     }
 }

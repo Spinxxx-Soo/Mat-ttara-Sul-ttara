@@ -66,7 +66,7 @@ class NaverPlaceSearchServiceImplTest {
         )).willReturn(responseEntity);
 
         // when
-        KakaoLocalSearchResponseDto result = naverPlaceSearchService.searchPlaces(keyword, display, start, sort);
+        KakaoLocalSearchResponseDto result = naverPlaceSearchService.searchPlaces(keyword, display, start, sort, null, null);
 
         // then
         assertThat(result.getDocuments()).hasSize(1);
@@ -91,7 +91,7 @@ class NaverPlaceSearchServiceImplTest {
 
         // when & then
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> 
-            naverPlaceSearchService.searchPlaces(keyword, display, start, sort))
+            naverPlaceSearchService.searchPlaces(keyword, display, start, sort, null, null))
             .isInstanceOf(com.sulddara.server.global.error.exception.ExternalServiceException.class);
     }
 }
