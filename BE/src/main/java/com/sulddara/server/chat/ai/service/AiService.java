@@ -201,4 +201,21 @@ public class AiService {
                 .bodyToMono(Void.class)
                 .subscribe(v -> log.info("AI 서버로 후보지 리스트 전송 완료"));
     }
+
+    public void processMapLocation(Long sessionId, Long userId, Double lat, Double lng) {
+        SessionState currentSessionState = getSessionState(sessionId);
+        if (currentSessionState == null){
+            currentSessionState = new SessionState(lat, lng, null, null, null, null, null);
+        }
+        SessionState sessionState = new SessionState(lat, lng, currentSessionState.time(), currentSessionState.title(),
+                currentSessionState.meetingDate(), currentSessionState.finalPlaceIds(), currentSessionState.extraData());
+        try {
+            String parsedJson = objectMapper.writeValueAsString(sessionState);
+            redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
+            chatSessionRepository.updateSessionState(sessionId, parsedJson);
+            sendChat(sessionId, userId, "지정한 위치 주변 맛집을 찾아줘", false);
+        } catch (JsonProcessingException e) {
+            throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

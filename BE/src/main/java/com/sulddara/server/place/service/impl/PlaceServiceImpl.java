@@ -305,7 +305,7 @@ public class PlaceServiceImpl implements PlaceService {
 
         PlaceDetailResponse.OpeningHoursResponse openingHours = parseOpeningHours(place.getOpeningHours());
 
-        Double rating = placeRepository.getAverageRatingByPlaceId(placeId);
+        Double rating = place.getAverageRating();
 
         return PlaceDetailResponse.builder()
                 .placeId(place.getId())
@@ -376,5 +376,14 @@ public class PlaceServiceImpl implements PlaceService {
     @Transactional
     public void updatePlaceImageUrl(Long placeId, String s3Url) {
         placeRepository.findById(placeId).ifPresent(p -> p.updateImageUrl(s3Url));
+    }
+
+    @Override
+    @Transactional
+    public void enrichPlaceData(Long placeId) {
+        PlaceEntity place = placeRepository.findById(placeId)
+                .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
+
+        fetchAndEnrichData(place);
     }
 }
