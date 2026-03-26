@@ -15,6 +15,8 @@ export interface PlanUIModel {
   createdAt: string;
   updatedAt: string;
   thumbnailUrl: string;
+  shareToken?: string;
+  shareId?: string;
 
   // 장소 정보 추가 (S14P21B205-213)
   places?: {

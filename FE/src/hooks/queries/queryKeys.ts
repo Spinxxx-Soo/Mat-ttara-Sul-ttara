@@ -29,6 +29,8 @@ export const queryKeys = {
         list: () => [...queryKeys.plan.all, 'list'] as const,
         detail: (planId: string) =>
             [...queryKeys.plan.all, 'detail', planId] as const,
+        sharedDetail: (shareToken: string) =>
+            [...queryKeys.plan.all, 'sharedDetail', shareToken] as const,
     },
 
     // --- 사용자 (User) ---

@@ -17,8 +17,25 @@ import type {
   Review,
   PlaceUpsertRequest,
   PlaceUpsertResponse,
+  PlaceSyncRequest,
+  PlaceSyncResponse,
 } from '@/types/api';
 import type { NearbyPlacesParams } from '@/types/map';
+
+const mapKakaoPlaceToPlace = (item: any): Place => ({
+    placeId: Number(item.id),
+    externalPlaceId: String(item.id),
+    name: item.place_name,
+    address: item.road_address_name || item.address_name,
+    phone: item.phone || null,
+    lat: Number(item.y),
+    lng: Number(item.x),
+    category: item.category_name.split(' > ').pop() || null,
+    rating: 0,
+    imageUrl: null,
+    isOpen: true,
+    url: item.place_url || null,
+});
 
 /** 카카오 Places.keywordSearch / Local API: 페이지당 최대 15 (초과 시 400) */
 const KAKAO_KEYWORD_SEARCH_MAX_SIZE = 15;
@@ -61,18 +78,7 @@ export const placeApi = {
 
             ps.keywordSearch(searchKeyword, (data: any[], status: any, pagination: any) => {
                 if (status === kakao.maps.services.Status.OK) {
-                    const content: Place[] = data.map(item => ({
-                        placeId: Number(item.id),
-                        name: item.place_name,
-                        address: item.road_address_name || item.address_name,
-                        phone: item.phone,
-                        lat: Number(item.y),
-                        lng: Number(item.x),
-                        category: item.category_name.split(' > ').pop() || null,
-                        rating: 0, // 카카오 SDK 기본 검색에선 평점 미제공
-                        imageUrl: null,
-                        isOpen: true
-                    }));
+                    const content: Place[] = data.map(mapKakaoPlaceToPlace);
 
                     resolve({
                         content,
@@ -87,7 +93,7 @@ export const placeApi = {
                 } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
                     resolve({
                         content: [],
-                        pageInfo: { page: 1, size: 15, totalElements: 0, totalPages: 0, hasNext: false }
+                        pageInfo: { page: 1, size: options.size, totalElements: 0, totalPages: 0, hasNext: false }
                     });
                 } else {
                     reject(new Error('장소 검색 중 오류가 발생했습니다.'));
@@ -130,17 +136,7 @@ export const placeApi = {
 
             ps.keywordSearch(params.keyword, (data: any[], status: any, pagination: any) => {
                 if (status === kakao.maps.services.Status.OK) {
-                    const content: Place[] = data.map(item => ({
-                        placeId: Number(item.id),
-                        name: item.place_name,
-                        address: item.road_address_name || item.address_name,
-                        phone: item.phone,
-                        lat: Number(item.y),
-                        lng: Number(item.x),
-                        category: item.category_name.split(' > ').pop() || null,
-                        rating: 0,
-                        isOpen: true
-                    }));
+                    const content: Place[] = data.map(mapKakaoPlaceToPlace);
 
                     resolve({
                         content,
@@ -155,7 +151,7 @@ export const placeApi = {
                 } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
                     resolve({
                         content: [],
-                        pageInfo: { page: 1, size: 10, totalElements: 0, totalPages: 0, hasNext: false }
+                        pageInfo: { page: 1, size: options.size, totalElements: 0, totalPages: 0, hasNext: false }
                     });
                 } else {
                     reject(new Error('검색 중 오류가 발생했습니다.'));
@@ -183,9 +179,18 @@ export const placeApi = {
   },
 
   /**
-   * 부족한 장소 정보를 크롤링으로 보강 요청
+   * 카카오 SDK로 얻은 장소를 백엔드 내부 placeId로 동기화
    */
-  enrichPlaceData: async (placeId: number): Promise<Place> => {
+  syncPlace: async (body: PlaceSyncRequest): Promise<PlaceSyncResponse> => {
+    const { data } = await apiClient.post<PlaceSyncResponse>('/api/v1/places/sync', body);
+    return data;
+  },
+
+  /**
+   * 내부 placeId 기반 장소 AI 보강
+   * POST /api/v1/places/{placeId}/enrich
+   */
+  enrichPlace: async (placeId: number): Promise<Place> => {
     const { data } = await apiClient.post<Place>(`/api/v1/places/${placeId}/enrich`);
     return data;
   },

@@ -6,11 +6,12 @@ import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import KakaoMap from '@/components/map/KakaoMap'
-import { useEnrichPlace, useNearbyPlaces, usePlaceDetail } from '@/hooks/queries/place/usePlaces'
+import { useEnrichPlace, useNearbyPlaces, usePlaceDetail, useSyncPlace } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
+import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { hasNullFields } from '@/lib/placeUtils'
 import { placeApi } from '@/api/placeApi'
 import { extractApiErrorMessage } from '@/lib/apiUtils'
@@ -21,6 +22,7 @@ const Main = () => {
     placeId: number
     placeName: string
   } | null>(null)
+  const [resolvedPlaceIds, setResolvedPlaceIds] = useState<Record<string, number>>({})
 
   const { lat: storeLat, lng: storeLng } = useLocationStore()
   const currentLat = storeLat ?? 37.5665
@@ -39,6 +41,7 @@ const Main = () => {
   )
 
   const { mutate: enrichPlace } = useEnrichPlace()
+  const { mutateAsync: syncPlace } = useSyncPlace()
 
   const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
   const mapPlaces = useMemo(() => {
@@ -50,15 +53,62 @@ const Main = () => {
     return mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null
   }, [mapPlaces, selectedPlaceId])
 
-  const { data: selectedPlaceDetail } = usePlaceDetail(selectedPlaceId ?? 0, selectedPlaceId != null)
+  const selectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
+  const selectedInternalPlaceId = selectedPlace
+    ? getInternalPlaceId(selectedPlace) ?? (selectedPlaceKey ? resolvedPlaceIds[selectedPlaceKey] ?? null : null)
+    : null
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedPlace || selectedPlaceKey == null) {
+      return
+    }
+
+    if (selectedInternalPlaceId != null) {
+      return
+    }
+
+    const run = async () => {
+      try {
+        const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response || cancelled) return
+
+        setResolvedPlaceIds((prev) => ({
+          ...prev,
+          [selectedPlaceKey]: response.placeId,
+        }))
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to sync selected place:', error)
+        }
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedInternalPlaceId, selectedPlace, selectedPlaceKey, syncPlace])
+
+  const { data: selectedPlaceDetail } = usePlaceDetail(
+    selectedInternalPlaceId ?? 0,
+    selectedInternalPlaceId != null
+  )
   const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
+
+  // internal id가 확보된 뒤, 필수 필드가 비어 있으면 backend enrich를 시도한다.
+  useEffect(() => {
+    if (selectedInternalPlaceId == null) return
+    if (!selectedPlaceForDisplay) return
+    if (!hasNullFields(selectedPlaceForDisplay)) return
+
+    enrichPlace(selectedInternalPlaceId)
+  }, [selectedInternalPlaceId, selectedPlaceForDisplay, enrichPlace])
 
   const handlePlaceClick = (place: Place) => {
     setSelectedPlaceId(place.placeId)
-
-    if (hasNullFields(place)) {
-      enrichPlace(place.placeId)
-    }
   }
 
   const handleMapIdle = (
@@ -102,10 +152,18 @@ const Main = () => {
       return
     }
 
-    if (upsertPlaceMutation.isPending) return
-    upsertPlaceMutation.mutate(selectedPlace)
-  }
+    if (selectedInternalPlaceId == null) {
+      // internal id가 아직 없으면 upsert로 internal id를 만든 뒤 review를 연다.
+      if (upsertPlaceMutation.isPending) return
+      upsertPlaceMutation.mutate(selectedPlace)
+      return
+    }
 
+    setReviewPanel({
+      placeId: selectedInternalPlaceId,
+      placeName: selectedPlace.name,
+    })
+  }
   useEffect(() => {
     if (selectedPlaceId == null) return
     if (!mapPlaces.some((p) => p.placeId === selectedPlaceId)) {
