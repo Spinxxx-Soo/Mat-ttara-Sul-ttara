@@ -50,8 +50,9 @@ public class PlaceController {
     }
 
     @PostMapping("/{placeId}/enrich")
-    public ResponseEntity<Void> enrichPlace(@PathVariable Long placeId) {
+    public ResponseEntity<PlaceDetailResponse> enrichPlace(@PathVariable Long placeId) {
         placeService.enrichPlaceData(placeId);
-        return ResponseEntity.ok().build();
+        var updatedPlace = placeService.getPlaceDetail(placeId);
+        return ResponseEntity.ok(updatedPlace);
     }
 }
