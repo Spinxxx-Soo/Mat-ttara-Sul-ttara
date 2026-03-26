@@ -235,7 +235,10 @@ class ChatService:
                     title=title,
                 )
         else:
-            target_slot = self.parsed_state_manager.select_target_slot(missing_slots)
+            target_slot = self.parsed_state_manager.select_target_slot(
+                missing_slots=missing_slots,
+                normalized_parsed_state=normalized_parsed_state,
+            )
             question = await self.followup_question_generator.generate_question(
                 user_message=user_message,
                 parsed_state=normalized_parsed_state,
