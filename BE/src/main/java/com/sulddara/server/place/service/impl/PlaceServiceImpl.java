@@ -92,11 +92,20 @@ public class PlaceServiceImpl implements PlaceService {
 
             KakaoLocalSearchResponseDto kakaoResponse = externalPlaceSearchService.searchPlaces(keyword, displaySize, page, "accuracy", lat, lng);
 
+            List<String> externalIds = kakaoResponse.getDocuments().stream()
+                    .map(KakaoLocalSearchResponseDto.Document::getId)
+                    .toList();
+            
+            java.util.Map<String, PlaceEntity> localPlaceMap = externalIds.isEmpty() ? java.util.Collections.emptyMap() :
+                    placeRepository.findAllWithReviewsByProviderAndExternalPlaceIdIn(PROVIDER_KAKAO, externalIds)
+                            .stream()
+                            .collect(Collectors.toMap(PlaceEntity::getExternalPlaceId, p -> p, (p1, p2) -> p1));
+
             items = kakaoResponse.getDocuments().stream().map(doc -> {
                 String cleanTitle = stripHtmlTags(doc.getPlace_name());
                 String externalId = doc.getId();
 
-                Optional<PlaceEntity> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(PROVIDER_KAKAO, externalId);
+                Optional<PlaceEntity> localPlaceOpt = Optional.ofNullable(localPlaceMap.get(externalId));
                 Long placeId = localPlaceOpt.map(PlaceEntity::getId).orElse(null);
                 Boolean isOpen = localPlaceOpt.map(PlaceEntity::getIsOpen).orElse(true);
 
