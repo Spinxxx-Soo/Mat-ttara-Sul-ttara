@@ -10,7 +10,7 @@ import type { ChatMessage, ChatSession } from '@/types/api'
  * 부모는 `aside`에서 높이·너비를 잡습니다 (`min-h-0` 필수).
  */
 const ChatWidget = () => {
-  const { user } = useAuthStore()
+  const { isLoggedIn } = useAuthStore()
   const [sessionId, setSessionId] = useState<string>('')
   const [input, setInput] = useState('')
   const [isSessionListOpen, setIsSessionListOpen] = useState(false)
@@ -23,7 +23,9 @@ const ChatWidget = () => {
   const createSessionMutation = useCreateSession()
 
   useEffect(() => {
-    if (!sessionId && user && !createSessionMutation.isPending && !hasInitializedSessionRef.current) {
+    // 로그인 직후 user 동기화가 늦게 도착할 수 있으므로,
+    // 세션 생성은 user 유무가 아니라 isLoggedIn(=토큰 존재) 기준으로 수행합니다.
+    if (!sessionId && isLoggedIn && !createSessionMutation.isPending && !hasInitializedSessionRef.current) {
       hasInitializedSessionRef.current = true
       createSessionMutation.mutate(
         { title: '새 대화' },
@@ -34,8 +36,7 @@ const ChatWidget = () => {
         }
       )
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, user])
+  }, [sessionId, isLoggedIn, createSessionMutation])
 
   const handleNewSession = () => {
     if (createSessionMutation.isPending) return
@@ -75,7 +76,7 @@ const ChatWidget = () => {
   }, [sessionId, clearAiRecommendedPlaces])
 
   /** SSE(ai_response) → GET /api/v1/places/recommend 로 추천 장소 동기화 */
-  useChatSessionSse(sessionId, !!user && !!sessionId)
+  useChatSessionSse(sessionId, isLoggedIn && !!sessionId)
 
   const sendMessageMutation = useSendMessage()
 
