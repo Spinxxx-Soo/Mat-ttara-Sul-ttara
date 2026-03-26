@@ -219,27 +219,37 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Override
-    @Transactional
     public PlaceSyncResponseDto syncPlace(PlaceSyncRequestDto request) {
-        Optional<PlaceEntity> existingPlace = placeRepository.findByProviderAndExternalPlaceId(PROVIDER_KAKAO, request.externalPlaceId());
-
-        if (existingPlace.isPresent()) {
-            return new PlaceSyncResponseDto(existingPlace.get().getId());
+        try {
+            return performSync(request);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            log.info("Race condition in syncPlace for externalId {}. Retrying find...", request.externalPlaceId());
+            // Retry: Another thread should have committed the record.
+            return placeRepository.findByProviderAndExternalPlaceId(PROVIDER_KAKAO, request.externalPlaceId())
+                    .map(place -> new PlaceSyncResponseDto(place.getId()))
+                    .orElseThrow(() -> e); // If still missing, it was a different integrity violation
         }
+    }
 
-        PlaceEntity newPlace = new PlaceEntity(
-                PROVIDER_KAKAO,
-                request.externalPlaceId(),
-                request.name(),
-                request.address(),
-                request.lat(),
-                request.lng()
-        );
-        newPlace.updateCategory(request.category());
-        newPlace.updateDetails(null, null, null, request.phone(), request.url());
+    @Transactional
+    protected PlaceSyncResponseDto performSync(PlaceSyncRequestDto request) {
+        return placeRepository.findByProviderAndExternalPlaceId(PROVIDER_KAKAO, request.externalPlaceId())
+                .map(place -> new PlaceSyncResponseDto(place.getId()))
+                .orElseGet(() -> {
+                    PlaceEntity newPlace = new PlaceEntity(
+                            PROVIDER_KAKAO,
+                            request.externalPlaceId(),
+                            request.name(),
+                            request.address(),
+                            request.lat(),
+                            request.lng()
+                    );
+                    newPlace.updateCategory(request.category());
+                    newPlace.updateDetails(null, null, null, request.phone(), request.url());
 
-        PlaceEntity savedPlace = placeRepository.save(newPlace);
-        return new PlaceSyncResponseDto(savedPlace.getId());
+                    PlaceEntity savedPlace = placeRepository.save(newPlace);
+                    return new PlaceSyncResponseDto(savedPlace.getId());
+                });
     }
 
     private PlaceDetailResponse.OpeningHoursResponse parseOpeningHours(String json) {
