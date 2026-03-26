@@ -4,14 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sulddara.server.chat.ai.controller.response.PlaceDetailResponse;
 import com.sulddara.server.chat.ai.controller.response.RecommendedPlace;
-import com.sulddara.server.place.domain.Place;
+import com.sulddara.server.global.error.exception.BaseException;
+import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import com.sulddara.server.s3.service.S3Service;
-import com.sulddara.server.share.error.exception.BaseException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +24,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.core.parameters.P;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.Collections;
 import java.util.List;
@@ -58,6 +59,9 @@ class PlaceServiceImplTest {
 
     @Mock
     private S3Service s3Service;
+
+    @Mock
+    private WebClient webClient;
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
@@ -156,9 +160,14 @@ class PlaceServiceImplTest {
 
         // Reflection 등을 쓰거나 Builder가 없다면 생성자/Setter로 Mock 객체 생성
         // 여기서는 임의의 Place 엔티티 구성 (프로젝트의 Place 구조에 따름)
-        Place mockPlace = createMockPlace(placeId, "사케바 온도", openingHoursJson);
+        PlaceEntity mockPlace = createMockPlace(placeId, "사케바 온도", openingHoursJson);
 
-        when(placeRepository.findById(placeId)).thenReturn(Optional.of(mockPlace));
+        ReflectionTestUtils.setField(mockPlace, "phone", "02-123-4567");
+        ReflectionTestUtils.setField(mockPlace, "url", "http://test.com");
+        ReflectionTestUtils.setField(mockPlace, "description", "설명");
+
+        // [중요] findById -> findByIdWithReviews로 변경된 메서드 Mocking
+        given(placeRepository.findByIdWithReviews(placeId)).willReturn(Optional.of(mockPlace));
 
         // when
         PlaceDetailResponse response = placeService.getPlaceDetail(placeId);
@@ -167,6 +176,7 @@ class PlaceServiceImplTest {
         assertThat(response.getName()).isEqualTo("사케바 온도");
         assertThat(response.getOpeningHours().getToday()).isEqualTo("18:00 - 01:00");
         assertThat(response.getImageUrls()).containsExactly("https://test-image.com");
+        assertThat(response.getRating()).isZero();
     }
 
     @Test
@@ -174,21 +184,12 @@ class PlaceServiceImplTest {
     void getPlaceDetail_NotFound() {
         // given
         Long placeId = 999L;
-        when(placeRepository.findById(placeId)).thenReturn(Optional.empty());
+        // findByIdWithReviews 사용
+        given(placeRepository.findByIdWithReviews(placeId)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> placeService.getPlaceDetail(placeId))
                 .isInstanceOf(BaseException.class);
-    }
-
-    // Helper method: 테스트용 엔티티 생성 (엔티티가 빌더가 없거나 protected인 경우 대응)
-    private Place createMockPlace(Long id, String name, String openingHours) {
-        // 프로젝트의 Place 구조에 맞춰 필드 주입 (ReflectionTestUtils 사용 권장)
-        Place place = new Place("GOOGLE", "EXT_123", name, "서울 어딘가", 37.5, 127.0);
-        ReflectionTestUtils.setField(place, "id", id);
-        ReflectionTestUtils.setField(place, "openingHours", openingHours);
-        ReflectionTestUtils.setField(place, "imageUrl", "https://test-image.com");
-        return place;
     }
 
     @Test
@@ -196,19 +197,38 @@ class PlaceServiceImplTest {
     void shouldUploadToS3WhenImageIsNull() {
         // Given
         Long placeId = 1L;
-
-        Place place = new Place("GOOGLE", "ext_id_123", "맛술집", "서울 강남구", 37.5, 127.0);
+        PlaceEntity place = createMockPlace(placeId, "맛술집", null);
+        ReflectionTestUtils.setField(place, "imageUrl", null); // 이미지 없음
         ReflectionTestUtils.setField(place, "originImgUrl", "http://google.com/photo.jpg");
-        ReflectionTestUtils.setField(place, "id", placeId);
 
+        // AI 통신 안 타게 설정 (MissingData가 아니도록)
+        ReflectionTestUtils.setField(place, "phone", "02-123-4567");
+        ReflectionTestUtils.setField(place, "url", "http://test.com");
+        ReflectionTestUtils.setField(place, "description", "설명");
+
+        // [수정] 서비스 로직 내에서 두 종류의 조회가 일어나므로 둘 다 Mocking 필요
+        given(placeRepository.findByIdWithReviews(placeId)).willReturn(Optional.of(place));
+        // updatePlaceImageUrl 메서드 내부에서 findById(placeId)를 호출함
         given(placeRepository.findById(placeId)).willReturn(Optional.of(place));
+
         given(s3Service.uploadFromExternalUrl(anyString())).willReturn("http://my-s3.com/saved.jpg");
 
         // When
         placeService.getPlaceDetail(placeId);
 
         // Then
+        // 1. S3 서비스가 올바른 URL로 호출되었는지 확인
         verify(s3Service, times(1)).uploadFromExternalUrl(eq("http://google.com/photo.jpg"));
+
+        // 2. 엔티티의 이미지가 S3 URL로 업데이트 되었는지 확인
         assertThat(place.getImageUrl()).isEqualTo("http://my-s3.com/saved.jpg");
+    }
+
+    private PlaceEntity createMockPlace(Long id, String name, String openingHours) {
+        PlaceEntity place = new PlaceEntity("GOOGLE", "EXT_123", name, "서울 어딘가", 37.5, 127.0);
+        ReflectionTestUtils.setField(place, "id", id);
+        ReflectionTestUtils.setField(place, "openingHours", openingHours);
+        ReflectionTestUtils.setField(place, "imageUrl", "https://test-image.com");
+        return place;
     }
 }

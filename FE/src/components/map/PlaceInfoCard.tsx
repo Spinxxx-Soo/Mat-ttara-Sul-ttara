@@ -30,7 +30,7 @@ export function createPlaceInfoCardHtml(
   }
 
   const hours = formatOpeningHours(place.openingHours);
-  const rating = place.rating ?? 0;
+  const rating = place.rating ?? place.reviewScore ?? 0;
   const mainImage = place.imageUrls?.[0] ?? place.imageUrl;
   const showUrl = place.url;
 
