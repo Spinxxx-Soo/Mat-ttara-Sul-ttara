@@ -8,6 +8,7 @@ import { consumeSseStream } from '@/lib/sse/consumeSseStream';
 import { recommendedPlaceToPlace } from '@/lib/recommendedPlaceToPlace';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import type { AiSseResponsePayload } from '@/types/api';
+import { useLocationStore } from '@/stores/locationStore';
 
 /**
  * 채팅 세션 SSE 구독 (/api/v1/chat/{sessionId}/stream)
@@ -15,6 +16,7 @@ import type { AiSseResponsePayload } from '@/types/api';
  */
 export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
   const queryClient = useQueryClient();
+  const { lat, lng } = useLocationStore();
   const setAiRecommendedPlaces = useChatMapStore((s) => s.setAiRecommendedPlaces);
   const accessToken = useAuthStore((s) => s.accessToken);
   const abortRef = useRef<AbortController | null>(null);
@@ -27,8 +29,12 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
     let cancelled = false;
     const currentSessionId = sessionId;
     (async () => {
+      if (!lat || !lng) {
+        console.warn('[chat-sse] 좌표가 없어 prefetch를 건너뜁니다.');
+        return;
+      }
       try {
-        const recommended = await placeApi.getRecommendedPlaces(currentSessionId);
+        const recommended = await placeApi.getRecommendedPlaces(currentSessionId, lat, lng);
         if (cancelled) return;
         const mapped = recommended.map(recommendedPlaceToPlace);
         setAiRecommendedPlaces(mapped);
@@ -77,7 +83,7 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
 
               try {
                 const rawSession = String(payload.sessionId ?? sessionId);
-                const recommended = await placeApi.getRecommendedPlaces(rawSession);
+                const recommended = await placeApi.getRecommendedPlaces(rawSession, lat!, lng!);
                 const mapped = recommended.map(recommendedPlaceToPlace);
                 setAiRecommendedPlaces(mapped);
               } catch (e) {
@@ -101,5 +107,5 @@ export function useChatSessionSse(sessionId: string | null, enabled: boolean) {
       ac.abort();
       abortRef.current = null;
     };
-  }, [sessionId, enabled, accessToken, queryClient, setAiRecommendedPlaces]);
+  }, [sessionId, enabled, accessToken, queryClient, setAiRecommendedPlaces, lat, lng]);
 }

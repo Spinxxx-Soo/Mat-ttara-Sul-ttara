@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useGoogleLogin } from '@react-oauth/google'
 import { useQueryClient } from '@tanstack/react-query'
 import { socialLogin } from '@/api/authApi'
@@ -11,6 +11,7 @@ import loginBackgroundImage from '@/assets/login-bg.jpg'
 import appLogoImage from '@/assets/logo.png'
 
 const Login = () => {
+  const isProcessing = useRef(false);
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { setAuth } = useAuthStore()
@@ -25,8 +26,21 @@ const Login = () => {
 
   // URL에서 네이버 인증 코드 확인
   useEffect(() => {
-    const naverCode = getNaverCodeFromUrl()
-    if (naverCode) {
+    // const naverCode = getNaverCodeFromUrl()
+    // if (naverCode && !isLoading) {
+    //   handleNaverCallback(naverCode)
+    // }
+    const urlParams = new URLSearchParams(window.location.search);
+    const naverCode = urlParams.get('code');
+    const naverState = urlParams.get('state'); // 이 값을 확인해야 함
+
+    console.log('--- 네이버 콜백 파라미터 ---');
+    console.log('Code:', naverCode);
+    console.log('State:', naverState);
+
+    if (naverCode && !isProcessing.current) {
+      isProcessing.current = true;
+      // handleNaverCallback(naverCode, naverState || '');
       handleNaverCallback(naverCode)
     }
   }, [])
@@ -93,7 +107,13 @@ const Login = () => {
       setIsLoading(true)
       setError(null)
 
-      const loginResponse = await socialLogin('naver', code)
+        // URL에서 state도 함께 추출해야 합니다.
+      const urlParams = new URLSearchParams(window.location.search);
+      const state = urlParams.get('state') || ''; 
+
+      // socialLogin 함수가 state도 받도록 수정되어야 함 (현재 authApi.ts 확인 필요)
+      const loginResponse = await socialLogin('naver', code, state);
+      // const loginResponse = await socialLogin('naver', code)
 
       // 토큰 및 신규 유저 여부 저장
       resetAuthQueries()

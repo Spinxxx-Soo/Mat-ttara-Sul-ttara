@@ -8,10 +8,14 @@ import type { LoginResponse, UserInfo } from '@/types/api';
  */
 export const socialLogin = async (
   provider: 'google' | 'naver',
-  code: string
+  code: string,
+  state?: string
 ): Promise<LoginResponse> => {
   const response = await apiClient.get<LoginResponse>(
-    `/api/v1/auth/callback/${provider}?code=${code}`
+    `/api/v1/auth/callback/${provider}`, 
+    {
+      params: { code, state } // query string으로 자동 변환됨
+    }
   );
   return response.data;
 };

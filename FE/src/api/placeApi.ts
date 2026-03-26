@@ -162,22 +162,29 @@ export const placeApi = {
 
   /**
    * 채팅 세션 기준 AI 추천 장소 목록 (SSE 수신 후 갱신용)
-   * GET /api/v1/places/recommend?sessionId=
+   * GET /api/v1/places/recommend?sessionId=&lat=&lng=
    */
   getRecommendedPlaces: async (
     sessionId: string | number,
+    lat: number,   // 추가
+    lng: number    // 추가
   ): Promise<RecommendedPlace[]> => {
     const { data } = await apiClient.get<RecommendedPlace[] | { content: RecommendedPlace[] }>(
       '/api/v1/places/recommend',
       {
-        params: { sessionId: String(sessionId) },
+        // params 객체에 lat, lng 추가
+        params: { 
+          sessionId: String(sessionId),
+          lat, 
+          lng 
+        },
       },
     );
 
     if (Array.isArray(data)) return data;
+    // @ts-ignore (타입 구조에 따라 처리)
     return data.content ?? [];
   },
-
   /**
    * 카카오 SDK로 얻은 장소를 백엔드 내부 placeId로 동기화
    */
