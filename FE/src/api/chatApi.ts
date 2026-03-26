@@ -25,7 +25,10 @@ export const chatApi = {
   createSession: async (params: CreateSessionRequest): Promise<CreateSessionResponse> => {
     const { data } = await apiClient.post<CreateSessionResponse>(
       '/api/v1/chat/sessions',
-      params
+      params,
+      {
+        timeout: 30000,
+      }
     );
     return data;
   },
@@ -60,7 +63,11 @@ export const chatApi = {
   sendMessage: async (params: SendMessageRequest): Promise<SendMessageResponse> => {
     const { data } = await apiClient.post<SendMessageResponse>(
       '/api/v1/chat/messages',
-      params
+      params,
+      {
+        // AI 연동/저장 처리로 서버 응답이 10초를 넘길 수 있어 넉넉히 설정
+        timeout: 30000,
+      }
     );
     return data;
   },
