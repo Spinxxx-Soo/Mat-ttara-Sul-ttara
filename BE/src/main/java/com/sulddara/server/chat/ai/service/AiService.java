@@ -118,10 +118,14 @@ public class AiService {
                             sessionId, response.getThreadId());
                     return;
                 }
+                log.info("[ai] PLACE_CANDIDATES 수신 sessionId={} lat={} lng={}",
+                        sessionId, parsed.lat(), parsed.lng());
                 List<Long> candidateIds = placeRepository.findIdsByLocation(
                         parsed.lat(),
                         parsed.lng()
                 );
+                log.info("[ai] PLACE_CANDIDATES 후보지 조회 완료 sessionId={} count={} candidateIds={}",
+                        sessionId, candidateIds.size(), candidateIds);
                 SessionState updatedState = parsed.withFinalPlaceIds(candidateIds);
                 sendCandidatesToAi(sessionId, userId, updatedState);
                 return;
@@ -130,6 +134,8 @@ public class AiService {
                 String redisKey = "recommend:user:" + userId;
                 String placesJson = objectMapper.writeValueAsString(response.getPlaces());
                 redisTemplate.opsForValue().set(redisKey, placesJson, Duration.ofMinutes(30));
+                log.info("[ai] RECOMMENDATION 캐시 저장 sessionId={} userId={} count={}",
+                        sessionId, userId, response.getPlaces().size());
             }
 
             String assistantText = response.getChatResponse();
@@ -173,6 +179,8 @@ public class AiService {
                     response.getTitle(),
                     Instant.now().toEpochMilli()
             ));
+            log.info("[ai] AI SSE 이벤트 발행 sessionId={} messageId={} type={}",
+                    sessionId, messageId, response.getType());
         } catch (Exception e) {
             log.error("[ai] handleResponse 처리 중 예외 sessionId={} userId={} type={}",
                     sessionId, userId, response.getType(), e);
