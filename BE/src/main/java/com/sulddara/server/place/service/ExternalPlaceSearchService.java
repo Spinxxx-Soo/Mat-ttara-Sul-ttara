@@ -1,6 +1,6 @@
 package com.sulddara.server.place.service;
 
-import com.sulddara.server.place.dto.NaverLocalSearchResponseDto;
+import com.sulddara.server.place.dto.KakaoLocalSearchResponseDto;
 
 public interface ExternalPlaceSearchService {
     
@@ -13,5 +13,5 @@ public interface ExternalPlaceSearchService {
      * @param sort 정렬 옵션 (random, comment)
      * @return 검색 결과 응답 DTO
      */
-    NaverLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort);
+    KakaoLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort);
 }

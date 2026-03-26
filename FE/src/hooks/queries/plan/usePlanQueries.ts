@@ -72,6 +72,19 @@ export const usePlanDetailQuery = (planId: string) => {
 };
 
 /**
+ * 공유 플랜 상세 조회 쿼리 - UI 모델로 변환 (S14P21B205-428)
+ */
+export const useSharedPlanDetailQuery = (shareToken: string) => {
+  return useQuery({
+    queryKey: queryKeys.plan.sharedDetail(shareToken),
+    queryFn: () => planApi.getSharedPlanDetail(shareToken),
+    enabled: !!shareToken,
+    select: mapPlanToUI,
+    staleTime: STALE_TIME,
+  });
+};
+
+/**
  * 플랜 생성 Mutation (S14P21B205-132)
  */
 export const useCreatePlanMutation = () => {
