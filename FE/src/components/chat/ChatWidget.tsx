@@ -129,6 +129,40 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
 
   // 메시지 전송
   const sendMessageMutation = useSendMessage()
+  const isLoading = createSessionMutation.isPending || isLoadingMessages
+  const isSending = sendMessageMutation.isPending
+  // 현재는 스트리밍 상태를 별도 state로 관리하지 않음(연결 기반 실시간 수신)
+  const isStreaming = false
+  const selectedPlaceId: number | null = null
+  const selectedPlace: unknown = null
+  const sendDisabledReasons = {
+    emptyInput: !input.trim(),
+    missingSessionId: !sessionId,
+    isLoading,
+    isSending,
+    isStreaming,
+  }
+  // 최소 조건: 텍스트 + 세션ID만 있으면 전송 가능
+  const isSendDisabled = sendDisabledReasons.emptyInput || sendDisabledReasons.missingSessionId || isSending
+
+  const ensureSessionId = async (): Promise<string | null> => {
+    if (sessionId) return sessionId
+
+    if (sessions.length > 0) {
+      const restored = sessions[0].sessionId
+      setSessionId(restored)
+      return restored
+    }
+
+    try {
+      const created = await createSessionMutation.mutateAsync({ title: '새 대화' })
+      setSessionId(created.sessionId)
+      return created.sessionId
+    } catch (error) {
+      console.error('메시지 전송 전 세션 생성 실패:', error)
+      return null
+    }
+  }
 
   const handleIncomingMessage = useCallback((incoming: ChatMessage) => {
     setMessages((prev) => {
@@ -150,12 +184,16 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   useChatSessionSse(sessionId, isOpen, handleIncomingMessage)
 
   const handleSend = async () => {
-    if (!input.trim() || !sessionId) return
+    const content = input.trim()
+    if (!content) return
+
+    const targetSessionId = await ensureSessionId()
+    if (!targetSessionId) return
 
     try {
       await sendMessageMutation.mutateAsync({
-        sessionId,
-        content: input.trim(),
+        sessionId: targetSessionId,
+        content,
       })
       setInput('')
     } catch (error) {
@@ -164,6 +202,31 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   }
 
   // 메시지가 업데이트되면 스크롤을 맨 아래로
+  useEffect(() => {
+    if (!shouldDebug) return
+    console.log('[chat-widget] send-button debug', {
+      input,
+      sessionId,
+      selectedPlace,
+      selectedPlaceId,
+      isLoading,
+      isSending,
+      isStreaming,
+      disabled: isSendDisabled,
+      disabledReasons: sendDisabledReasons,
+    })
+  }, [
+    input,
+    sessionId,
+    selectedPlace,
+    selectedPlaceId,
+    isLoading,
+    isSending,
+    isStreaming,
+    isSendDisabled,
+    shouldDebug,
+  ])
+
   useEffect(() => {
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -321,7 +384,7 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
               <div className="flex items-center gap-1 pb-1">
                 <button
                   onClick={handleSend}
-                  disabled={!input.trim() || !sessionId || sendMessageMutation.isPending}
+                  disabled={isSendDisabled}
                   className="p-2 bg-gradient-to-br from-primary to-orange-600 text-white rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
