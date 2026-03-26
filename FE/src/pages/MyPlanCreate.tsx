@@ -1,14 +1,23 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
+
 import KakaoMap from '@/components/map/KakaoMap'
 import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces'
 import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
-import { useAuthStore } from '@/stores/authStore'
-import { useLocationStore, FALLBACK_LOCATION } from '@/stores/locationStore'
+import { usePendingDelay } from '@/hooks/usePendingDelay'
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning'
 import { hasNullFields } from '@/lib/placeUtils'
-import { Place } from '@/types/api'
-import toast from 'react-hot-toast'
+import {
+  PLAN_MESSAGES,
+  confirmDiscardPlanChanges,
+  getPlanMutationErrorMessage,
+} from '@/lib/planUi'
+import { useAuthStore } from '@/stores/authStore'
+import { FALLBACK_LOCATION, useLocationStore } from '@/stores/locationStore'
+import type { Place } from '@/types/api'
+
+import Sidebar from '../components/Sidebar'
 
 const MyPlanCreate = () => {
   const navigate = useNavigate()
@@ -39,6 +48,30 @@ const MyPlanCreate = () => {
   const [totalBudget, setTotalBudget] = useState('50000')
   const [planType, setPlanType] = useState('친목/회식')
   const [memo, setMemo] = useState('')
+  const initialTitle = user?.name ? `${user.name}님의 맛집 모임` : ''
+  const isDirty = useMemo(
+    () =>
+      title !== initialTitle ||
+      Boolean(meetingAt) ||
+      participantCount !== '2' ||
+      totalBudget !== '50000' ||
+      planType !== '친목/회식' ||
+      Boolean(memo.trim()) ||
+      selectedPlaces.length > 0,
+    [
+      initialTitle,
+      meetingAt,
+      memo,
+      participantCount,
+      planType,
+      selectedPlaces.length,
+      title,
+      totalBudget,
+    ]
+  )
+  const showDelayedPending = usePendingDelay(isCreating)
+
+  useUnsavedChangesWarning(isDirty && !isCreating, PLAN_MESSAGES.leaveWarning)
 
   useEffect(() => {
     if (user?.name && !title) {
@@ -92,18 +125,11 @@ const MyPlanCreate = () => {
       })),
     }, {
       onSuccess: () => {
-        toast.success('플랜이 생성되었습니다!')
+        toast.success(PLAN_MESSAGES.createSuccess)
         navigate('/my-plan')
       },
-      onError: (error: any) => {
-        // Validation Error 처리 로직 (S14P21B205-258)
-        const errors = error.response?.data?.errors;
-        if (errors && Object.keys(errors).length > 0) {
-          const firstKey = Object.keys(errors)[0];
-          toast.error(`${errors[firstKey][0]}`);
-        } else {
-          toast.error(error.response?.data?.message || '플랜 생성 중 오류가 발생했습니다.')
-        }
+      onError: (error: unknown) => {
+        toast.error(getPlanMutationErrorMessage(error, 'create'))
       }
     })
   }
@@ -236,7 +262,7 @@ const MyPlanCreate = () => {
                 ) : (
                   <div className="px-4 py-8 rounded-xl border border-dashed border-primary/30 bg-background-light dark:bg-slate-800 text-center">
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      오른쪽 지도에서 방문할 장소들을 클릭하세요.
+                      {PLAN_MESSAGES.emptyPlaces}
                     </p>
                   </div>
                 )}
@@ -259,7 +285,11 @@ const MyPlanCreate = () => {
             <div className="pt-4 flex gap-3 justify-end">
               <button
                 type="button"
-                onClick={() => navigate('/my-plan')}
+                onClick={() => {
+                  if (!isDirty || confirmDiscardPlanChanges(PLAN_MESSAGES.createCancel)) {
+                    navigate('/my-plan')
+                  }
+                }}
                 className="px-5 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 취소
@@ -269,9 +299,14 @@ const MyPlanCreate = () => {
                 disabled={isCreating}
                 className="px-6 py-2 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isCreating ? '생성 중...' : '플랜 생성하기'}
+                {isCreating ? PLAN_MESSAGES.createPending : '플랜 생성하기'}
               </button>
             </div>
+            {showDelayedPending && (
+              <p className="text-right text-xs text-slate-500">
+                {PLAN_MESSAGES.delayedPending}
+              </p>
+            )}
           </form>
         </section>
 
