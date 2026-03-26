@@ -15,6 +15,8 @@ import com.sulddara.server.place.document.PlaceDocument;
 import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.dto.KakaoLocalSearchResponseDto;
 import com.sulddara.server.place.dto.PlaceSearchResponseDto;
+import com.sulddara.server.place.dto.PlaceSyncRequestDto;
+import com.sulddara.server.place.dto.PlaceSyncResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
@@ -214,6 +216,30 @@ public class PlaceServiceImpl implements PlaceService {
                 .openingHours(openingHours)
                 .url(place.getUrl())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public PlaceSyncResponseDto syncPlace(PlaceSyncRequestDto request) {
+        Optional<PlaceEntity> existingPlace = placeRepository.findByProviderAndExternalPlaceId(PROVIDER_KAKAO, request.externalPlaceId());
+
+        if (existingPlace.isPresent()) {
+            return new PlaceSyncResponseDto(existingPlace.get().getId());
+        }
+
+        PlaceEntity newPlace = new PlaceEntity(
+                PROVIDER_KAKAO,
+                request.externalPlaceId(),
+                request.name(),
+                request.address(),
+                request.lat(),
+                request.lng()
+        );
+        newPlace.updateCategory(request.category());
+        newPlace.updateDetails(null, null, null, request.phone(), request.url());
+
+        PlaceEntity savedPlace = placeRepository.save(newPlace);
+        return new PlaceSyncResponseDto(savedPlace.getId());
     }
 
     private PlaceDetailResponse.OpeningHoursResponse parseOpeningHours(String json) {

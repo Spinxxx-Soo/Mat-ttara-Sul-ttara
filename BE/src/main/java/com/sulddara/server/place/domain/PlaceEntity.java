@@ -97,6 +97,12 @@ public class PlaceEntity {
         }
     }
 
+    public void updateCategory(String category) {
+        if (category != null) {
+            this.category = category;
+        }
+    }
+
     public void updateDetails(String imageUrl, String description, String openingHours, String phone, String url) {
         if (imageUrl != null) this.imageUrl = imageUrl;
         if (description != null) this.description = description;
