@@ -13,6 +13,15 @@ import java.util.List;
 @NoArgsConstructor
 public class MessageResponse {
     private List<MessageDetailResponse> content;
-    private Long nextCursor;
-    private boolean hasNext;
+    private PageInfoResponse pageInfo;
+
+    @Builder
+    @Data
+    public static class PageInfoResponse {
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean hasNext;
+    }
 }

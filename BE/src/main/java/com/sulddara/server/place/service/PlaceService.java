@@ -28,5 +28,7 @@ public interface PlaceService {
 
     PlaceDetailResponse getPlaceDetail(Long placeId);
 
+    void enrichPlaceData(Long placeId);
+
     PlaceSyncResponseDto syncPlace(PlaceSyncRequestDto request);
 }
