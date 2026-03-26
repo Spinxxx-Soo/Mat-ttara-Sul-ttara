@@ -25,4 +25,6 @@ public interface PlaceService {
     List<RecommendedPlace> getRecommendedFromRedis(Long id, Double lat, Double lng);
 
     PlaceDetailResponse getPlaceDetail(Long placeId);
+
+    void enrichPlaceData(Long placeId);
 }

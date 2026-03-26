@@ -48,4 +48,10 @@ public class PlaceController {
         var response = placeService.getPlaceDetail(placeId);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/{placeId}/enrich")
+    public ResponseEntity<Void> enrichPlace(@PathVariable Long placeId) {
+        placeService.enrichPlaceData(placeId);
+        return ResponseEntity.ok().build();
+    }
 }
