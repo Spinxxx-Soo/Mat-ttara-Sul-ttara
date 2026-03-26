@@ -26,6 +26,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.geo.GeoPoint;
+import org.springframework.data.elasticsearch.core.query.GeoDistanceOrder;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +60,7 @@ public class PlaceServiceImpl implements PlaceService {
     private final RedisTemplate<String, String> redisTemplate;
     private final WebClient webClient;
     private final S3Service s3Service;
+    private final ElasticsearchOperations elasticsearchOperations;
 
 
     @Override
@@ -75,7 +82,7 @@ public class PlaceServiceImpl implements PlaceService {
             // ES 캐시 히트: ES 문서에서 DTO로 변환
             log.debug("ES cache hit for keyword: '{}', results: {}", keyword, esPage.getTotalElements());
             items = esPage.getContent().stream()
-                    .map(this::toPlaceItemDto)
+                    .map(doc -> toPlaceItemDto(doc, lat, lng))
                     .toList();
             totalElements = (int) esPage.getTotalElements();
         } else {
@@ -83,7 +90,6 @@ public class PlaceServiceImpl implements PlaceService {
             log.debug("ES cache miss for keyword: '{}', falling back to Kakao API", keyword);
             int displaySize = Math.min(size, KAKAO_DISPLAY_MAX);
 
-            // ⚠️ Fix: 카카오 API page 오프셋 (1-based, size는 요청한대로)
             KakaoLocalSearchResponseDto kakaoResponse = externalPlaceSearchService.searchPlaces(keyword, displaySize, page, "accuracy", lat, lng);
 
             items = kakaoResponse.getDocuments().stream().map(doc -> {
@@ -94,17 +100,14 @@ public class PlaceServiceImpl implements PlaceService {
                 Long placeId = localPlaceOpt.map(PlaceEntity::getId).orElse(null);
                 Boolean isOpen = localPlaceOpt.map(PlaceEntity::getIsOpen).orElse(true);
 
-                // 카카오 위경도는 WGS84 문자열로 제공되므로 직접 파싱
                 Double itemLat = parseDoubleSafely(doc.getY());
                 Double itemLng = parseDoubleSafely(doc.getX());
 
-                // ES에 비동기 적재 (별도 빈을 통해 프록시 경유 → @Async 정상 동작)
                 placeIndexingService.indexToElasticsearchAsync(externalId, cleanTitle, resolveAddress(doc),
                         doc.getCategory_name(), itemLat, itemLng, doc.getPhone());
 
-                // TODO: 리뷰 테이블 조인을 통해 계산 (현재 기본값)
-                Double rating = 0.0;
-                Integer reviewCount = 0;
+                Double rating = localPlaceOpt.map(PlaceEntity::getAverageRating).orElse(0.0);
+                Integer reviewCount = localPlaceOpt.map(p -> p.getReviews().size()).orElse(0);
 
                 Double distance = (lat != null && lng != null) ? calculateDistance(lat, lng, itemLat, itemLng) : 0.0;
 
@@ -321,9 +324,10 @@ public class PlaceServiceImpl implements PlaceService {
 
     private Page<PlaceDocument> searchFromElasticsearch(String keyword, int page, int size) {
         try {
+            // 단순 일치 검색 대신 name에 포함된 키워드로 검색 (PlaceSearchRepository 위임)
             return placeSearchRepository.findByNameContaining(keyword, PageRequest.of(page - 1, size));
         } catch (Exception e) {
-            log.warn("Elasticsearch query failed, falling back to external API: {}", e.getMessage());
+            log.warn("Elasticsearch query failed: {}", e.getMessage());
             return null;
         }
     }
@@ -372,9 +376,13 @@ public class PlaceServiceImpl implements PlaceService {
                 .build();
     }
 
-    private PlaceSearchResponseDto.PlaceItemDto toPlaceItemDto(PlaceDocument doc) {
+    private PlaceSearchResponseDto.PlaceItemDto toPlaceItemDto(PlaceDocument doc, Double userLat, Double userLng) {
         Optional<PlaceEntity> localPlaceOpt = placeRepository.findByProviderAndExternalPlaceId(
                 doc.getProvider(), doc.getExternalPlaceId());
+
+        Double rating = localPlaceOpt.map(PlaceEntity::getAverageRating).orElse(0.0);
+        Integer reviewCount = localPlaceOpt.map(p -> p.getReviews().size()).orElse(0);
+        Double distance = (userLat != null && userLng != null) ? calculateDistance(userLat, userLng, doc.getLat(), doc.getLng()) : 0.0;
 
         return PlaceSearchResponseDto.PlaceItemDto.builder()
                 .placeId(localPlaceOpt.map(PlaceEntity::getId).orElse(null))
@@ -382,12 +390,12 @@ public class PlaceServiceImpl implements PlaceService {
                 .address(doc.getAddress())
                 .lat(doc.getLat())
                 .lng(doc.getLng())
-                .rating(0.0)
+                .rating(rating)
                 .imageUrl(localPlaceOpt.map(PlaceEntity::getImageUrl).orElse(doc.getImageUrl()))
                 .category(doc.getCategory())
                 .isOpen(doc.getIsOpen() != null ? doc.getIsOpen() : true)
-                .reviewCount(0)
-                .distance(0.0)
+                .reviewCount(reviewCount)
+                .distance(distance)
                 .build();
     }
 }
