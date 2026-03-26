@@ -70,6 +70,12 @@ export function useChatSessionSse(
         const recommended = await placeApi.getRecommendedPlaces(coords);
         if (cancelled) return;
         const mapped = recommended.map(recommendedPlaceToPlace);
+        debugLog('recommend prefetch applied', {
+          sessionId,
+          coords,
+          count: mapped.length,
+          placeIds: mapped.map((p) => p.placeId),
+        });
         setAiRecommendedPlaces(mapped);
       } catch (e) {
         console.warn('[chat-sse] getRecommendedPlaces(prefetch) failed', e);
@@ -136,6 +142,9 @@ export function useChatSessionSse(
                 onMessage?.(normalized);
               }
 
+              const payloadType = String((payload as { type?: unknown }).type ?? '');
+              debugLog('ai_response type', { sessionId, payloadType });
+
               queryClient.invalidateQueries({
                 queryKey: [...queryKeys.chat.all, 'messages'],
               });
@@ -148,6 +157,11 @@ export function useChatSessionSse(
                   lng: lng ?? FALLBACK_LOCATION.lng,
                 });
                 const mapped = recommended.map(recommendedPlaceToPlace);
+                debugLog('recommend sync applied', {
+                  sessionId,
+                  count: mapped.length,
+                  placeIds: mapped.map((p) => p.placeId),
+                });
                 setAiRecommendedPlaces(mapped);
               } catch (e) {
                 console.warn('[chat-sse] getRecommendedPlaces failed', e);

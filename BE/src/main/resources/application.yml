@@ -71,8 +71,17 @@ spring:
     naver:
       local-search:
         url: https://openapi.naver.com/v1/search/local.json
+<<<<<<< HEAD
         client-id: ${NAVER_ID}
         client-secret: ${NAVER_SECRET}
+=======
+        client-id: ${NAVER_ID:dummy-naver-id}
+        client-secret: ${NAVER_SECRET:dummy-naver-secret}
+    kakao:
+      local-search:
+        url: https://dapi.kakao.com/v2/local/search/keyword.json
+        api-key: ${KAKAO_API_KEY:dummy-kakao-key}
+>>>>>>> 1a5352d1f3197f137dca236dcc6056f64e59ac57
 
   cloud:
     aws:
