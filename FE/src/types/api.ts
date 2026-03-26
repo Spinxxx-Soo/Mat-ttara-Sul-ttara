@@ -162,7 +162,7 @@ export interface PlaceOpeningHours {
 }
 
 export interface Place {
-  placeId: number;
+  placeId: number | null;
   externalPlaceId?: string | null;
   internalPlaceId?: number | null;
   name: string;

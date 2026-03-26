@@ -23,7 +23,7 @@ import { mergeByPlaceId } from '@/stores/chatMapStore'
 const Search = () => {
   const [searchInput, setSearchInput] = useState('')
   const [committedKeyword, setCommittedKeyword] = useState('')
-  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
+  const [selectedPlaceKey, setSelectedPlaceKey] = useState<string | null>(null)
   const [reviewPanel, setReviewPanel] = useState<{
     placeId: number
     placeName: string
@@ -135,17 +135,17 @@ const Search = () => {
 
   /** develop: 목록·검색 기준 선택은 places 우선, 주변 전용 핀은 mapPlaces에서 */
   const selectedPlace = useMemo(() => {
-    if (selectedPlaceId == null) return null
+    if (selectedPlaceKey == null) return null
     return (
-      places.find((p) => p.placeId === selectedPlaceId) ??
-      mapPlaces.find((p) => p.placeId === selectedPlaceId) ??
+      places.find((p) => getPlaceKey(p) === selectedPlaceKey) ??
+      mapPlaces.find((p) => getPlaceKey(p) === selectedPlaceKey) ??
       null
     )
-  }, [places, mapPlaces, selectedPlaceId])
+  }, [places, mapPlaces, selectedPlaceKey])
 
-  const selectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
+  const currentSelectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
   const selectedInternalPlaceId = selectedPlace
-    ? getInternalPlaceId(selectedPlace) ?? (selectedPlaceKey ? resolvedPlaceIds[selectedPlaceKey] ?? null : null)
+    ? getInternalPlaceId(selectedPlace) ?? (currentSelectedPlaceKey ? resolvedPlaceIds[currentSelectedPlaceKey] ?? null : null)
     : null
 
   const { mutateAsync: syncPlace } = useSyncPlace()
@@ -153,7 +153,7 @@ const Search = () => {
   useEffect(() => {
     let cancelled = false
 
-    if (!selectedPlace || selectedPlaceKey == null) {
+    if (!selectedPlace || currentSelectedPlaceKey == null) {
       return
     }
 
@@ -168,7 +168,7 @@ const Search = () => {
 
         setResolvedPlaceIds((prev) => ({
           ...prev,
-          [selectedPlaceKey]: response.placeId,
+          [currentSelectedPlaceKey]: response.placeId,
         }))
       } catch (error) {
         if (!cancelled) {
@@ -182,7 +182,7 @@ const Search = () => {
     return () => {
       cancelled = true
     }
-  }, [selectedInternalPlaceId, selectedPlace, selectedPlaceKey, syncPlace])
+  }, [selectedInternalPlaceId, selectedPlace, currentSelectedPlaceKey, syncPlace])
 
   const { data: selectedPlaceDetail } = usePlaceDetail(
     selectedInternalPlaceId ?? 0,
@@ -191,11 +191,11 @@ const Search = () => {
   const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
   const handlePlaceClick = (place: Place) => {
-    setSelectedPlaceId(place.placeId)
+    setSelectedPlaceKey(getPlaceKey(place))
   }
 
   const handleListPlaceClick = (place: Place) => {
-    setSelectedPlaceId(place.placeId)
+    setSelectedPlaceKey(getPlaceKey(place))
     if (
       Number.isFinite(place.lat) &&
       Number.isFinite(place.lng) &&
@@ -269,11 +269,11 @@ const Search = () => {
   }
 
   useEffect(() => {
-    if (selectedPlaceId == null) return
-    if (!mapPlaces.some((p) => p.placeId === selectedPlaceId)) {
-      setSelectedPlaceId(null)
+    if (selectedPlaceKey == null) return
+    if (!mapPlaces.some((p) => getPlaceKey(p) === selectedPlaceKey)) {
+      setSelectedPlaceKey(null)
     }
-  }, [mapPlaces, selectedPlaceId])
+  }, [mapPlaces, selectedPlaceKey])
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
@@ -341,62 +341,65 @@ const Search = () => {
                   검색어를 입력한 뒤 검색 버튼을 눌러주세요.
                 </div>
               )}
-              {places.map((place: Place) => (
-                <div
-                  key={place.placeId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleListPlaceClick(place)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') handleListPlaceClick(place)
-                  }}
-                  className={`group cursor-pointer border-b border-primary/5 p-4 transition-colors hover:bg-primary/5 ${
-                    selectedPlaceId === place.placeId ? 'bg-primary/10' : ''
-                  }`}
-                >
-                  <div className="flex items-stretch gap-4">
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-200 shadow-sm dark:bg-slate-700">
-                      {place.imageUrl ? (
-                        <img
-                          src={place.imageUrl}
-                          alt={place.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="material-symbols-outlined text-slate-400">
-                          restaurant
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between">
-                        <h3 className="truncate font-bold text-slate-900 transition-colors group-hover:text-primary dark:text-slate-100">
-                          {place.name}
-                        </h3>
-                        {place.rating != null && (
-                          <div className="flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-xs font-bold text-amber-600 dark:bg-amber-900/30">
-                            <span className="material-symbols-outlined fill-current text-[14px]">
-                              star
-                            </span>
-                            {place.rating}
-                          </div>
+              {places.map((place: Place) => {
+                const pk = getPlaceKey(place)
+                return (
+                  <div
+                    key={pk}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleListPlaceClick(place)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') handleListPlaceClick(place)
+                    }}
+                    className={`group cursor-pointer border-b border-primary/5 p-4 transition-colors hover:bg-primary/5 ${
+                      selectedPlaceKey === pk ? 'bg-primary/10' : ''
+                    }`}
+                  >
+                    <div className="flex items-stretch gap-4">
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-200 shadow-sm dark:bg-slate-700">
+                        {place.imageUrl ? (
+                          <img
+                            src={place.imageUrl}
+                            alt={place.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="material-symbols-outlined text-slate-400">
+                            restaurant
+                          </span>
                         )}
                       </div>
-                      {place.category && (
-                        <p className="mt-1 text-xs font-medium text-primary">
-                          {place.category}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between">
+                          <h3 className="truncate font-bold text-slate-900 transition-colors group-hover:text-primary dark:text-slate-100">
+                            {place.name}
+                          </h3>
+                          {place.rating != null && (
+                            <div className="flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-xs font-bold text-amber-600 dark:bg-amber-900/30">
+                              <span className="material-symbols-outlined fill-current text-[14px]">
+                                star
+                              </span>
+                              {place.rating}
+                            </div>
+                          )}
+                        </div>
+                        {place.category && (
+                          <p className="mt-1 text-xs font-medium text-primary">
+                            {place.category}
+                          </p>
+                        )}
+                        <p className="mt-1 truncate text-xs text-slate-500">
+                          {place.address}
                         </p>
-                      )}
-                      <p className="mt-1 truncate text-xs text-slate-500">
-                        {place.address}
-                      </p>
-                      {place.phone && (
-                        <p className="mt-0.5 text-xs text-slate-400">{place.phone}</p>
-                      )}
+                        {place.phone && (
+                          <p className="mt-0.5 text-xs text-slate-400">{place.phone}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
               {pageInfo && pageInfo.totalPages > 1 && (
                 <div className="flex justify-center gap-2 border-t border-primary/5 p-4">
                   <button
@@ -467,66 +470,69 @@ const Search = () => {
                 <p className="text-sm font-medium text-slate-400">최적의 맛집을 찾는 중...</p>
               </div>
             ) : filteredNearby.length > 0 ? (
-              filteredNearby.map((place) => (
-                <div
-                  key={place.placeId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleListPlaceClick(place)}
-                  className={`group cursor-pointer rounded-2xl border bg-white p-5 transition-all duration-300 dark:bg-slate-900 ${
-                    selectedPlaceId === place.placeId
-                      ? 'scale-[1.02] border-primary shadow-xl ring-2 ring-primary/20'
-                      : 'border-slate-100 hover:border-slate-300 hover:shadow-lg dark:border-slate-700'
-                  }`}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') handleListPlaceClick(place)
-                  }}
-                >
-                  <div className="mb-3 flex items-start justify-between">
-                    <div>
-                      <h3
-                        className={`font-black tracking-tight transition-colors ${
-                          selectedPlaceId === place.placeId
-                            ? 'text-primary'
-                            : 'text-slate-800 group-hover:text-primary dark:text-slate-100'
-                        }`}
+              filteredNearby.map((place) => {
+                const pk = getPlaceKey(place)
+                return (
+                  <div
+                    key={pk}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleListPlaceClick(place)}
+                    className={`group cursor-pointer rounded-2xl border bg-white p-5 transition-all duration-300 dark:bg-slate-900 ${
+                      selectedPlaceKey === pk
+                        ? 'scale-[1.02] border-primary shadow-xl ring-2 ring-primary/20'
+                        : 'border-slate-100 hover:border-slate-300 hover:shadow-lg dark:border-slate-700'
+                    }`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') handleListPlaceClick(place)
+                    }}
+                  >
+                    <div className="mb-3 flex items-start justify-between">
+                      <div>
+                        <h3
+                          className={`font-black tracking-tight transition-colors ${
+                            selectedPlaceKey === pk
+                              ? 'text-primary'
+                              : 'text-slate-800 group-hover:text-primary dark:text-slate-100'
+                          }`}
+                        >
+                          {place.name}
+                        </h3>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {place.category || '음식점'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 dark:bg-amber-900/30">
+                        <span className="material-symbols-outlined fill-amber-400 text-[16px] text-amber-400">
+                          star
+                        </span>
+                        <span className="text-xs font-black text-amber-700 dark:text-amber-400">
+                          {place.rating ?? 0.0}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-slate-500 line-clamp-1">
+                      <span className="material-symbols-outlined text-[18px] text-slate-300">
+                        location_on
+                      </span>
+                      {place.address}
+                    </p>
+
+                    <div className="flex items-center justify-between border-t border-slate-50 pt-3 dark:border-slate-800">
+                      <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
+                        영업 중
+                      </span>
+                      <span
+                        className="rounded-full p-1 text-slate-400 transition-all group-hover:bg-primary/5 group-hover:text-primary"
+                        aria-hidden
                       >
-                        {place.name}
-                      </h3>
-                      <p className="mt-0.5 text-[11px] text-slate-400">
-                        {place.category || '음식점'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 dark:bg-amber-900/30">
-                      <span className="material-symbols-outlined fill-amber-400 text-[16px] text-amber-400">
-                        star
-                      </span>
-                      <span className="text-xs font-black text-amber-700 dark:text-amber-400">
-                        {place.rating ?? 0.0}
+                        <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
                       </span>
                     </div>
                   </div>
-
-                  <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-slate-500 line-clamp-1">
-                    <span className="material-symbols-outlined text-[18px] text-slate-300">
-                      location_on
-                    </span>
-                    {place.address}
-                  </p>
-
-                  <div className="flex items-center justify-between border-t border-slate-50 pt-3 dark:border-slate-800">
-                    <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
-                      영업 중
-                    </span>
-                    <span
-                      className="rounded-full p-1 text-slate-400 transition-all group-hover:bg-primary/5 group-hover:text-primary"
-                      aria-hidden
-                    >
-                      <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                    </span>
-                  </div>
-                </div>
-              ))
+                )
+              })
             ) : (
               <div className="flex h-64 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/50">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
@@ -549,9 +555,9 @@ const Search = () => {
             lat={mapCenter.lat}
             lng={mapCenter.lng}
             places={mapPlaces}
-            selectedPlaceId={selectedPlaceId}
+            selectedPlaceId={selectedPlaceKey}
             detailPlace={selectedPlace && !reviewPanel ? (selectedPlaceForDisplay ?? selectedPlace) : null}
-            onDetailClose={() => setSelectedPlaceId(null)}
+            onDetailClose={() => setSelectedPlaceKey(null)}
             onDetailReviewClick={openReviewFromDetail}
             onPlaceClick={handlePlaceClick}
             onIdle={handleMapIdle}
