@@ -5,11 +5,12 @@ import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
 import KakaoMap from '@/components/map/KakaoMap'
-import { useEnrichPlace, useNearbyPlaces, usePlaceDetail } from '@/hooks/queries/place/usePlaces'
+import { useEnrichPlace, useNearbyPlaces, usePlaceDetail, useSyncPlace } from '@/hooks/queries/place/usePlaces'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
+import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { hasNullFields } from '@/lib/placeUtils'
 
 const Main = () => {
@@ -18,6 +19,7 @@ const Main = () => {
     placeId: number
     placeName: string
   } | null>(null)
+  const [resolvedPlaceIds, setResolvedPlaceIds] = useState<Record<string, number>>({})
 
   const { lat: storeLat, lng: storeLng } = useLocationStore()
   const currentLat = storeLat ?? 37.5665
@@ -36,6 +38,7 @@ const Main = () => {
   )
 
   const { mutate: enrichPlace } = useEnrichPlace()
+  const { mutateAsync: syncPlace } = useSyncPlace()
 
   const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
   const mapPlaces = useMemo(() => {
@@ -47,7 +50,49 @@ const Main = () => {
     return mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null
   }, [mapPlaces, selectedPlaceId])
 
-  const { data: selectedPlaceDetail } = usePlaceDetail(selectedPlaceId ?? 0, selectedPlaceId != null)
+  const selectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
+  const selectedInternalPlaceId = selectedPlace
+    ? getInternalPlaceId(selectedPlace) ?? (selectedPlaceKey ? resolvedPlaceIds[selectedPlaceKey] ?? null : null)
+    : null
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedPlace || selectedPlaceKey == null) {
+      return
+    }
+
+    if (selectedInternalPlaceId != null) {
+      return
+    }
+
+    const run = async () => {
+      try {
+        const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response || cancelled) return
+
+        setResolvedPlaceIds((prev) => ({
+          ...prev,
+          [selectedPlaceKey]: response.placeId,
+        }))
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to sync selected place:', error)
+        }
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedInternalPlaceId, selectedPlace, selectedPlaceKey, syncPlace])
+
+  const { data: selectedPlaceDetail } = usePlaceDetail(
+    selectedInternalPlaceId ?? 0,
+    selectedInternalPlaceId != null
+  )
   const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
   const handlePlaceClick = (place: Place) => {
@@ -68,6 +113,10 @@ const Main = () => {
 
   const openReviewFromDetail = () => {
     if (!selectedPlace) return
+    if (selectedInternalPlaceId == null) {
+      toast.error('장소 정보를 준비 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
 
     const reviewsEnabled = import.meta.env.VITE_REVIEWS_ENABLED === 'true'
     if (!reviewsEnabled) {
@@ -76,7 +125,7 @@ const Main = () => {
     }
 
     setReviewPanel({
-      placeId: selectedPlace.placeId,
+      placeId: selectedInternalPlaceId,
       placeName: selectedPlace.name,
     })
   }

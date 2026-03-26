@@ -3,11 +3,17 @@ import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
 import KakaoMap from '@/components/map/KakaoMap'
-import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces'
+import { useNearbyPlaces, useSyncPlace } from '@/hooks/queries/place/usePlaces'
 import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
 import { usePendingDelay } from '@/hooks/usePendingDelay'
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning'
-import { hasNullFields } from '@/lib/placeUtils'
+import {
+  buildPlaceSyncRequest,
+  getInternalPlaceId,
+  getPlaceKey,
+  isSamePlace,
+  withInternalPlaceId,
+} from '@/lib/placeIdentity'
 import {
   PLAN_MESSAGES,
   confirmDiscardPlanChanges,
@@ -39,7 +45,7 @@ const MyPlanCreate = () => {
     true
   )
   const { mutate: createPlan, isPending: isCreating } = useCreatePlanMutation()
-  const { mutate: enrichPlace } = useEnrichPlace()
+  const { mutateAsync: syncPlace } = useSyncPlace()
 
   // 폼 상태
   const [title, setTitle] = useState('')
@@ -85,25 +91,41 @@ const MyPlanCreate = () => {
   }, [])
 
   const handlePlaceClick = (place: Place) => {
-    // Lazy Loading: 정보가 부족하면 크롤링 요청
-    if (hasNullFields(place)) {
-      enrichPlace(place.placeId)
-    }
-
     setSelectedPlaces(prev => {
-      const exists = prev.find(p => p.placeId === place.placeId)
+      const exists = prev.find((selectedPlace) => isSamePlace(selectedPlace, place))
       if (exists) {
-        return prev.filter(p => p.placeId !== place.placeId)
+        return prev.filter((selectedPlace) => !isSamePlace(selectedPlace, place))
       }
       return [...prev, place]
     })
   }
 
-  const removePlace = (placeId: number) => {
-    setSelectedPlaces(prev => prev.filter(p => p.placeId !== placeId))
+  const removePlace = (placeToRemove: Place) => {
+    setSelectedPlaces((prev) => prev.filter((place) => !isSamePlace(place, placeToRemove)))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const syncSelectedPlaces = async () => {
+    const syncedPlaces = await Promise.all(
+      selectedPlaces.map(async (place) => {
+        const internalPlaceId = getInternalPlaceId(place)
+        if (internalPlaceId != null) {
+          return withInternalPlaceId(place, internalPlaceId)
+        }
+
+        const response = await syncPlace(buildPlaceSyncRequest(place))
+        if (!response) {
+          throw new Error('장소 동기화에 실패했습니다.')
+        }
+
+        return withInternalPlaceId(place, response.placeId)
+      }),
+    )
+
+    setSelectedPlaces(syncedPlaces)
+    return syncedPlaces
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (selectedPlaces.length === 0) {
@@ -111,27 +133,32 @@ const MyPlanCreate = () => {
       return
     }
 
-    // S14P21B205-132: 실제 생성 API 요청 규격 준수 (Payload Assembly)
-    createPlan({
-      title,
-      meetingAt: meetingAt ? new Date(meetingAt).toISOString() : new Date().toISOString(),
-      participantCount: Number(participantCount),
-      totalBudget: Number(totalBudget),
-      planType,
-      memo,
-      details: selectedPlaces.map((p, index) => ({
-        placeId: p.placeId,
-        seqNo: index + 1
-      })),
-    }, {
-      onSuccess: () => {
-        toast.success(PLAN_MESSAGES.createSuccess)
-        navigate('/my-plan')
-      },
-      onError: (error: unknown) => {
-        toast.error(getPlanMutationErrorMessage(error, 'create'))
-      }
-    })
+    try {
+      const syncedPlaces = await syncSelectedPlaces()
+
+      createPlan({
+        title,
+        meetingAt: meetingAt ? new Date(meetingAt).toISOString() : new Date().toISOString(),
+        participantCount: Number(participantCount),
+        totalBudget: Number(totalBudget),
+        planType,
+        memo,
+        details: syncedPlaces.map((place, index) => ({
+          placeId: getInternalPlaceId(place)!,
+          seqNo: index + 1,
+        })),
+      }, {
+        onSuccess: () => {
+          toast.success(PLAN_MESSAGES.createSuccess)
+          navigate('/my-plan')
+        },
+        onError: (error: unknown) => {
+          toast.error(getPlanMutationErrorMessage(error, 'create'))
+        }
+      })
+    } catch (error) {
+      toast.error(getPlanMutationErrorMessage(error, 'create'))
+    }
   }
 
   return (
@@ -238,7 +265,7 @@ const MyPlanCreate = () => {
               <div className="space-y-2">
                 {selectedPlaces.length > 0 ? (
                   selectedPlaces.map((place, idx) => (
-                    <div key={place.placeId} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/10 bg-background-light dark:bg-slate-800 group animate-in slide-in-from-left-2 duration-200">
+                    <div key={getPlaceKey(place)} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/10 bg-background-light dark:bg-slate-800 group animate-in slide-in-from-left-2 duration-200">
                       <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
                         {idx + 1}
                       </div>
@@ -252,7 +279,7 @@ const MyPlanCreate = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => removePlace(place.placeId)}
+                        onClick={() => removePlace(place)}
                         className="p-1 hover:text-red-500 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <span className="material-symbols-outlined text-lg">close</span>
@@ -314,7 +341,7 @@ const MyPlanCreate = () => {
         <section className="flex-1 relative">
            <KakaoMap 
             places={places}
-            selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.placeId}
+            selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.externalPlaceId ?? selectedPlaces[selectedPlaces.length - 1]?.placeId}
             onPlaceClick={handlePlaceClick}
             onIdle={handleIdle}
             lat={mapCenter.lat}

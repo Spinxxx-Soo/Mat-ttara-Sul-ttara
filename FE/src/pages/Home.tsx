@@ -6,12 +6,11 @@ import KakaoMap from '@/components/map/KakaoMap';
 import { useAuthStore } from '@/stores/authStore';
 // TODO: Home.tsx의 plans 섹션은 개발 테스트용 임시 코드입니다. 실제 플랜 목록은 /my-plan 페이지 참고.
 import { usePlansQuery } from '@/hooks/queries/plan/usePlanQueries';
-import { useNearbyPlaces, useEnrichPlace } from '@/hooks/queries/place/usePlaces';
+import { useNearbyPlaces } from '@/hooks/queries/place/usePlaces';
 import { useMarkers } from '@/hooks/useMarkers';
 import { useInfoWindow } from '@/hooks/useInfoWindow';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { mapPlacesToMarkerDataList } from '@/lib/placeMapper';
-import { hasNullFields } from '@/lib/placeUtils';
 import type { KakaoMapInstance } from '@/types/kakao.d';
 import type { Coordinates, PlaceMarkerData } from '@/types/map';
 import { useState, useCallback, useEffect, useMemo } from 'react';
@@ -35,8 +34,6 @@ export default function Home() {
     !!mapInst
   );
 
-  const { mutate: enrichPlace } = useEnrichPlace();
-
   const mappedPlaces = useMemo(() => {
     return mapPlacesToMarkerDataList(places || []);
   }, [places]);
@@ -59,12 +56,6 @@ export default function Home() {
   const handleMarkerClick = useCallback((placeData: PlaceMarkerData, marker: any) => {
     setSelectedPlaceId(placeData.id);
 
-    // Lazy Loading: 원본 Place 객체를 찾아 null 여부 확인
-    const originalPlace = places.find(p => p.placeId === placeData.id);
-    if (originalPlace && hasNullFields(originalPlace)) {
-      enrichPlace(originalPlace.placeId);
-    }
-
     const content = `
       <div style="padding:12px; min-width:150px; font-family:sans-serif;">
         <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:bold;">${placeData.name}</h3>
@@ -74,7 +65,7 @@ export default function Home() {
       </div>
     `;
     openInfoWindow(marker, content);
-  }, [openInfoWindow, places, enrichPlace]);
+  }, [openInfoWindow]);
 
   const { markers } = useMarkers({
     mapInstance: mapInst,
@@ -111,12 +102,6 @@ export default function Home() {
   // 리스트 아이템 클릭 시
   const handleListItemClick = useCallback((placeData: PlaceMarkerData) => {
     setSelectedPlaceId(placeData.id);
-    
-    // Lazy Loading: 원본 Place 객체를 찾아 null 여부 확인
-    const originalPlace = places.find(p => p.placeId === placeData.id);
-    if (originalPlace && hasNullFields(originalPlace)) {
-      enrichPlace(originalPlace.placeId);
-    }
 
     if (mapInst) {
       // 해당 마커 위치로 카메라 부드럽게 이동
@@ -136,7 +121,7 @@ export default function Home() {
         openInfoWindow(targetMarker, content);
       }
     }
-  }, [mapInst, markers, openInfoWindow, places, enrichPlace]);
+  }, [mapInst, markers, openInfoWindow]);
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">

@@ -2,7 +2,13 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import KakaoMap from '@/components/map/KakaoMap'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
-import { useNearbyPlaces, usePlaceDetail, useSearchPlaces } from '@/hooks/queries/place/usePlaces'
+import {
+  useNearbyPlaces,
+  usePlaceDetail,
+  useSearchPlaces,
+  useSyncPlace,
+} from '@/hooks/queries/place/usePlaces'
+import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
@@ -22,6 +28,7 @@ const Search = () => {
     placeId: number
     placeName: string
   } | null>(null)
+  const [resolvedPlaceIds, setResolvedPlaceIds] = useState<Record<string, number>>({})
   const [page, setPage] = useState(1)
   const pageSize = 10
 
@@ -136,7 +143,51 @@ const Search = () => {
     )
   }, [places, mapPlaces, selectedPlaceId])
 
-  const { data: selectedPlaceDetail } = usePlaceDetail(selectedPlaceId ?? 0, selectedPlaceId != null)
+  const selectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
+  const selectedInternalPlaceId = selectedPlace
+    ? getInternalPlaceId(selectedPlace) ?? (selectedPlaceKey ? resolvedPlaceIds[selectedPlaceKey] ?? null : null)
+    : null
+
+  const { mutateAsync: syncPlace } = useSyncPlace()
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedPlace || selectedPlaceKey == null) {
+      return
+    }
+
+    if (selectedInternalPlaceId != null) {
+      return
+    }
+
+    const run = async () => {
+      try {
+        const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response || cancelled) return
+
+        setResolvedPlaceIds((prev) => ({
+          ...prev,
+          [selectedPlaceKey]: response.placeId,
+        }))
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to sync selected place:', error)
+        }
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedInternalPlaceId, selectedPlace, selectedPlaceKey, syncPlace])
+
+  const { data: selectedPlaceDetail } = usePlaceDetail(
+    selectedInternalPlaceId ?? 0,
+    selectedInternalPlaceId != null
+  )
   const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
   const handlePlaceClick = (place: Place) => {
@@ -200,6 +251,10 @@ const Search = () => {
 
   const openReviewFromDetail = () => {
     if (!selectedPlace) return
+    if (selectedInternalPlaceId == null) {
+      toast.error('장소 정보를 준비 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
 
     const reviewsEnabled = import.meta.env.VITE_REVIEWS_ENABLED === 'true'
     if (!reviewsEnabled) {
@@ -208,7 +263,7 @@ const Search = () => {
     }
 
     setReviewPanel({
-      placeId: selectedPlace.placeId,
+      placeId: selectedInternalPlaceId,
       placeName: selectedPlace.name,
     })
   }
@@ -423,6 +478,9 @@ const Search = () => {
                       ? 'scale-[1.02] border-primary shadow-xl ring-2 ring-primary/20'
                       : 'border-slate-100 hover:border-slate-300 hover:shadow-lg dark:border-slate-700'
                   }`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') handleListPlaceClick(place)
+                  }}
                 >
                   <div className="mb-3 flex items-start justify-between">
                     <div>
@@ -492,9 +550,7 @@ const Search = () => {
             lng={mapCenter.lng}
             places={mapPlaces}
             selectedPlaceId={selectedPlaceId}
-            detailPlace={
-              selectedPlace && !reviewPanel ? (selectedPlaceForDisplay ?? selectedPlace) : null
-            }
+            detailPlace={selectedPlace && !reviewPanel ? (selectedPlaceForDisplay ?? selectedPlace) : null}
             onDetailClose={() => setSelectedPlaceId(null)}
             onDetailReviewClick={openReviewFromDetail}
             onPlaceClick={handlePlaceClick}
