@@ -10,7 +10,7 @@ from typing import Any
 
 import redis
 
-from apps.schemas.chat import ChatMessageRequest, ChatMessageResponse, ParsedState
+from apps.schemas.chat import ChatMessageResponse, ParsedState
 
 logger = logging.getLogger(__name__)
 
@@ -24,35 +24,65 @@ def parsed_state_to_be_session_state(parsed: ParsedState | None) -> dict[str, An
     """
     if parsed is None:
         return None
-    raw = parsed.model_dump(mode="json", exclude_none=True)
+
+    # BE SessionState.extraData에 대해 "없으면 null로" 요구사항을 만족하기 위해
+    # exclude_none=False로 전체 키를 유지합니다.
+    raw = parsed.model_dump(mode="json", exclude_none=False)
+
     lat = raw.pop("lat", None)
     lng = raw.pop("lng", None)
     time_val = raw.pop("time", None)
-    out: dict[str, Any] = {}
-    if lat is not None:
-        out["lat"] = lat
-    if lng is not None:
-        out["lng"] = lng
-    if time_val is not None:
-        out["time"] = time_val
-    if raw:
-        out["extraData"] = raw
-    return out or None
+    final_place_ids = raw.pop("selectedPlaceIds", None)
 
+    return {
+        "lat": lat,
+        "lng": lng,
+        "time": time_val,
+        "finalPlaceIds": final_place_ids,
+        "extraData": raw,
+    }
 
 def build_be_ai_reply_redis_payload(
-    request: ChatMessageRequest,
+    *,
+    thread_id: str,
+    user_id: int,
     response: ChatMessageResponse,
 ) -> dict[str, Any]:
     """BE RedisSubscribeListener → ObjectMapper → AiChatResponse 에 맞춘 JSON 객체."""
-    return {
-        "threadId": response.threadId,
-        "userId": request.userId,
+    payload = {
+        "threadId": thread_id,
+        "userId": user_id,
         "chatResponse": response.chatResponse,
         "type": response.type.value,
         "memoryStatus": response.memoryStatus.value,
         "parsedState": parsed_state_to_be_session_state(response.parsedState),
+        "title": response.title,
+        "places": (
+            [p.model_dump(mode="json") for p in response.places]
+            if response.places is not None
+            else None
+        ),
     }
+
+    # 디버깅용: BE에서 값이 안 보일 때 어떤 payload가 나갔는지 확인
+    # (너무 큰 parsedState/places를 통째로 찍지 않기 위해 일부만 요약 출력)
+    try:
+        ps = payload.get("parsedState") or {}
+        logger.info(
+            "[ai:reply publish] type=%s title=%s lat=%s lng=%s time=%s finalPlaceIds=%s places=%s",
+            payload.get("type"),
+            payload.get("title"),
+            ps.get("lat"),
+            ps.get("lng"),
+            ps.get("time"),
+            (ps.get("finalPlaceIds") if isinstance(ps, dict) else None),
+            (len(payload["places"]) if isinstance(payload.get("places"), list) else None),
+        )
+    except Exception:
+        # 로깅 실패는 서비스 동작에 영향 주지 않음
+        pass
+
+    return payload
 
 
 class RedisReplyPublisher:
