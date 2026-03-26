@@ -16,6 +16,7 @@ import java.time.ZoneId;
 @NoArgsConstructor
 public class MessageDetailResponse {
     private long messageId;
+    private String sessionId;
     private String role;
     private String content;
     private long createdAt;

@@ -36,7 +36,7 @@ public class KakaoPlaceSearchServiceImpl implements ExternalPlaceSearchService {
     private String apiKey;
 
     @Override
-    public KakaoLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort) {
+    public KakaoLocalSearchResponseDto searchPlaces(String query, int display, int start, String sort, Double lat, Double lng) {
         // Kakao API uses 'page' and 'size' instead of 'start' and 'display'
         // Here we keep the interface but map the parameters.
         // Interface: display (size), start (offset)
@@ -44,13 +44,20 @@ public class KakaoPlaceSearchServiceImpl implements ExternalPlaceSearchService {
         int page = (start / display) + 1;
         int size = Math.min(display, 45); // Kakao max size is 45
 
-        URI uri = UriComponentsBuilder.fromUriString(kakaoSearchUrl)
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(kakaoSearchUrl)
                 .queryParam("query", query)
                 .queryParam("size", size)
-                .queryParam("page", page)
-                .build()
-                .encode()
-                .toUri();
+                .queryParam("page", page);
+
+        // 위치 정보가 있을 때만 위치 기반 반경 검색 파라미터 추가
+        if (lat != null && lng != null) {
+            uriBuilder
+                    .queryParam("x", lng)   // 카카오: x = 경도
+                    .queryParam("y", lat)   // 카카오: y = 위도
+                    .queryParam("radius", 20000); // 반경 20km
+        }
+
+        URI uri = uriBuilder.build().encode().toUri();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set(HEADER_AUTHORIZATION, KAKAO_PREFIX + apiKey);

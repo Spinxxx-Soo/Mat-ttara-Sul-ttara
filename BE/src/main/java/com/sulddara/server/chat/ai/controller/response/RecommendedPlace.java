@@ -15,6 +15,4 @@ public class RecommendedPlace {
     private Double lat;
     private Double lng;
     private String address;
-    private String recommendReason;
-    private List<String> tags;
 }
