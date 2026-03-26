@@ -112,7 +112,7 @@ class PlaceServiceImplTest {
         given(mockKakaoResponse.getDocuments()).willReturn(Collections.singletonList(mockDoc));
         given(mockKakaoResponse.getMeta()).willReturn(mockMeta);
 
-        given(externalSearchService.searchPlaces(eq(keyword), anyInt(), anyInt(), anyString())).willReturn(mockKakaoResponse);
+        given(externalSearchService.searchPlaces(eq(keyword), anyInt(), anyInt(), anyString(), any(), any())).willReturn(mockKakaoResponse);
         given(placeRepository.findByProviderAndExternalPlaceId(anyString(), anyString())).willReturn(Optional.empty());
 
         // when
