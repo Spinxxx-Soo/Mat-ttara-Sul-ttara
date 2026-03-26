@@ -166,6 +166,22 @@ export interface Place {
   isEnriched?: boolean;
 }
 
+export interface PlaceUpsertRequest {
+  provider: string;
+  externalPlaceId: string;
+  name: string;
+  address?: string;
+  phone?: string | null;
+  lat: number;
+  lng: number;
+  category?: string | null;
+  imageUrl?: string | null;
+}
+
+export interface PlaceUpsertResponse {
+  placeId: number;
+}
+
 /** GET /api/v1/places/recommend · SSE 연동 시 AiChatResponse.places 와 동일 스키마 */
 export interface RecommendedPlace {
   placeId: number;
