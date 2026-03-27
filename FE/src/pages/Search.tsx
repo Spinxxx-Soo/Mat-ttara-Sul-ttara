@@ -273,6 +273,7 @@ const Search = () => {
 
     try {
       const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+      if (!response) return
       setReviewPanel({
         placeId: response.placeId,
         placeName: selectedPlace.name,

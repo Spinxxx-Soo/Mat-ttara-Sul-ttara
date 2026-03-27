@@ -111,22 +111,7 @@ const Main = () => {
     enrichPlace(selectedInternalPlaceId)
   }, [selectedInternalPlaceId, selectedPlaceForDisplay, enrichPlace])
 
-  const handlePlaceClick = (place: Place) => {
-    // 리뷰 패널(왼쪽)이 열린 상태에서 다른 핀을 선택하면,
-    // 자동으로 리뷰 패널을 닫아(돌아가기) 지도 상세 카드가 보이도록 한다.
-    if (reviewPanel) setReviewPanel(null)
-    setSelectedPlaceId(place.placeId)
-  }
-
-  const handleMapIdle = (
-    center: { lat: number; lng: number },
-    currentZoom: number
-  ) => {
-    setMapCenter(center)
-    setZoom(currentZoom)
-  }
-
-  const handleMapClick = (coord: Coordinates) => {
+  const sendSelectedLocationToChat = (coord: Coordinates) => {
     if (!activeSessionId) {
       toast.error('채팅 세션이 준비될 때까지 잠시만 기다려 주세요.')
       return
@@ -148,6 +133,26 @@ const Main = () => {
         },
       }
     )
+  }
+
+  const handlePlaceClick = (place: Place) => {
+    // 리뷰 패널(왼쪽)이 열린 상태에서 다른 핀을 선택하면,
+    // 자동으로 리뷰 패널을 닫아(돌아가기) 지도 상세 카드가 보이도록 한다.
+    if (reviewPanel) setReviewPanel(null)
+    setSelectedPlaceId(place.placeId)
+    sendSelectedLocationToChat({ lat: place.lat, lng: place.lng })
+  }
+
+  const handleMapIdle = (
+    center: { lat: number; lng: number },
+    currentZoom: number
+  ) => {
+    setMapCenter(center)
+    setZoom(currentZoom)
+  }
+
+  const handleMapClick = (coord: Coordinates) => {
+    sendSelectedLocationToChat(coord)
   }
 
   const openReviewFromDetail = async () => {
