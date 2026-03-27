@@ -15,11 +15,20 @@ class RecommendRepository:
             "host": settings.db_host,
             "user": settings.db_user,
             "password": settings.db_password,
-            "database": settings.db_name
+            "database": settings.db_name           # meal_reco
+        }
+        self.matsul_db_config = {
+            "host": settings.db_host,
+            "user": settings.db_user,
+            "password": settings.db_password,
+            "database": settings.matsul_db_name    # matsul
         }
 
     def get_connection(self):
         return mysql.connector.connect(**self.db_config)
+
+    def get_matsul_connection(self):
+        return mysql.connector.connect(**self.matsul_db_config)
 
     def get_user_memory(self, user_id: int) -> Dict[str, float]:
         """
@@ -59,7 +68,7 @@ class RecommendRepository:
             ORDER BY created_at DESC LIMIT 1
         """
         try:
-            with self.get_connection() as conn:
+            with self.get_matsul_connection() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(query, (user_id,))
                     row = cursor.fetchone()
@@ -79,7 +88,7 @@ class RecommendRepository:
         format_strings = ','.join(['%s'] * len(place_ids))
         query = f"""
             SELECT place_id, vector_data
-            FROM PLACE_MEMORY_VECTOR
+            FROM place_memory_vector
             WHERE place_id IN ({format_strings})
         """
         vectors = {}
@@ -123,7 +132,7 @@ class RecommendRepository:
         """
 
         try:
-            with self.get_connection() as conn:
+            with self.get_matsul_connection() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(query, tuple(place_ids))
                     rows = cursor.fetchall()
