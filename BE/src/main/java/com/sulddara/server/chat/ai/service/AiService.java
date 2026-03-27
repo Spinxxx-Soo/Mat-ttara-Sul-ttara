@@ -257,7 +257,8 @@ public class AiService {
             redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
             chatSessionRepository.updateSessionState(sessionId, parsedJson);
             redisTemplate.opsForValue().set("ai:flag:" + sessionId, "true", Duration.ofMinutes(5));
-            sendChat(sessionId, userId, "지정한 위치 주변 맛집을 찾아줘", false);
+            //sendChat(sessionId, userId, "지정한 위치 주변 맛집을 찾아줘", false);
+            log.info("[ai] 위치 정보 업데이트 완료 (추천 트리거 제외): sessionId={} lat={} lng={}", sessionId, lat, lng);
         } catch (JsonProcessingException e) {
             throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
