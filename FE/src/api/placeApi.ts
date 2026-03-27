@@ -155,14 +155,29 @@ export const placeApi = {
     page: number,
     size: number
   ): Promise<PlaceReviewsResponse> => {
-    // BE는 현재 페이지네이션 래퍼 없이 ReviewResponseDto[]를 반환한다.
-    // FE에서 기존 UI/훅 시그니처를 유지하기 위해 클라이언트에서 페이지네이션 형태로 래핑한다.
-    const { data } = await apiClient.get<Review[]>(
+    const { data } = await apiClient.get<PlaceReviewsResponse | Review[]>(
       `/api/v1/places/${placeId}/reviews`,
       {
         params: { page, size },
       }
     );
+
+    // BE(현재): ReviewListResponseDto — { content, pageInfo, averageRating }
+    if (
+      data != null &&
+      typeof data === 'object' &&
+      !Array.isArray(data) &&
+      Array.isArray((data as PlaceReviewsResponse).content)
+    ) {
+      const d = data as PlaceReviewsResponse;
+      return {
+        content: d.content ?? [],
+        pageInfo: d.pageInfo,
+        averageRating: d.averageRating,
+      };
+    }
+
+    // Legacy: Review[] 만 내려오는 경우 — FE에서 페이지네이션 형태로 래핑
     const all = Array.isArray(data) ? data : [];
     const safeSize = Math.max(1, size || 10);
     const safePage = Math.max(1, page || 1);
