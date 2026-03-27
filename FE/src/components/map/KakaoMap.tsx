@@ -6,6 +6,7 @@ import type { Coordinates } from '@/types/map';
 import type { Place } from '@/types/api';
 import type { KakaoMapInstance } from '@/types/kakao.d';
 import PlaceMapDetailCard from '@/components/map/PlaceMapDetailCard';
+import { getPlaceKey } from '@/lib/placeIdentity';
 
 /**
  * 핀 마커 하단(위경도) 기준으로 화면에서 위로 올린 지점 = 말풍선 꼬리(카드 하단 중앙)가 닿을 위치
@@ -58,7 +59,7 @@ export default function KakaoMap({
   const { coordinates, errorType } = useGeolocation(false);
 
   const locationMarkerRef = useRef<any>(null);
-  const placesMarkersRef = useRef<Map<number, any>>(new Map());
+  const placesMarkersRef = useRef<Map<string, any>>(new Map());
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDetailCloseRef = useRef(onDetailClose);
   const onDetailReviewClickRef = useRef(onDetailReviewClick);
@@ -259,9 +260,9 @@ export default function KakaoMap({
     const kakao = window.kakao;
 
     // 이전 마커들 중 현재 리스트에 없는 것 삭제
-    const currentPlaceIds = new Set(places.map((p) => p.placeId));
-    placesMarkersRef.current.forEach((markerObj, id) => {
-      if (!currentPlaceIds.has(id)) {
+    const currentPlaceKeys = new Set(places.map((p) => getPlaceKey(p)));
+    placesMarkersRef.current.forEach((markerObj, key) => {
+      if (!currentPlaceKeys.has(key)) {
         if (markerObj.onOverlayClickCleanup) {
           markerObj.onOverlayClickCleanup();
         }
@@ -270,7 +271,7 @@ export default function KakaoMap({
           kakao.maps.event.removeListener(markerObj.overlay, 'click', markerObj.onKakaoClick);
         }
         markerObj.overlay.setMap(null);
-        placesMarkersRef.current.delete(id);
+        placesMarkersRef.current.delete(key);
       }
     });
 
@@ -278,12 +279,13 @@ export default function KakaoMap({
       // CustomOverlay DOM은 map 내부에서 비동기로 붙어서, 즉시 못 찾는 경우가 있어 재시도한다.
       let disposed = false;
       let cleanup: (() => void) | null = null;
+      const placeKey = getPlaceKey(place);
 
       const handler = () => onPlaceClickRef.current?.(place);
 
       const tryBind = (attemptLeft: number) => {
         if (disposed) return;
-        const el = document.getElementById(`marker-${place.placeId}`);
+        const el = document.getElementById(`marker-${placeKey}`);
         if (!el) {
           if (attemptLeft > 0) {
             setTimeout(() => tryBind(attemptLeft - 1), 50);
@@ -310,11 +312,12 @@ export default function KakaoMap({
 
     // 새 마커 추가 또는 업데이트
     places.forEach((place) => {
-      const isSelected = selectedPlaceId?.toString() === place.placeId.toString();
-      const existing = placesMarkersRef.current.get(place.placeId);
+      const pk = getPlaceKey(place);
+      const isSelected = selectedPlaceId?.toString() === pk;
+      const existing = placesMarkersRef.current.get(pk);
 
       const content = `
-        <div class="relative flex flex-col items-center group cursor-pointer" id="marker-${place.placeId}">
+        <div class="relative flex flex-col items-center group cursor-pointer" id="marker-${pk}">
           <div class="w-8 h-8 rounded-full flex items-center justify-center shadow-md border-2 border-white transition-all ${
             isSelected ? 'bg-primary scale-110 z-20 shadow-xl border-primary' : 'bg-slate-500 hover:bg-primary z-10'
           }">
@@ -353,7 +356,7 @@ export default function KakaoMap({
           cleanup = bindOverlayClick(place);
         });
 
-        placesMarkersRef.current.set(place.placeId, {
+        placesMarkersRef.current.set(pk, {
           overlay,
           marker,
           onOverlayClickCleanup: () => cleanup(),

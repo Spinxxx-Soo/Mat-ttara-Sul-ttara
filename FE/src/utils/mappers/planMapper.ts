@@ -9,7 +9,7 @@ export const mapPlanToUI = (plan: Plan | PlanDetail): PlanUIModel => {
   const meetingDate = dayjs(plan.meetingAt);
   const now = dayjs();
   const isPast = meetingDate.isBefore(now, 'day');
-  const daysDiff = meetingDate.diff(now, 'day');
+  const daysDiff = meetingDate.startOf('day').diff(now.startOf('day'), 'day');
   const shareToken = (plan as { shareToken?: string; shareId?: string }).shareToken
     || (plan as { shareToken?: string; shareId?: string }).shareId;
 

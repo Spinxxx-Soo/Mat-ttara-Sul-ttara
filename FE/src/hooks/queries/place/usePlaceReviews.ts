@@ -12,10 +12,15 @@ const DEFAULT_PAGE_SIZE = 10;
 
 const patchPlacesRatingInLists = (
   queryClient: ReturnType<typeof useQueryClient>,
-  placeDetail: { externalPlaceId?: string | null; rating?: number | null; reviewScore?: number | null; placeId: number }
+  placeDetail: {
+    externalPlaceId?: string | null;
+    rating?: number | null;
+    reviewScore?: number | null;
+    placeId: number | null;
+  }
 ) => {
   const externalPlaceId = placeDetail.externalPlaceId ?? null;
-  if (!externalPlaceId) return;
+  if (!externalPlaceId || placeDetail.placeId == null) return;
 
   // 1) 주변 맛집(nearby): select로 Place[]만 캐시에 들어있음
   queryClient.setQueriesData(
@@ -84,6 +89,9 @@ export function useCreatePlaceReview(placeId: number) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.place.all,
+      });
 
       // 리스트(검색/주변맛집)에는 카카오 원본 데이터가 캐시되어 별점이 즉시 반영되지 않을 수 있어,
       // 최신 place detail을 가져와 동일 externalPlaceId 항목의 rating을 패치한다.
@@ -119,6 +127,9 @@ export function useUpdatePlaceReview(placeId: number) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.place.all,
+      });
 
       try {
         const detail = await queryClient.fetchQuery({
@@ -146,6 +157,9 @@ export function useDeletePlaceReview(placeId: number) {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.place.detail(placeId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.place.all,
       });
 
       try {

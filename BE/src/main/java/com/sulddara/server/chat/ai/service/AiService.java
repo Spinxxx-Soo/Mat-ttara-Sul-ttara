@@ -133,19 +133,21 @@ public class AiService {
                 sendCandidatesToAi(sessionId, userId, updatedState);
                 return;
             }
-            if ("RECOMMENDATION".equals(response.getType()) && response.getPlaces() != null) {
-                String redisKey = "recommend:user:" + userId;
-                String placesJson = objectMapper.writeValueAsString(response.getPlaces());
-                redisTemplate.opsForValue().set(redisKey, placesJson, Duration.ofMinutes(30));
-                log.info("[ai] RECOMMENDATION 캐시 저장 sessionId={} userId={} count={}",
-                        sessionId, userId, response.getPlaces().size());
-            }
-
             String assistantText = response.getChatResponse();
             if (assistantText == null) {
                 log.warn("[ai] chatResponse 가 null — 빈 문자열로 저장 sessionId={}", sessionId);
                 assistantText = "";
             }
+            if ("RECOMMENDATION".equals(response.getType()) && response.getPlaces() != null) {
+                String redisKey = "recommend:session:" + sessionId + ":user:" + userId;
+                String placesJson = objectMapper.writeValueAsString(response.getPlaces());
+                redisTemplate.opsForValue().set(redisKey, placesJson, Duration.ofMinutes(10));
+                log.info("[ai] RECOMMENDATION 캐시 저장 sessionId={} userId={} count={}",
+                        sessionId, userId, response.getPlaces().size());
+                assistantText = assistantText + "||" + placesJson;
+                log.info("[ai] RECOMMENDATION 데이터 결합 완료: sessionId={}", sessionId);
+            }
+
             long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), assistantText);
 
             chatSessionRepository.findById(sessionId).ifPresent(session -> {
@@ -255,7 +257,8 @@ public class AiService {
             redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
             chatSessionRepository.updateSessionState(sessionId, parsedJson);
             redisTemplate.opsForValue().set("ai:flag:" + sessionId, "true", Duration.ofMinutes(5));
-            sendChat(sessionId, userId, "지정한 위치 주변 맛집을 찾아줘", false);
+            //sendChat(sessionId, userId, "지정한 위치 주변 맛집을 찾아줘", false);
+            log.info("[ai] 위치 정보 업데이트 완료 (추천 트리거 제외): sessionId={} lat={} lng={}", sessionId, lat, lng);
         } catch (JsonProcessingException e) {
             throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
