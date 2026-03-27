@@ -296,6 +296,12 @@ export interface SendMessageRequest {
   content: string;
 }
 
+/** POST /api/v1/chat/sessions/{sessionId}/location */
+export interface MapLocationRequest {
+  lat: number;
+  lng: number;
+}
+
 export interface SendMessageResponse {
   messageId: number;
   sessionId: string;
