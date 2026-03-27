@@ -3,6 +3,7 @@ package com.sulddara.server.place.service;
 import com.sulddara.server.place.domain.PlaceEntity;
 import com.sulddara.server.place.domain.ReviewEntity;
 import com.sulddara.server.place.dto.ReviewCreateRequestDto;
+import com.sulddara.server.place.dto.ReviewListResponseDto;
 import com.sulddara.server.place.dto.ReviewResponseDto;
 import com.sulddara.server.place.dto.ReviewUpdateRequestDto;
 import com.sulddara.server.place.exception.ReviewNotFoundException;
@@ -18,6 +19,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -49,25 +54,30 @@ class ReviewServiceTest {
     void getReviews_validPlaceId_returnsReviewList() {
         // given
         Long placeId = 1L;
-        given(placeRepository.existsById(placeId)).willReturn(true);
+        PlaceEntity place = new PlaceEntity("NAVER", "ext1", "Place", "Addr", 37.0, 127.0);
+        ReflectionTestUtils.setField(place, "id", placeId);
+        given(placeRepository.findById(placeId)).willReturn(Optional.of(place));
 
         UserEntity user = new UserEntity("test@test.com", "testUser", "bio", "img", com.sulddara.server.user.domain.enums.SocialType.NAVER, "12345", "ROLE_USER");
         ReflectionTestUtils.setField(user, "id", 1L);
-        PlaceEntity place = new PlaceEntity("NAVER", "ext1", "Place", "Addr", 37.0, 127.0);
         
         ReviewEntity review = new ReviewEntity(place, user, 5, "Great place!");
         ReflectionTestUtils.setField(review, "id", 100L);
 
-        given(reviewRepository.findAllByPlaceIdOrderByCreatedAtDesc(placeId))
-                .willReturn(List.of(review));
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<ReviewEntity> reviewPage = new PageImpl<>(List.of(review), pageable, 1);
+
+        given(reviewRepository.findAllByPlaceIdOrderByCreatedAtDesc(placeId, pageable))
+                .willReturn(reviewPage);
 
         // when
-        List<ReviewResponseDto> result = reviewService.getReviews(placeId);
+        ReviewListResponseDto result = reviewService.getReviews(placeId, 1, 10);
 
         // then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).rating()).isEqualTo(5);
-        assertThat(result.get(0).content()).isEqualTo("Great place!");
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).rating()).isEqualTo(5);
+        assertThat(result.getContent().get(0).content()).isEqualTo("Great place!");
+        assertThat(result.getAverageRating()).isEqualTo(0.0);
     }
 
     @Test

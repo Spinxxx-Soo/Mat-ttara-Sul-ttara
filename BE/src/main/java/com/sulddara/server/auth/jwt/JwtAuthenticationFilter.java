@@ -50,7 +50,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 Claims claims = jwtUtil.getClaims(jwt);
 
-                Long userId = claims.get("userId", Long.class);
+                // JJWT numeric claim은 Integer/Long 등으로 역직렬화될 수 있어,
+                // Long으로 단정하지 않고 Number로 받아 long으로 변환합니다.
+                Number userIdNumber = claims.get("userId", Number.class);
+                Long userId = userIdNumber != null ? userIdNumber.longValue() : null;
                 String email = claims.getSubject();
                 String role = claims.get("role", String.class);
 
@@ -80,13 +83,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             filterChain.doFilter(request, response);
         }catch (BaseException e) {
+            if (response.isCommitted()) {
+                return;
+            }
             setErrorResponse(response, e.getErrorCode());
         } catch (Exception e) {
+            if (response.isCommitted()) {
+                return;
+            }
             setErrorResponse(response, ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
     }
+
+    /**
+     * SSE/AsyncContext 재디스패치에서도 JWT 인증 컨텍스트가 유지되도록
+     * async dispatch 시에도 필터를 적용합니다.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
     private void setErrorResponse(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+        if (response.isCommitted()) {
+            return;
+        }
         response.setStatus(errorCode.getStatus());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");

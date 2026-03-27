@@ -12,11 +12,13 @@ import java.util.Optional;
 @Repository
 public interface PlaceRepository extends JpaRepository<PlaceEntity, Long> {
   @Query(value = "SELECT p.id FROM places p " +
-          "WHERE ST_Distance_Sphere(point(p.lng, p.lat), point(:lng, :lat)) <= 1000 " +
-          "AND p.deleted_at IS NULL", nativeQuery = true)
+          "WHERE ST_Distance_Sphere(point(p.lng, p.lat), point(:lng, :lat)) <= 1000", nativeQuery = true)
   List<Long> findIdsByLocation(@Param("lat") Double lat, @Param("lng") Double lng);
 
   Optional<PlaceEntity> findByProviderAndExternalPlaceId(String provider, String externalPlaceId);
+
+  @Query("SELECT p FROM PlaceEntity p LEFT JOIN FETCH p.reviews WHERE p.provider = :provider AND p.externalPlaceId IN :externalIds")
+  List<PlaceEntity> findAllWithReviewsByProviderAndExternalPlaceIdIn(@Param("provider") String provider, @Param("externalIds") List<String> externalIds);
 
   @Query("SELECT p FROM PlaceEntity p LEFT JOIN FETCH p.reviews WHERE p.id = :id")
   Optional<PlaceEntity> findByIdWithReviews(@Param("id") Long id);

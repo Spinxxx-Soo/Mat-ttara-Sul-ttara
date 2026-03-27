@@ -15,8 +15,6 @@ import type {
   CreateReviewRequest,
   UpdateReviewRequest,
   Review,
-  PlaceUpsertRequest,
-  PlaceUpsertResponse,
   PlaceSyncRequest,
   PlaceSyncResponse,
 } from '@/types/api';
@@ -47,17 +45,8 @@ function clampKakaoKeywordPageSize(size?: number): number {
 
 export const placeApi = {
   /**
-   * 외부 지도 결과(예: Kakao)로 들어온 장소를 DB에 저장하고
-   * 내부 PK인 `places.id`를 반환합니다.
+   * 주변 장소 목록 조회
    */
-  upsertPlace: async (body: PlaceUpsertRequest): Promise<PlaceUpsertResponse> => {
-    const { data } = await apiClient.post<PlaceUpsertResponse>(`/api/v1/places/upsert`, body);
-    return data;
-  },
-
-/**
- * 주변 장소 목록 조회
- */
     getNearbyPlaces: async (params: NearbyPlacesParams): Promise<ApiPaginationResponse<Place>> => {
         return new Promise((resolve, reject) => {
             const { kakao } = window as any;
@@ -124,15 +113,15 @@ export const placeApi = {
 
   /**
    * 채팅 세션 기준 AI 추천 장소 목록 (SSE 수신 후 갱신용)
-   * GET /api/v1/places/recommend?sessionId=
+   * GET /api/v1/places/recommend?lat=&lng=
    */
   getRecommendedPlaces: async (
-    sessionId: string | number,
+    params: { lat: number; lng: number },
   ): Promise<RecommendedPlace[]> => {
     const { data } = await apiClient.get<RecommendedPlace[] | { content: RecommendedPlace[] }>(
       '/api/v1/places/recommend',
       {
-        params: { sessionId: String(sessionId) },
+        params,
       },
     );
 
@@ -166,13 +155,40 @@ export const placeApi = {
     page: number,
     size: number
   ): Promise<PlaceReviewsResponse> => {
-    const { data } = await apiClient.get<PlaceReviewsResponse>(
+    // BE는 현재 페이지네이션 래퍼 없이 ReviewResponseDto[]를 반환한다.
+    // FE에서 기존 UI/훅 시그니처를 유지하기 위해 클라이언트에서 페이지네이션 형태로 래핑한다.
+    const { data } = await apiClient.get<Review[]>(
       `/api/v1/places/${placeId}/reviews`,
       {
         params: { page, size },
       }
     );
-    return data;
+    const all = Array.isArray(data) ? data : [];
+    const safeSize = Math.max(1, size || 10);
+    const safePage = Math.max(1, page || 1);
+    const totalElements = all.length;
+    const totalPages = Math.ceil(totalElements / safeSize);
+    const start = (safePage - 1) * safeSize;
+    const end = start + safeSize;
+    const content = all.slice(start, end);
+    const hasNext = safePage < totalPages;
+
+    const avg =
+      totalElements > 0
+        ? all.reduce((acc, r) => acc + (Number(r?.rating) || 0), 0) / totalElements
+        : undefined;
+
+    return {
+      content,
+      pageInfo: {
+        page: safePage,
+        size: safeSize,
+        totalElements,
+        totalPages,
+        hasNext,
+      },
+      averageRating: Number.isFinite(avg) ? avg : undefined,
+    };
   },
 
   /**
@@ -199,7 +215,8 @@ export const placeApi = {
     reviewId: number,
     body: UpdateReviewRequest
   ): Promise<Review> => {
-    const { data } = await apiClient.patch<Review>(
+    // BE는 PUT 매핑이다. (PATCH로 호출하면 405/404가 날 수 있음)
+    const { data } = await apiClient.put<Review>(
       `/api/v1/places/${placeId}/reviews/${reviewId}`,
       body
     );

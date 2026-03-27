@@ -1,6 +1,8 @@
 package com.sulddara.server.place.repository;
 
 import com.sulddara.server.place.domain.ReviewEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,7 +15,7 @@ import java.util.Optional;
 @Repository
 public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     @EntityGraph(attributePaths = {"user"})
-    List<ReviewEntity> findAllByPlaceIdOrderByCreatedAtDesc(Long placeId);
+    Page<ReviewEntity> findAllByPlaceIdOrderByCreatedAtDesc(Long placeId, Pageable pageable);
     
     @EntityGraph(attributePaths = {"user", "place"})
     @Query("SELECT r FROM ReviewEntity r WHERE r.id = :id")
