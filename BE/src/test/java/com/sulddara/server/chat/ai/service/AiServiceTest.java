@@ -139,7 +139,7 @@ class AiServiceTest {
     }
 
     @Test
-    @DisplayName("AI 응답 처리 실패 - JSON 파싱 오류 시 예외 발생")
+    @DisplayName("AI 응답 처리 - 세션 상태 JSON 직렬화 실패 시에도 메시지 저장·SSE 이벤트는 발행")
     void handleResponse_Fail_JsonError() throws Exception {
         // given
         long sessionId = 1L;
@@ -150,12 +150,19 @@ class AiServiceTest {
                 .parsedState(SessionState.builder().lat(37.5).lng(127.0).build())
                 .build();
 
+        ChatMessages mockMessage = ChatMessages.builder().messageId(50L).build();
+        ChatSessions mockSession = mock(ChatSessions.class);
+
+        when(chatMessagesRepository.save(any())).thenReturn(mockMessage);
+        when(chatSessionRepository.findById(sessionId)).thenReturn(Optional.of(mockSession));
         lenient().when(objectMapper.writeValueAsString(any()))
                 .thenThrow(new JsonMappingException(null, "JSON Error"));
 
-        // when & then
-        assertThrows(BaseException.class, () -> {
-            aiService.handleResponse(sessionId, userId, response);
-        });
+        // when
+        assertDoesNotThrow(() -> aiService.handleResponse(sessionId, userId, response));
+
+        // then — DB 상태 JSON만 실패하고, 어시스턴트 메시지 브로드캐스트는 수행
+        verify(publisher, times(1)).publishEvent(any(AiChatMessageCreatedEvent.class));
+        verify(mockSession, never()).updateState(any());
     }
 }

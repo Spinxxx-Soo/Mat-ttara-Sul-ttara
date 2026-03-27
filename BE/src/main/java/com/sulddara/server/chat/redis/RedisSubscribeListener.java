@@ -34,7 +34,7 @@ public class RedisSubscribeListener {
             aiService.handleResponse(sessionId, response.getUserId(), response);
 
         } catch (Exception e) {
-            log.error("Redis AI reply 처리 실패. message={}", message, e);
+            log.error("Redis ai:reply 처리 실패 (역직렬화·handleResponse·이벤트 체인). raw={}", message, e);
         }
     }
 }

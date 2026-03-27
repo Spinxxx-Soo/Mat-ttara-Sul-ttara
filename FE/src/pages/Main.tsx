@@ -1,7 +1,6 @@
 // FE/src/pages/Main.tsx
 
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
@@ -13,7 +12,6 @@ import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { hasNullFields } from '@/lib/placeUtils'
-import { placeApi } from '@/api/placeApi'
 import { extractApiErrorMessage } from '@/lib/apiUtils'
 
 const Main = () => {
@@ -108,6 +106,9 @@ const Main = () => {
   }, [selectedInternalPlaceId, selectedPlaceForDisplay, enrichPlace])
 
   const handlePlaceClick = (place: Place) => {
+    // 리뷰 패널(왼쪽)이 열린 상태에서 다른 핀을 선택하면,
+    // 자동으로 리뷰 패널을 닫아(돌아가기) 지도 상세 카드가 보이도록 한다.
+    if (reviewPanel) setReviewPanel(null)
     setSelectedPlaceId(place.placeId)
   }
 
@@ -119,31 +120,7 @@ const Main = () => {
     setZoom(currentZoom)
   }
 
-  const upsertPlaceMutation = useMutation({
-    mutationFn: async (place: Place) =>
-      placeApi.upsertPlace({
-        provider: 'KAKAO',
-        externalPlaceId: String(place.placeId),
-        name: place.name,
-        address: place.address,
-        phone: place.phone ?? null,
-        lat: place.lat,
-        lng: place.lng,
-        category: place.category ?? null,
-        imageUrl: place.imageUrl ?? null,
-      }),
-    onSuccess: (res, place) => {
-      setReviewPanel({
-        placeId: res.placeId,
-        placeName: place.name,
-      })
-    },
-    onError: (err) => {
-      toast.error(extractApiErrorMessage(err, '장소 저장에 실패했습니다.'))
-    },
-  })
-
-  const openReviewFromDetail = () => {
+  const openReviewFromDetail = async () => {
     if (!selectedPlace) return
 
     const reviewsEnabled = import.meta.env.VITE_REVIEWS_ENABLED === 'true'
@@ -153,9 +130,16 @@ const Main = () => {
     }
 
     if (selectedInternalPlaceId == null) {
-      // internal id가 아직 없으면 upsert로 internal id를 만든 뒤 review를 연다.
-      if (upsertPlaceMutation.isPending) return
-      upsertPlaceMutation.mutate(selectedPlace)
+      try {
+        const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response) return
+        setReviewPanel({
+          placeId: response.placeId,
+          placeName: selectedPlace.name,
+        })
+      } catch (err) {
+        toast.error(extractApiErrorMessage(err, '장소 동기화에 실패했습니다.'))
+      }
       return
     }
 
