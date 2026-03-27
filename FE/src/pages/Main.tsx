@@ -10,6 +10,9 @@ import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
+import { useChatSessionStore } from '@/stores/chatSessionStore'
+import { useSetMapLocation } from '@/hooks/queries/chat/useChat'
+import type { Coordinates } from '@/types/map'
 import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { hasNullFields } from '@/lib/placeUtils'
 import { extractApiErrorMessage } from '@/lib/apiUtils'
@@ -40,6 +43,9 @@ const Main = () => {
 
   const { mutate: enrichPlace } = useEnrichPlace()
   const { mutateAsync: syncPlace } = useSyncPlace()
+
+  const activeSessionId = useChatSessionStore((s) => s.activeSessionId)
+  const { mutate: setMapLocation, isPending: isMapLocationPending } = useSetMapLocation()
 
   const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
   const mapPlaces = useMemo(() => {
@@ -120,6 +126,30 @@ const Main = () => {
     setZoom(currentZoom)
   }
 
+  const handleMapClick = (coord: Coordinates) => {
+    if (!activeSessionId) {
+      toast.error('채팅 세션이 준비될 때까지 잠시만 기다려 주세요.')
+      return
+    }
+    if (isMapLocationPending) return
+
+    setMapLocation(
+      {
+        sessionId: activeSessionId,
+        lat: coord.lat,
+        lng: coord.lng,
+      },
+      {
+        onSuccess: () => {
+          toast.success('선택한 위치로 주변 맛집을 찾습니다.')
+        },
+        onError: (err) => {
+          toast.error(extractApiErrorMessage(err, '위치 전송에 실패했습니다.'))
+        },
+      }
+    )
+  }
+
   const openReviewFromDetail = async () => {
     if (!selectedPlace) return
 
@@ -132,6 +162,7 @@ const Main = () => {
     if (selectedInternalPlaceId == null) {
       try {
         const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response) return
         setReviewPanel({
           placeId: response.placeId,
           placeName: selectedPlace.name,
@@ -186,6 +217,7 @@ const Main = () => {
           onDetailReviewClick={openReviewFromDetail}
           onPlaceClick={handlePlaceClick}
           onIdle={handleMapIdle}
+          onClick={handleMapClick}
         />
       </main>
     </div>

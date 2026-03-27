@@ -16,6 +16,7 @@ import type {
   MessageListResponse,
   UpdateMessageRequest,
   UpdateMessageResponse,
+  MapLocationRequest,
 } from '@/types/api';
 
 export const chatApi = {
@@ -52,6 +53,16 @@ export const chatApi = {
       `/api/v1/chat/sessions/${sessionId}`
     );
     return data;
+  },
+
+  /**
+   * 지도에서 선택한 위경도를 채팅 세션에 반영 (AI가 주변 맛집 검색 요청 처리)
+   */
+  setMapLocation: async (
+    sessionId: string,
+    body: MapLocationRequest
+  ): Promise<void> => {
+    await apiClient.post(`/api/v1/chat/sessions/${sessionId}/location`, body);
   },
 
   /**
