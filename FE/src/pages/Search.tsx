@@ -194,6 +194,10 @@ const Search = () => {
   const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
 
   const handlePlaceClick = (place: Place) => {
+    // 리뷰 패널이 열린 상태에서 다른 핀을 선택하면,
+    // 왼쪽은 자동으로 "돌아가기"(리뷰 패널 닫힘) 상태로 전환하고
+    // 지도 상세 카드가 새 장소로 즉시 갱신되도록 한다.
+    if (reviewPanel) setReviewPanel(null)
     setSelectedPlaceId(place.placeId)
   }
 

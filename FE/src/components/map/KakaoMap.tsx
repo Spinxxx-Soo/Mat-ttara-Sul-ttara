@@ -62,8 +62,10 @@ export default function KakaoMap({
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDetailCloseRef = useRef(onDetailClose);
   const onDetailReviewClickRef = useRef(onDetailReviewClick);
+  const onPlaceClickRef = useRef(onPlaceClick);
   onDetailCloseRef.current = onDetailClose;
   onDetailReviewClickRef.current = onDetailReviewClick;
+  onPlaceClickRef.current = onPlaceClick;
   const detailPlaceRef = useRef<Place | null>(null);
   detailPlaceRef.current = detailPlace;
 
@@ -260,10 +262,51 @@ export default function KakaoMap({
     const currentPlaceIds = new Set(places.map((p) => p.placeId));
     placesMarkersRef.current.forEach((markerObj, id) => {
       if (!currentPlaceIds.has(id)) {
+        if (markerObj.onOverlayClickCleanup) {
+          markerObj.onOverlayClickCleanup();
+        }
+        if (markerObj.onKakaoClick) {
+          kakao.maps.event.removeListener(markerObj.marker, 'click', markerObj.onKakaoClick);
+          kakao.maps.event.removeListener(markerObj.overlay, 'click', markerObj.onKakaoClick);
+        }
         markerObj.overlay.setMap(null);
         placesMarkersRef.current.delete(id);
       }
     });
+
+    const bindOverlayClick = (place: Place) => {
+      // CustomOverlay DOM은 map 내부에서 비동기로 붙어서, 즉시 못 찾는 경우가 있어 재시도한다.
+      let disposed = false;
+      let cleanup: (() => void) | null = null;
+
+      const handler = () => onPlaceClickRef.current?.(place);
+
+      const tryBind = (attemptLeft: number) => {
+        if (disposed) return;
+        const el = document.getElementById(`marker-${place.placeId}`);
+        if (!el) {
+          if (attemptLeft > 0) {
+            setTimeout(() => tryBind(attemptLeft - 1), 50);
+          }
+          return;
+        }
+
+        el.addEventListener('click', handler);
+        el.addEventListener('touchend', handler);
+        cleanup = () => {
+          el.removeEventListener('click', handler);
+          el.removeEventListener('touchend', handler);
+        };
+      };
+
+      // 최대 ~500ms 동안 재시도
+      tryBind(10);
+
+      return () => {
+        disposed = true;
+        cleanup?.();
+      };
+    };
 
     // 새 마커 추가 또는 업데이트
     places.forEach((place) => {
@@ -289,6 +332,7 @@ export default function KakaoMap({
           content: content,
           map: currentMap,
           yAnchor: 1,
+          clickable: true,
         });
 
         const marker = new kakao.maps.Marker({
@@ -297,14 +341,33 @@ export default function KakaoMap({
           opacity: 0,
         });
 
-        kakao.maps.event.addListener(marker, 'click', () => {
-          onPlaceClick?.(place);
+        const onKakaoClick = () => onPlaceClickRef.current?.(place);
+        kakao.maps.event.addListener(marker, 'click', onKakaoClick);
+        // 보이는 오버레이 자체에도 클릭 리스너를 건다(가장 확실)
+        kakao.maps.event.addListener(overlay, 'click', onKakaoClick);
+
+        // CustomOverlay(보이는 핀)에도 클릭을 바인딩한다.
+        // setContent로 DOM이 교체될 수 있어, 등록 직후 RAF로 한 번 바인딩한다.
+        let cleanup = () => {};
+        requestAnimationFrame(() => {
+          cleanup = bindOverlayClick(place);
         });
 
-        placesMarkersRef.current.set(place.placeId, { overlay, marker });
+        placesMarkersRef.current.set(place.placeId, {
+          overlay,
+          marker,
+          onOverlayClickCleanup: () => cleanup(),
+          onKakaoClick,
+        });
       } else {
         existing.overlay.setContent(content);
         existing.overlay.setZIndex(isSelected ? 100 : 10);
+
+        // content 교체 시 기존 DOM 핸들러가 사라질 수 있으므로 재바인딩
+        if (existing.onOverlayClickCleanup) existing.onOverlayClickCleanup();
+        requestAnimationFrame(() => {
+          existing.onOverlayClickCleanup = bindOverlayClick(place);
+        });
       }
     });
   }, [places, selectedPlaceId, sdkLoaded, mapInstance, onPlaceClick]);

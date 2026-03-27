@@ -108,6 +108,9 @@ const Main = () => {
   }, [selectedInternalPlaceId, selectedPlaceForDisplay, enrichPlace])
 
   const handlePlaceClick = (place: Place) => {
+    // 리뷰 패널(왼쪽)이 열린 상태에서 다른 핀을 선택하면,
+    // 자동으로 리뷰 패널을 닫아(돌아가기) 지도 상세 카드가 보이도록 한다.
+    if (reviewPanel) setReviewPanel(null)
     setSelectedPlaceId(place.placeId)
   }
 
