@@ -105,48 +105,10 @@ export const placeApi = {
      * @param params - 검색 파라미터 (keyword, lat?, lng?, page, size)
      */
     searchPlaces: async (params: PlaceSearchRequest): Promise<PlaceSearchResponse> => {
-        return new Promise((resolve, reject) => {
-            const { kakao } = window as any;
-            if (!kakao || !kakao.maps || !kakao.maps.services) {
-                return reject(new Error('카카오맵 SDK가 로드되지 않았습니다.'));
-            }
-
-            const ps = new kakao.maps.services.Places();
-            const options: any = {
-                size: clampKakaoKeywordPageSize(params.size),
-                page: params.page || 1,
-            };
-
-            if (params.lat && params.lng) {
-                options.location = new kakao.maps.LatLng(params.lat, params.lng);
-                options.radius = 2000;
-                options.sort = kakao.maps.services.SortBy.DISTANCE;
-            }
-
-            ps.keywordSearch(params.keyword, (data: any[], status: any, pagination: any) => {
-                if (status === kakao.maps.services.Status.OK) {
-                    const content: Place[] = data.map(mapKakaoPlaceToPlace);
-
-                    resolve({
-                        content,
-                        pageInfo: {
-                            page: pagination.current,
-                            size: options.size,
-                            totalElements: pagination.totalCount,
-                            totalPages: pagination.last,
-                            hasNext: pagination.hasNext
-                        }
-                    });
-                } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
-                    resolve({
-                        content: [],
-                        pageInfo: { page: 1, size: options.size, totalElements: 0, totalPages: 0, hasNext: false }
-                    });
-                } else {
-                    reject(new Error('검색 중 오류가 발생했습니다.'));
-                }
-            }, options);
+        const response = await apiClient.get<PlaceSearchResponse>('/api/v1/places/search', {
+            params,
         });
+        return response.data;
     },
 
   /**
