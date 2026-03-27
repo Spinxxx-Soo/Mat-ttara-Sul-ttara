@@ -62,6 +62,7 @@ export interface UserInfo {
   email: string;
   name: string;
   bio?: string | null;
+  profileImage?: string | null;
   createdAt: string;
   lastLoginAt: string;
   updatedAt?: string;
@@ -154,6 +155,22 @@ export interface PlaceSyncResponse {
   placeId: number;
 }
 
+export interface PlaceUpsertRequest {
+  provider: string;
+  externalPlaceId: string;
+  name: string;
+  address?: string;
+  phone?: string | null;
+  lat: number;
+  lng: number;
+  category?: string | null;
+  imageUrl?: string | null;
+}
+
+export interface PlaceUpsertResponse {
+  placeId: number;
+}
+
 // --- 장소 (Place) ---
 /** 장소 상세 조회 응답의 영업시간 구조 */
 export interface PlaceOpeningHours {
@@ -162,7 +179,7 @@ export interface PlaceOpeningHours {
 }
 
 export interface Place {
-  placeId: number;
+  placeId: number | null;
   externalPlaceId?: string | null;
   internalPlaceId?: number | null;
   name: string;
