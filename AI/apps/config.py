@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     db_host: str
     db_user: str
     db_password: str
-    db_name: str
+    db_name: str           # meal_reco (AI 전용 테이블)
+    matsul_db_name: str    # matsul (백엔드 공유 테이블)
 
     kakao_rest_api_key: str | None = None
     redis_url: str
