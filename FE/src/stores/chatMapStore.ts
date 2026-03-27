@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Place } from '@/types/api';
+import { getPlaceKey } from '@/lib/placeIdentity';
 
 /**
  * 메인(챗봇) 화면: AI가 추천한 장소를 지도에 표시하기 위한 상태
@@ -17,11 +18,12 @@ interface ChatMapState {
 
 /** 동일 placeId는 incoming이 기존 필드를 덮어씀 */
 export function mergeByPlaceId(existing: Place[], incoming: Place[]): Place[] {
-  const m = new Map<number, Place>();
-  existing.forEach((p) => m.set(p.placeId, p));
+  const m = new Map<string, Place>();
+  existing.forEach((p) => m.set(getPlaceKey(p), p));
   incoming.forEach((p) => {
-    const prev = m.get(p.placeId);
-    m.set(p.placeId, prev ? { ...prev, ...p } : p);
+    const key = getPlaceKey(p);
+    const prev = m.get(key);
+    m.set(key, prev ? { ...prev, ...p } : p);
   });
   return Array.from(m.values());
 }
