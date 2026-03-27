@@ -133,19 +133,21 @@ public class AiService {
                 sendCandidatesToAi(sessionId, userId, updatedState);
                 return;
             }
-            if ("RECOMMENDATION".equals(response.getType()) && response.getPlaces() != null) {
-                String redisKey = "recommend:user:" + userId;
-                String placesJson = objectMapper.writeValueAsString(response.getPlaces());
-                redisTemplate.opsForValue().set(redisKey, placesJson, Duration.ofMinutes(30));
-                log.info("[ai] RECOMMENDATION 캐시 저장 sessionId={} userId={} count={}",
-                        sessionId, userId, response.getPlaces().size());
-            }
-
             String assistantText = response.getChatResponse();
             if (assistantText == null) {
                 log.warn("[ai] chatResponse 가 null — 빈 문자열로 저장 sessionId={}", sessionId);
                 assistantText = "";
             }
+            if ("RECOMMENDATION".equals(response.getType()) && response.getPlaces() != null) {
+                String redisKey = "recommend:session:" + sessionId + ":user:" + userId;
+                String placesJson = objectMapper.writeValueAsString(response.getPlaces());
+                redisTemplate.opsForValue().set(redisKey, placesJson, Duration.ofMinutes(10));
+                log.info("[ai] RECOMMENDATION 캐시 저장 sessionId={} userId={} count={}",
+                        sessionId, userId, response.getPlaces().size());
+                assistantText = assistantText + "||" + placesJson;
+                log.info("[ai] RECOMMENDATION 데이터 결합 완료: sessionId={}", sessionId);
+            }
+
             long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), assistantText);
 
             chatSessionRepository.findById(sessionId).ifPresent(session -> {
