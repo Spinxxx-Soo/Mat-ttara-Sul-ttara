@@ -142,7 +142,7 @@ useEffect(() => {
 
   const { data: messagesData, isLoading: isLoadingMessages } = useChatMessages({
     sessionId,
-    page: 1,
+    page: 0,
     size: 50,
   })
 
