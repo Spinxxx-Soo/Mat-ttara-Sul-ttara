@@ -18,7 +18,7 @@ import { extractApiErrorMessage } from '@/lib/apiUtils'
 // ==========================================
 // 가게 검색: keyword + page + size + 지도 중심(lat/lng) → 카카오 반경·거리순(placeApi)
 // 검색 버튼으로만 조회·재검색
-// 레이아웃: [사이드바] | [가게 검색·결과 ↔ 리뷰] | [주변 맛집 발견] | [지도]
+// 레이아웃: [사이드바] | [가게 검색·결과 ↔ 리뷰] | [주변 맛집 발견·접기] | [지도]
 // ==========================================
 
 const Search = () => {
@@ -42,7 +42,7 @@ const Search = () => {
   /** 지도에 넘겨 “의도적으로” 이동시킬 때만 갱신 (idle로는 갱신하지 않음) */
   const [mapCenter, setMapCenter] = useState({ lat: defaultLat, lng: defaultLng })
 
-  /** 주변 맛집 API 기준 좌표·줌 — 「이 주변 맛집 재검색」으로만 갱신 */
+  /** 주변 맛집 API 기준 좌표·줌 — 「이 주변 맛집 검색」으로만 갱신 */
   const [nearbyAnchor, setNearbyAnchor] = useState({
     lat: defaultLat,
     lng: defaultLng,
@@ -51,6 +51,9 @@ const Search = () => {
 
   /** 한 번도 주변 검색을 누르지 않았으면 API 호출·패널 목록 없음 */
   const [nearbySearchRequested, setNearbySearchRequested] = useState(false)
+
+  /** 주변 맛집 패널: 기본 접힘, 「이 주변 맛집 검색」으로 열림 */
+  const [nearbyPanelOpen, setNearbyPanelOpen] = useState(false)
 
   /** 지도를 움직인 현재 뷰포트 (재검색 버튼에서만 nearbyAnchor로 반영) */
   const mapViewportRef = useRef({
@@ -246,6 +249,7 @@ const Search = () => {
       next.zoom === nearbyAnchor.zoom
     setNearbySearchRequested(true)
     setNearbyAnchor(next)
+    setNearbyPanelOpen(true)
     if (same) {
       void refetchNearby()
     }
@@ -439,127 +443,130 @@ const Search = () => {
           )}
         </aside>
 
-        {/* 주변 맛집 발견 (검색 패널 오른쪽) */}
-        <aside className="flex h-full min-h-0 w-[400px] shrink-0 flex-col border-r border-slate-200 bg-white shadow-[-4px_0_15px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-background-dark">
-          <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/80 p-6 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
-                <span className="material-symbols-outlined text-primary">explore</span>
-                주변 맛집 발견
-              </h2>
-              <button
-                type="button"
-                className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-                aria-label="필터"
-              >
-                <span className="material-symbols-outlined text-[22px]">tune</span>
-              </button>
-            </div>
-
-            <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-1">
-              {categories.map((category) => (
+        {/* 주변 맛집 발견: 기본 접힘, 「이 주변 맛집 검색」 또는 목록 열기로 표시 */}
+        {nearbyPanelOpen ? (
+          <aside className="flex h-full min-h-0 w-[400px] shrink-0 flex-col border-r border-slate-200 bg-white shadow-[-4px_0_15px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-background-dark">
+            <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/80 p-6 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <h2 className="flex min-w-0 items-center gap-2 text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+                  <span className="material-symbols-outlined shrink-0 text-primary">explore</span>
+                  <span className="truncate">주변 맛집 발견</span>
+                </h2>
                 <button
-                  key={category}
                   type="button"
-                  disabled={!nearbySearchRequested}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-40 ${
-                    selectedCategory === category
-                      ? 'scale-105 bg-primary text-white shadow-lg shadow-primary/20'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                  }`}
+                  onClick={() => setNearbyPanelOpen(false)}
+                  className="shrink-0 rounded-xl p-2 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  aria-label="주변 맛집 패널 닫기"
                 >
-                  {category}
+                  <span className="material-symbols-outlined text-[22px]">close</span>
                 </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50/50 p-4 dark:bg-slate-900/30">
-            {!nearbySearchRequested ? null : isNearbyLoading ? (
-              <div className="flex h-40 flex-col items-center justify-center space-y-4">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                <p className="text-sm font-medium text-slate-400">최적의 맛집을 찾는 중...</p>
               </div>
-            ) : filteredNearby.length > 0 ? (
-              filteredNearby.map((place) => {
-                const pk = getPlaceKey(place)
-                return (
-                  <div
-                    key={pk}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleListPlaceClick(place)}
-                    className={`group cursor-pointer rounded-2xl border bg-white p-5 transition-all duration-300 dark:bg-slate-900 ${
-                      selectedPlaceKey === pk
-                        ? 'scale-[1.02] border-primary shadow-xl ring-2 ring-primary/20'
-                        : 'border-slate-100 hover:border-slate-300 hover:shadow-lg dark:border-slate-700'
+
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    disabled={!nearbySearchRequested}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`rounded-full px-3.5 py-2 text-sm font-bold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-40 ${
+                      selectedCategory === category
+                        ? 'bg-primary text-white shadow-md shadow-primary/20'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
                     }`}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') handleListPlaceClick(place)
-                    }}
                   >
-                    <div className="mb-3 flex items-start justify-between">
-                      <div>
-                        <h3
-                          className={`font-black tracking-tight transition-colors ${
-                            selectedPlaceKey === pk
-                              ? 'text-primary'
-                              : 'text-slate-800 group-hover:text-primary dark:text-slate-100'
-                          }`}
-                        >
-                          {place.name}
-                        </h3>
-                        <p className="mt-0.5 text-[11px] text-slate-400">
-                          {place.category || '음식점'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 dark:bg-amber-900/30">
-                        <span className="material-symbols-outlined fill-amber-400 text-[16px] text-amber-400">
-                          star
-                        </span>
-                        <span className="text-xs font-black text-amber-700 dark:text-amber-400">
-                          {place.rating ?? 0.0}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-slate-500 line-clamp-1">
-                      <span className="material-symbols-outlined text-[18px] text-slate-300">
-                        location_on
-                      </span>
-                      {place.address}
-                    </p>
-
-                    <div className="flex items-center justify-between border-t border-slate-50 pt-3 dark:border-slate-800">
-                      <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
-                        영업 중
-                      </span>
-                      <span
-                        className="rounded-full p-1 text-slate-400 transition-all group-hover:bg-primary/5 group-hover:text-primary"
-                        aria-hidden
-                      >
-                        <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                      </span>
-                    </div>
-                  </div>
-                )
-              })
-            ) : (
-              <div className="flex h-64 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/50">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                  <span className="material-symbols-outlined text-[32px] text-slate-300">no_meals</span>
-                </div>
-                <h4 className="mb-1 font-bold text-slate-700 dark:text-slate-200">장소가 없습니다</h4>
-                <p className="text-xs leading-relaxed text-slate-400">
-                  지도를 이동하거나 다른 카테고리를
-                  <br />
-                  선택해 보세요.
-                </p>
+                    {category}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        </aside>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50/50 p-4 dark:bg-slate-900/30">
+              {!nearbySearchRequested ? null : isNearbyLoading ? (
+                <div className="flex h-40 flex-col items-center justify-center space-y-4">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                  <p className="text-sm font-medium text-slate-400">최적의 맛집을 찾는 중...</p>
+                </div>
+              ) : filteredNearby.length > 0 ? (
+                filteredNearby.map((place) => {
+                  const pk = getPlaceKey(place)
+                  return (
+                    <div
+                      key={pk}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleListPlaceClick(place)}
+                      className={`group cursor-pointer rounded-2xl border bg-white p-5 transition-all duration-300 dark:bg-slate-900 ${
+                        selectedPlaceKey === pk
+                          ? 'scale-[1.02] border-primary shadow-xl ring-2 ring-primary/20'
+                          : 'border-slate-100 hover:border-slate-300 hover:shadow-lg dark:border-slate-700'
+                      }`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') handleListPlaceClick(place)
+                      }}
+                    >
+                      <div className="mb-3 flex items-start justify-between">
+                        <div>
+                          <h3
+                            className={`font-black tracking-tight transition-colors ${
+                              selectedPlaceKey === pk
+                                ? 'text-primary'
+                                : 'text-slate-800 group-hover:text-primary dark:text-slate-100'
+                            }`}
+                          >
+                            {place.name}
+                          </h3>
+                          <p className="mt-0.5 text-[11px] text-slate-400">
+                            {place.category || '음식점'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 dark:bg-amber-900/30">
+                          <span className="material-symbols-outlined fill-amber-400 text-[16px] text-amber-400">
+                            star
+                          </span>
+                          <span className="text-xs font-black text-amber-700 dark:text-amber-400">
+                            {place.rating ?? 0.0}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-slate-500 line-clamp-1">
+                        <span className="material-symbols-outlined text-[18px] text-slate-300">
+                          location_on
+                        </span>
+                        {place.address}
+                      </p>
+
+                      <div className="flex items-center justify-between border-t border-slate-50 pt-3 dark:border-slate-800">
+                        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
+                          영업 중
+                        </span>
+                        <span
+                          className="rounded-full p-1 text-slate-400 transition-all group-hover:bg-primary/5 group-hover:text-primary"
+                          aria-hidden
+                        >
+                          <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="flex h-64 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/50">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                    <span className="material-symbols-outlined text-[32px] text-slate-300">no_meals</span>
+                  </div>
+                  <h4 className="mb-1 font-bold text-slate-700 dark:text-slate-200">장소가 없습니다</h4>
+                  <p className="text-xs leading-relaxed text-slate-400">
+                    지도를 이동하거나 다른 카테고리를
+                    <br />
+                    선택해 보세요.
+                  </p>
+                </div>
+              )}
+            </div>
+          </aside>
+        ) : null}
 
         <main className="relative min-h-0 min-w-0 flex-1">
           <KakaoMap
@@ -575,16 +582,28 @@ const Search = () => {
             onIdle={handleMapIdle}
           />
 
-          <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 -translate-x-1/2">
-            <button
-              type="button"
-              disabled={isNearbyLoading}
-              onClick={handleRefreshNearby}
-              className="pointer-events-auto flex items-center gap-2 rounded-full border border-slate-100 bg-white px-6 py-2.5 font-bold text-slate-700 shadow-xl hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            >
-              <span className="material-symbols-outlined text-[20px]">refresh</span>
-              이 주변 맛집 재검색
-            </button>
+          <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
+            <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
+              {!nearbyPanelOpen && nearbySearchRequested && (
+                <button
+                  type="button"
+                  onClick={() => setNearbyPanelOpen(true)}
+                  className="flex items-center gap-2 rounded-full border border-primary/20 bg-white px-5 py-2.5 text-sm font-bold text-primary shadow-lg hover:bg-primary/5 dark:border-primary/30 dark:bg-slate-900 dark:hover:bg-primary/10"
+                >
+                  <span className="material-symbols-outlined text-[20px]">menu</span>
+                  주변 맛집 목록 열기
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={isNearbyLoading}
+                onClick={handleRefreshNearby}
+                className="flex items-center gap-2 rounded-full border border-slate-100 bg-white px-6 py-2.5 font-bold text-slate-700 shadow-xl hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              >
+                <span className="material-symbols-outlined text-[20px]">refresh</span>
+                이 주변 맛집 검색
+              </button>
+            </div>
           </div>
         </main>
       </div>
