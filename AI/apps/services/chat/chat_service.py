@@ -46,13 +46,11 @@ def _create_checkpointer():
     try:
         from langgraph.checkpoint.redis import RedisSaver
 
-        raw = RedisSaver.from_conn_string(redis_url)
-        if hasattr(raw, "setup"):
-            raw.setup()
-        if hasattr(raw, "__enter__"):
-            checkpointer = raw.__enter__()
-        else:
-            checkpointer = raw
+        # from_conn_string 은 @contextmanager — 반환 객체에 setup()이 없음.
+        # __enter__()로 실제 RedisSaver를 받은 뒤 setup() 해야 checkpoint / checkpoint_write 인덱스가 생김.
+        cm = RedisSaver.from_conn_string(redis_url)
+        checkpointer = cm.__enter__()
+        checkpointer.setup()
         logger.info(
             "Redis checkpointer initialized: %s",
             redis_url.split("@")[-1] if "@" in redis_url else redis_url,

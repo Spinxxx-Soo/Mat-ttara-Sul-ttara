@@ -29,6 +29,12 @@ class FollowupQuestionGenerator:
         thread_id: str,
         planner_addon: str = "",
     ) -> str:
+        if target_slot in ("lat", "lng"):
+            return (
+                "위치를 알아야 추천해드릴 수 있어요 😊\n"
+                "👉 지도에서 위치를 선택해 주세요!"
+            )
+
         messages = self._build_followup_messages(
             user_message=user_message,
             parsed_state=parsed_state,
@@ -90,7 +96,7 @@ class FollowupQuestionGenerator:
     "- 너무 딱딱한 표현(예: '말씀해 주실 수 있을까요')은 지양하세요.\n"
     "- 음식/분위기 세부 feature를 하나씩 끝없이 캐묻지 마세요.\n"
     "- 음식/분위기 정보가 어느 정도 모였으면 지역, 시간, 인원, 목적 같은 더 큰 슬롯으로 넘어가세요.\n"
-    "- targetSlot이 lat 또는 lng이면 지역을 묻는 자연스러운 질문을 생성하세요.\n"
+    "- lat/lng 슬롯은 LLM이 질문하지 않습니다. 위치는 지도 UI를 통해 입력됩니다.\n"
     "- targetSlot이 time이면 방문 시간대를 묻는 자연스러운 질문을 생성하세요.\n"
     "- targetSlot이 people이면 인원 수를 묻는 자연스러운 질문을 생성하세요.\n"
     "- targetSlot이 purpose 또는 occasion 계열이면 식사/술자리/데이트/친구모임 같은 방문 목적을 묻는 질문을 생성하세요.\n"
@@ -120,13 +126,13 @@ class FollowupQuestionGenerator:
 
     "사용자 발화: \"중식은 빼고 한식만 보고 싶어요\"\n"
     "parsedState: {\"lat\": null, \"lng\": null, \"time\": null, \"cuisine_korean\": 1.0, \"cuisine_chinese\": 0.0, \"cuisine_western\": null, \"vibe_modern\": null}\n"
-    "targetSlot: \"lat\"\n"
-    "assistant: {\"question\": \"한식 위주로 보고 계시네요. 어느 동네 쪽이 편하세요?\"}\n\n"
+    "targetSlot: \"time\"\n"
+    "assistant: {\"question\": \"한식 위주로 보고 계시네요. 시간대는 언제가 괜찮으세요?\"}\n\n"
 
     "사용자 발화: \"조용한 곳은 싫고 모던한 분위기가 좋아요\"\n"
     "parsedState: {\"lat\": null, \"lng\": null, \"time\": null, \"vibe_quiet\": 0.0, \"vibe_modern\": 1.0, \"vibe_lively\": null}\n"
-    "targetSlot: \"lat\"\n"
-    "assistant: {\"question\": \"모던한 분위기 좋아하시는군요. 어느 지역으로 찾아볼까요?\"}\n\n"
+    "targetSlot: \"time\"\n"
+    "assistant: {\"question\": \"모던한 분위기 좋아하시는군요. 방문 시간대는 언제쯤이 편하세요?\"}\n\n"
 
     "사용자 발화: \"한식만 해요. 양식은 0점이에요\"\n"
     "parsedState: {\"lat\": null, \"lng\": null, \"time\": null, \"cuisine_korean\": 1.0, \"cuisine_western\": 0.0, \"cuisine_japanese\": null, \"occasion_friends\": 1.0}\n"
@@ -145,8 +151,8 @@ class FollowupQuestionGenerator:
 
     "사용자 발화: \"아니요, 그건 싫어요\"\n"
     "parsedState: {\"lat\": null, \"lng\": null, \"time\": null, \"cuisine_chinese\": 0.0, \"cuisine_korean\": 1.0, \"vibe_modern\": null}\n"
-    "targetSlot: \"lat\"\n"
-    "assistant: {\"question\": \"좋아요. 그럼 어느 지역으로 찾아드릴까요?\"}\n\n"
+    "targetSlot: \"time\"\n"
+    "assistant: {\"question\": \"알겠어요. 방문 시간대는 언제쯤이 좋으세요?\"}\n\n"
 
     "마지막으로, 이번 입력에 대해 targetSlot 1개만 질문하세요.\n"
     "반드시 JSON만 출력하세요.\n"
@@ -193,8 +199,8 @@ class FollowupQuestionGenerator:
     def _fallback_question_for_slot(self, slot: str) -> str:
         mapping = {
             "time": "오늘은 몇 시쯤 방문하실 계획이세요?",
-            "lat": "어느 지역 쪽으로 찾고 싶으세요?",
-            "lng": "어느 지역 쪽으로 찾고 싶으세요?",
+            "lat": "위치를 지도에서 선택해 주세요 🙂",
+            "lng": "위치를 지도에서 선택해 주세요 🙂",
             "people": "인원은 몇 분으로 생각하고 계세요?",
             "purpose": "이번 자리는 식사 쪽일까요, 술자리 쪽일까요?",
             "mood": "분위기는 어떤 느낌이 좋으세요?",
