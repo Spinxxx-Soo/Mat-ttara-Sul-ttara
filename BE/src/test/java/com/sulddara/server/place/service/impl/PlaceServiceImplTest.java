@@ -144,7 +144,7 @@ class PlaceServiceImplTest {
         when(valueOperations.get(redisKey)).thenReturn(jsonList);
 
         // when
-        List<RecommendedPlace> result = placeService.getRecommendedFromRedis(userId, userLat, userLng);
+        List<RecommendedPlace> result = placeService.getRecommendedFromRedis(userId, sessionId, userLat, userLng);
 
         // then
         assertThat(result).hasSize(2);

@@ -164,8 +164,8 @@ public class PlaceServiceImpl implements PlaceService {
 
 
     @Override
-    public List<RecommendedPlace> getRecommendedFromRedis(Long userId, Double lat, Double lng) {
-        String redisKey = "recommend:user:" + userId;
+    public List<RecommendedPlace> getRecommendedFromRedis(Long userId, Long sessionId, Double lat, Double lng) {
+        String redisKey = "recommend:session:" + sessionId + ":user:" + userId;
         String cachedData = redisTemplate.opsForValue().get(redisKey);
 
         if (cachedData == null || cachedData.isBlank()) {

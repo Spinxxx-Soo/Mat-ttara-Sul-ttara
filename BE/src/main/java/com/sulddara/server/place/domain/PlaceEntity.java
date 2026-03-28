@@ -39,8 +39,8 @@ public class PlaceEntity {
     @Column(length = 500)
     private String imageUrl;
 
-    @Column(length = 500)
-    private String originImgUrl;
+//    @Column(length = 500)
+//    private String originImgUrl;
 
     @Column(length = 100)
     private String category;
