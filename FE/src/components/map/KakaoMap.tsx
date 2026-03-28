@@ -53,7 +53,7 @@ export default function KakaoMap({
 }: KakaoMapProps) {
   const defaultCenter: Coordinates = { lat, lng };
 
-  const { mapRef, mapInstance, sdkLoaded, sdkError, setCenter } = useMap({
+  const { mapRef, mapInstance, mapAttachVersion, sdkLoaded, sdkError, setCenter } = useMap({
     defaultCenter,
   });
   const { coordinates, errorType } = useGeolocation(false);
@@ -64,9 +64,13 @@ export default function KakaoMap({
   const onDetailCloseRef = useRef(onDetailClose);
   const onDetailReviewClickRef = useRef(onDetailReviewClick);
   const onPlaceClickRef = useRef(onPlaceClick);
+  const onMapClickRef = useRef(onClick);
+  const onMapIdleRef = useRef(onIdle);
   onDetailCloseRef.current = onDetailClose;
   onDetailReviewClickRef.current = onDetailReviewClick;
   onPlaceClickRef.current = onPlaceClick;
+  onMapClickRef.current = onClick;
+  onMapIdleRef.current = onIdle;
   const detailPlaceRef = useRef<Place | null>(null);
   detailPlaceRef.current = detailPlace;
 
@@ -189,14 +193,14 @@ export default function KakaoMap({
       idleTimerRef.current = setTimeout(() => {
         const center = currentMap.getCenter();
         const level = currentMap.getLevel();
-        onIdle?.({ lat: center.getLat(), lng: center.getLng() }, level);
+        onMapIdleRef.current?.({ lat: center.getLat(), lng: center.getLng() }, level);
       }, 500);
     };
     kakao.maps.event.addListener(currentMap, 'idle', onMapIdle);
 
     const onMapClick = (mouseEvent: any) => {
       const latlng = mouseEvent.latLng;
-      onClick?.({ lat: latlng.getLat(), lng: latlng.getLng() });
+      onMapClickRef.current?.({ lat: latlng.getLat(), lng: latlng.getLng() });
     };
     kakao.maps.event.addListener(currentMap, 'click', onMapClick);
 
@@ -207,7 +211,7 @@ export default function KakaoMap({
         clearTimeout(idleTimerRef.current);
       }
     };
-  }, [sdkLoaded, mapInstance, onMapReady, onIdle, onClick]);
+  }, [sdkLoaded, mapAttachVersion, onMapReady]);
 
   // 현재 위치 좌표가 나오면 지도를 중심동하고 마커를 표시
   useEffect(() => {
