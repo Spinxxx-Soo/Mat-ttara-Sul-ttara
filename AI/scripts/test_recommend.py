@@ -7,14 +7,14 @@ import os
 # 프로젝트 루트를 path에 추가
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from apps.domain.recommend.memory_keys import VECTOR_DIM, ORDERED_KEY_NAMES
-from apps.domain.recommend.vector_utils import (
+from apps.services.place.memory_keys import VECTOR_DIM, ORDERED_KEY_NAMES
+from apps.services.place.vector_utils import (
     dict_to_vector,
+    masked_cosine_similarity,
     merge_vectors,
-    cosine_similarity,
     rank_places,
 )
-from apps.services.recommend_service import RecommendService
+from apps.services.place.recommend_service import RecommendService
 
 
 def test_memory_keys():
@@ -72,8 +72,8 @@ def test_cosine_similarity():
     vec_b = [1.0, 0.0, 0.0]
     vec_c = [0.0, 1.0, 0.0]
 
-    sim_same = cosine_similarity(vec_a, vec_b)
-    sim_diff = cosine_similarity(vec_a, vec_c)
+    sim_same = masked_cosine_similarity(vec_a, vec_b, min_overlap=1)
+    sim_diff = masked_cosine_similarity(vec_a, vec_c, min_overlap=1)
     print(f"   같은 방향:    {sim_same:.4f}  (기대: 1.0)")
     print(f"   직교(90도):   {sim_diff:.4f}  (기대: 0.0)")
     assert abs(sim_same - 1.0) < 0.001

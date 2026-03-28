@@ -1,43 +1,29 @@
-"""
-챗봇 관련 API 엔드포인트
-"""
+"""장소·추천 관련 HTTP 엔드포인트."""
+import logging
+
 from fastapi import APIRouter, HTTPException
-from apps.config import settings
-from apps.schemas.chat import (
-    ChatMessageRequest,
+
+from apps.config import redis_be_bridge_connection_url
+from apps.repositories.recommend_repository import RecommendRepository
+from apps.schemas.chat_schemas import (
+    AiPlaceCandidatesRequest,
     ChatMessageResponse,
     ChatResponseType,
     MemoryStatus,
-    AiPlaceCandidatesRequest,
+    ParsedState as ParsedStateSchema,
     PlaceInfo,
 )
-
-from apps.services.chat_service import ChatService
-from apps.services.recommend_service import RecommendService
-from apps.services.redis_reply_publisher import (
+from apps.services.chat.bridge.redis_reply_publisher import (
     RedisReplyPublisher,
     build_be_ai_reply_redis_payload,
 )
-from apps.repositories.recommend_repository import RecommendRepository
-from apps.schemas.chat import ParsedState as ParsedStateSchema
+from apps.services.place.recommend_service import RecommendService
 
 router = APIRouter()
-chat_service = ChatService()
 recommend_service = RecommendService()
 recommend_repo = RecommendRepository()
-redis_reply_publisher = RedisReplyPublisher(settings.redis_url)
-
-
-@router.post("/api/v1/ai/chat/message", response_model=ChatMessageResponse)
-async def process_chat_message(request: ChatMessageRequest):
-    """
-    대화 처리 API
-    """
-    try:
-        response = await chat_service.process_message(request)
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"챗봇 처리 중 오류가 발생했습니다: {str(e)}")
+redis_reply_publisher = RedisReplyPublisher(redis_be_bridge_connection_url())
+_logger = logging.getLogger(__name__)
 
 
 @router.post("/api/v1/internal/ai/place_candidates", response_model=ChatMessageResponse)
@@ -46,15 +32,8 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
     후보 장소 조회 API -> 추후 redis 변경
     """
     try:
-        # BE -> AI internal call
-        # - finalPlaceIds: BE가 후보 반경 필터링한 place_id 리스트
-        # - 이 값으로 AI가 추천 TopK를 산출하고, Redis(ai:reply)로 RECOMMENDATION을 보냅니다.
-        # BE -> AI internalRequest
         session_state = request.sessionState
         final_place_ids = session_state.finalPlaceIds or []
-        # logging은 fastapi/uvicorn stdout로 찍힙니다(서버 로그 확인용)
-        import logging as _logging
-        _logger = _logging.getLogger(__name__)
         _logger.info(
             "[ai:place_candidates] thread=%s user=%s finalPlaceIds=%s lat=%s lng=%s time=%s",
             request.threadId,
@@ -65,10 +44,8 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
             session_state.time,
         )
 
-        # 추천용 short_term: extraData 그대로 사용 (필요 키는 merge_vectors에서 누락(None) 처리)
         short_term: dict[str, object] = session_state.extraData or {}
 
-        # parsedState(리턴용): lat/lng/time + extraData 키들을 ParsedState 스키마로 매핑
         parsed_state: dict[str, object] = {
             "lat": session_state.lat,
             "lng": session_state.lng,
@@ -80,11 +57,16 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
                 continue
             parsed_state[k] = short_term.get(k)
 
-        # Top-k 추천 계산
+        preference_summary = getattr(request, "preferenceSummary", None)
+        response_text = "좋아요! 추천 장소를 불러왔어요."
+        print("parsed_state =", parsed_state)
+        print("preference_summary =", preference_summary)
+        print("response_text =", response_text)
+
         results = recommend_service.recommend(
             user_id=request.userId,
             place_ids=final_place_ids,
-            short_term=short_term,  # 타입은 런타임에서 None 허용
+            short_term=short_term,
             top_k=3,
         )
         _logger.info("[ai:place_candidates] results=%s", results)
@@ -92,7 +74,6 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
         place_details = recommend_repo.get_places_details([pid for pid, _ in results])
 
         def _pick_label_from_scores(prefix: str, value_map: dict[str, object]) -> str | None:
-            # 예: cuisine_korean -> 한식
             label_map = {
                 "cuisine_korean": "한식",
                 "cuisine_japanese": "일식",
@@ -153,7 +134,7 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
         response = ChatMessageResponse(
             threadId=request.threadId,
             userId=request.userId,
-            chatResponse="좋아요! 추천 장소를 불러왔어요.",
+            chatResponse=response_text,
             type=ChatResponseType.RECOMMENDATION,
             memoryStatus=MemoryStatus.OK,
             parsedState=ParsedStateSchema(**parsed_state),
