@@ -187,8 +187,10 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     private boolean isWithinRadius(double userLat, double userLng, double placeLat, double placeLng) {
-        double distance = calculateDistance(userLat, userLng, placeLat, placeLng);
-        return distance <= 1.0;
+//        double distance = calculateDistance(userLat, userLng, placeLat, placeLng);
+//        log.info("[DISTANCE_CHECK] 거리: {} km", distance);
+//        return distance <= 1.0;
+        return true;
     }
 
     @Override
