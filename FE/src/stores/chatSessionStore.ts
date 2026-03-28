@@ -7,9 +7,17 @@ import { create } from 'zustand';
 interface ChatSessionStoreState {
   activeSessionId: string;
   setActiveSessionId: (id: string) => void;
+  /** 이 세션에서 USER 메시지 전송에 성공함(메시지 목록 refetch 전에도 지도 → /location 허용) */
+  userMessagedSessionIds: Record<string, boolean>;
+  markUserMessageSent: (sessionId: string) => void;
 }
 
 export const useChatSessionStore = create<ChatSessionStoreState>((set) => ({
   activeSessionId: '',
   setActiveSessionId: (id) => set({ activeSessionId: id }),
+  userMessagedSessionIds: {},
+  markUserMessageSent: (sessionId) =>
+    set((s) => ({
+      userMessagedSessionIds: { ...s.userMessagedSessionIds, [sessionId]: true },
+    })),
 }));
