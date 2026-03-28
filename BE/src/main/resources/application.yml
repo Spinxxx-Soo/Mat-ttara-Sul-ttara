@@ -10,7 +10,7 @@ spring:
       request-timeout: 1800000
 
   datasource:
-    url: jdbc:mysql://127.0.0.1:3307/matsul?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&zeroDateTimeBehavior=convertToNull
+    url: jdbc:mysql://127.0.0.1:3306/matsul?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&zeroDateTimeBehavior=convertToNull
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -32,6 +32,8 @@ spring:
     redis:
       host: localhost
       port: 6379
+      # BE 키(ai:sync, recommend:, auth 등) + Pub/Sub(ai:reply 구독). AI 내부 LangGraph 체크포인트와 DB 분리 시 AI는 별도 URL/DB 사용.
+      database: 0
 
   elasticsearch:
     uris: http://localhost:9200

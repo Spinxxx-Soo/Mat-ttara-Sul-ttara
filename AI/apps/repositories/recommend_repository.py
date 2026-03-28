@@ -6,7 +6,7 @@ import mysql.connector
 from typing import Dict, List, Optional
 
 from apps.config import settings
-from apps.domain.recommend.memory_keys import ORDERED_KEY_NAMES
+from apps.services.place.memory_keys import ORDERED_KEY_NAMES
 
 
 class RecommendRepository:
@@ -17,11 +17,12 @@ class RecommendRepository:
             "password": settings.db_password,
             "database": settings.db_name           # meal_reco
         }
+        matsul_db = settings.matsul_db_name or settings.db_name
         self.matsul_db_config = {
             "host": settings.db_host,
             "user": settings.db_user,
             "password": settings.db_password,
-            "database": settings.matsul_db_name    # matsul
+            "database": matsul_db,
         }
 
     def get_connection(self):
@@ -63,7 +64,7 @@ class RecommendRepository:
         """
         query = """
             SELECT usage_type, age_group, gender
-            FROM user_preference
+            FROM user_preferences
             WHERE user_id = %s
             ORDER BY created_at DESC LIMIT 1
         """

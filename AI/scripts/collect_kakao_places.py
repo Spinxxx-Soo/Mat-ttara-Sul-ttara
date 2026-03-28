@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-from apps.services.collect_kakao_place_service import CollectKakaoPlaceService
+from apps.services.place.collect_kakao_place_service import CollectKakaoPlaceService
 
 def load_env(path: str = ".env") -> None:
     if not os.path.exists(path):
