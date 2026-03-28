@@ -65,6 +65,13 @@ public class PlaceServiceImpl implements PlaceService {
     @Transactional(readOnly = true)
     public PlaceSearchResponseDto searchPlaces(String keyword, Double lat, Double lng, int page, int size, String sort) {
 
+        if (page < 1) {
+            page = 1;
+        }
+        if (size < 1) {
+            size = 10;
+        }
+
         // Fail-Fast: 검색어 없이 호출된 경우 빈 결과를 즉시 반환
         if (keyword == null || keyword.isBlank()) {
             return emptyResult(page, size);
@@ -78,29 +85,34 @@ public class PlaceServiceImpl implements PlaceService {
 
         if (esPage != null && esPage.hasContent()) {
             // ES 캐시 히트: ES 문서에서 DTO로 변환
-            log.debug("ES cache hit for keyword: '{}', results: {}", keyword, esPage.getTotalElements());
+            log.info("장소 검색 ES 히트 keyword='{}' 건수={}", keyword, esPage.getTotalElements());
             items = esPage.getContent().stream()
                     .map(doc -> toPlaceItemDto(doc, lat, lng))
                     .toList();
             totalElements = (int) esPage.getTotalElements();
         } else {
             // ES 캐시 미스: 카카오 API 호출 후 ES에 비동기 적재
-            log.debug("ES cache miss for keyword: '{}', falling back to Kakao API", keyword);
+            log.info("장소 검색 ES 미스 → 카카오 API 호출 keyword='{}'", keyword);
             int displaySize = Math.min(size, KAKAO_DISPLAY_MAX);
+            int kakaoStartOffset = (page - 1) * displaySize;
 
-            KakaoLocalSearchResponseDto kakaoResponse = externalPlaceSearchService.searchPlaces(keyword, displaySize, page, "accuracy", lat, lng);
+            KakaoLocalSearchResponseDto kakaoResponse = externalPlaceSearchService.searchPlaces(
+                    keyword, displaySize, kakaoStartOffset, "accuracy", lat, lng);
 
             List<String> externalIds = kakaoResponse.getDocuments().stream()
                     .map(KakaoLocalSearchResponseDto.Document::getId)
+                    .filter(id -> id != null && !id.isBlank())
                     .toList();
-            
+
             java.util.Map<String, PlaceEntity> localPlaceMap = externalIds.isEmpty() ? java.util.Collections.emptyMap() :
                     placeRepository.findAllWithReviewsByProviderAndExternalPlaceIdIn(PROVIDER_KAKAO, externalIds)
                             .stream()
+                            .filter(p -> p.getExternalPlaceId() != null && !p.getExternalPlaceId().isBlank())
                             .collect(Collectors.toMap(PlaceEntity::getExternalPlaceId, p -> p, (p1, p2) -> p1));
 
             items = kakaoResponse.getDocuments().stream().map(doc -> {
-                String cleanTitle = stripHtmlTags(doc.getPlace_name());
+                String rawName = doc.getPlace_name();
+                String cleanTitle = rawName == null ? "" : stripHtmlTags(rawName);
                 String externalId = doc.getId();
 
                 Optional<PlaceEntity> localPlaceOpt = Optional.ofNullable(localPlaceMap.get(externalId));
@@ -139,9 +151,13 @@ public class PlaceServiceImpl implements PlaceService {
         // 정렬 로직 (원본 리스트가 불변이므로 새로운 리스트로 복사 후 정렬)
         List<PlaceSearchResponseDto.PlaceItemDto> sortedItems = new java.util.ArrayList<>(items);
         if ("distance".equalsIgnoreCase(sort)) {
-            sortedItems.sort(Comparator.comparing(PlaceSearchResponseDto.PlaceItemDto::getDistance));
+            sortedItems.sort(Comparator.comparing(
+                    PlaceSearchResponseDto.PlaceItemDto::getDistance,
+                    Comparator.nullsLast(Comparator.naturalOrder())));
         } else if ("rating".equalsIgnoreCase(sort)) {
-            sortedItems.sort(Comparator.comparing(PlaceSearchResponseDto.PlaceItemDto::getRating).reversed());
+            sortedItems.sort(Comparator.comparing(
+                    PlaceSearchResponseDto.PlaceItemDto::getRating,
+                    Comparator.nullsLast(Comparator.reverseOrder())));
         }
 
         // 페이징 메타데이터 생성
@@ -340,6 +356,9 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     private Double parseDoubleSafely(String value) {
+        if (value == null || value.isBlank()) {
+            return 0.0;
+        }
         try {
             return Double.valueOf(value);
         } catch (NumberFormatException e) {
@@ -377,7 +396,9 @@ public class PlaceServiceImpl implements PlaceService {
 
         Double rating = localPlaceOpt.map(PlaceEntity::getAverageRating).orElse(0.0);
         Integer reviewCount = localPlaceOpt.map(p -> p.getReviews().size()).orElse(0);
-        Double distance = (userLat != null && userLng != null) ? calculateDistance(userLat, userLng, doc.getLat(), doc.getLng()) : 0.0;
+        double docLat = doc.getLat() != null ? doc.getLat() : 0.0;
+        double docLng = doc.getLng() != null ? doc.getLng() : 0.0;
+        Double distance = (userLat != null && userLng != null) ? calculateDistance(userLat, userLng, docLat, docLng) : 0.0;
 
         return PlaceSearchResponseDto.PlaceItemDto.builder()
                 .placeId(localPlaceOpt.map(PlaceEntity::getId).orElse(null))
