@@ -63,6 +63,7 @@ export function useChatSessionSse(
     // 세션 전환 시점에 추천 장소를 1회 선조회해서 지도 핀을 즉시 복원합니다.
     let cancelled = false;
     const coords = {
+      sessionId: sessionId!,
       lat: lat ?? FALLBACK_LOCATION.lat,
       lng: lng ?? FALLBACK_LOCATION.lng,
     };
@@ -141,6 +142,7 @@ export function useChatSessionSse(
                 const rawSession = String(payload.sessionId ?? sessionId);
                 void rawSession; // sessionId는 현재 API에서 사용하지 않음
                 const recommended = await placeApi.getRecommendedPlaces({
+                  sessionId: sessionId!,
                   lat: lat ?? FALLBACK_LOCATION.lat,
                   lng: lng ?? FALLBACK_LOCATION.lng,
                 });
