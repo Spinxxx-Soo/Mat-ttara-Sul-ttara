@@ -10,6 +10,9 @@ import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
+import { useChatSessionStore } from '@/stores/chatSessionStore'
+import { useSetMapLocation } from '@/hooks/queries/chat/useChat'
+import type { Coordinates } from '@/types/map'
 import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
 import { hasNullFields } from '@/lib/placeUtils'
 import { extractApiErrorMessage } from '@/lib/apiUtils'
@@ -40,6 +43,9 @@ const Main = () => {
 
   const { mutate: enrichPlace } = useEnrichPlace()
   const { mutateAsync: syncPlace } = useSyncPlace()
+
+  const activeSessionId = useChatSessionStore((s) => s.activeSessionId)
+  const { mutate: setMapLocation, isPending: isMapLocationPending } = useSetMapLocation()
 
   const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
   const mapPlaces = useMemo(() => {
@@ -105,11 +111,36 @@ const Main = () => {
     enrichPlace(selectedInternalPlaceId)
   }, [selectedInternalPlaceId, selectedPlaceForDisplay, enrichPlace])
 
+  const sendSelectedLocationToChat = (coord: Coordinates) => {
+    if (!activeSessionId) {
+      toast.error('채팅 세션이 준비될 때까지 잠시만 기다려 주세요.')
+      return
+    }
+    if (isMapLocationPending) return
+
+    setMapLocation(
+      {
+        sessionId: activeSessionId,
+        lat: coord.lat,
+        lng: coord.lng,
+      },
+      {
+        onSuccess: () => {
+          toast.success('선택한 위치로 주변 맛집을 찾습니다.')
+        },
+        onError: (err) => {
+          toast.error(extractApiErrorMessage(err, '위치 전송에 실패했습니다.'))
+        },
+      }
+    )
+  }
+
   const handlePlaceClick = (place: Place) => {
     // 리뷰 패널(왼쪽)이 열린 상태에서 다른 핀을 선택하면,
     // 자동으로 리뷰 패널을 닫아(돌아가기) 지도 상세 카드가 보이도록 한다.
     if (reviewPanel) setReviewPanel(null)
     setSelectedPlaceId(place.placeId)
+    sendSelectedLocationToChat({ lat: place.lat, lng: place.lng })
   }
 
   const handleMapIdle = (
@@ -118,6 +149,10 @@ const Main = () => {
   ) => {
     setMapCenter(center)
     setZoom(currentZoom)
+  }
+
+  const handleMapClick = (coord: Coordinates) => {
+    sendSelectedLocationToChat(coord)
   }
 
   const openReviewFromDetail = async () => {
@@ -187,6 +222,7 @@ const Main = () => {
           onDetailReviewClick={openReviewFromDetail}
           onPlaceClick={handlePlaceClick}
           onIdle={handleMapIdle}
+          onClick={handleMapClick}
         />
       </main>
     </div>

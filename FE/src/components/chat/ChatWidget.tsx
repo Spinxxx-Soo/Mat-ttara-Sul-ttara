@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatMapStore } from '@/stores/chatMapStore'
+import { useChatSessionStore } from '@/stores/chatSessionStore'
 import { useChatSessionSse } from '@/hooks/useChatSessionSse'
 import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
 import type { ChatMessage, ChatSession } from '@/types/api'
@@ -20,7 +21,10 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const toSessionId = (value: string | number) => String(value)
 
-  
+  const setActiveSessionId = useChatSessionStore((s) => s.setActiveSessionId)
+  useEffect(() => {
+    setActiveSessionId(sessionId)
+  }, [sessionId, setActiveSessionId])
 
   const handleNewSession = () => {
     if (createSessionMutation.isPending) return
