@@ -116,7 +116,7 @@ export const placeApi = {
    * GET /api/v1/places/recommend?lat=&lng=
    */
   getRecommendedPlaces: async (
-    params: { lat: number; lng: number },
+    params: { sessionId: string | number; lat: number; lng: number },
   ): Promise<RecommendedPlace[]> => {
     const { data } = await apiClient.get<RecommendedPlace[] | { content: RecommendedPlace[] }>(
       '/api/v1/places/recommend',
