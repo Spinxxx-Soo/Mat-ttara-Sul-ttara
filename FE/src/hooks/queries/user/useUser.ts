@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { userApi } from '@/api/userApi';
 import { useAuthStore } from '@/stores/authStore';
+import type { UserPreference } from '@/types/api';
 
 export const USER_QUERY_KEY = queryKeys.user.me();
+export const USER_PREFERENCE_QUERY_KEY = queryKeys.user.preference();
 export const USER_QUERY_STALE_TIME = 5 * 60 * 1000;
 
 export const isUserDataStale = (
@@ -58,5 +61,34 @@ export const useUser = ({ enabled }: UseUserOptions = {}) => {
   return {
     ...query,
     user: query.data ?? user,
+  };
+};
+
+export const useUserPreference = ({ enabled }: UseUserOptions = {}) => {
+  const { accessToken, hasHydrated, isLoggedIn } = useAuthStore();
+
+  const shouldFetchPreference =
+    (enabled ?? true) && hasHydrated && isLoggedIn && Boolean(accessToken);
+
+  const query = useQuery<UserPreference | null>({
+    queryKey: [...USER_PREFERENCE_QUERY_KEY, accessToken],
+    queryFn: async () => {
+      try {
+        return await userApi.getMyPreference();
+      } catch (error) {
+        if (error instanceof AxiosError && error.response?.status === 404) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    enabled: shouldFetchPreference,
+    staleTime: USER_QUERY_STALE_TIME,
+  });
+
+  return {
+    ...query,
+    preference: query.data ?? null,
   };
 };

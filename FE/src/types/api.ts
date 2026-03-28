@@ -109,7 +109,7 @@ export interface Plan {
  * 플랜 상세 응답 (S14P21B205-213)
  */
 export interface PlanDetail extends Plan {
-  details: PlanPlace[];
+  places: PlanPlace[];
 }
 
 export interface PlanPlace {

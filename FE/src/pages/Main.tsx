@@ -1,6 +1,7 @@
 // FE/src/pages/Main.tsx
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
 import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
@@ -11,13 +12,17 @@ import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 import { useChatSessionStore } from '@/stores/chatSessionStore'
-import { useSetMapLocation } from '@/hooks/queries/chat/useChat'
+import { useChatMessages, useSetMapLocation } from '@/hooks/queries/chat/useChat'
 import type { Coordinates } from '@/types/map'
-import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey } from '@/lib/placeIdentity'
+import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey, isSamePlace } from '@/lib/placeIdentity'
+import { usePlanCreateDraftStore } from '@/stores/planCreateDraftStore'
 import { hasNullFields } from '@/lib/placeUtils'
 import { extractApiErrorMessage } from '@/lib/apiUtils'
 
 const Main = () => {
+  const navigate = useNavigate()
+  const setPlanDraftPlace = usePlanCreateDraftStore((s) => s.setDraftPlace)
+  const [planCreateModalPlace, setPlanCreateModalPlace] = useState<Place | null>(null)
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
   const [reviewPanel, setReviewPanel] = useState<{
     placeId: number
@@ -47,10 +52,28 @@ const Main = () => {
   const activeSessionId = useChatSessionStore((s) => s.activeSessionId)
   const { mutate: setMapLocation, isPending: isMapLocationPending } = useSetMapLocation()
 
+  /** ChatWidget과 동일 파라미터 → React Query 캐시 공유 */
+  const { data: sessionMessagesData } = useChatMessages({
+    sessionId: activeSessionId,
+    page: 1,
+    size: 50,
+  })
+  const hasUserMessageInChat = useMemo(
+    () => (sessionMessagesData?.content ?? []).some((m) => m.role === 'USER'),
+    [sessionMessagesData]
+  )
+
   const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
   const mapPlaces = useMemo(() => {
     return mergeByPlaceId(restaurants, aiRecommendedPlaces)
   }, [restaurants, aiRecommendedPlaces])
+
+  const isAiRecommendedPlace = useCallback(
+    (place: Place) =>
+      aiRecommendedPlaces.length > 0 &&
+      aiRecommendedPlaces.some((p) => isSamePlace(p, place)),
+    [aiRecommendedPlaces]
+  )
 
   const selectedPlace = useMemo(() => {
     if (selectedPlaceId == null) return null
@@ -116,6 +139,8 @@ const Main = () => {
       toast.error('채팅 세션이 준비될 때까지 잠시만 기다려 주세요.')
       return
     }
+    // 사용자가 채팅으로 한 번이라도 말을 건 뒤에만 AI(세션)에 지도 위치를 넘긴다.
+    if (!hasUserMessageInChat) return
     if (isMapLocationPending) return
 
     setMapLocation(
@@ -140,8 +165,29 @@ const Main = () => {
     // 자동으로 리뷰 패널을 닫아(돌아가기) 지도 상세 카드가 보이도록 한다.
     if (reviewPanel) setReviewPanel(null)
     setSelectedPlaceId(place.placeId)
+    if (isAiRecommendedPlace(place)) {
+      setPlanCreateModalPlace(place)
+    } else {
+      setPlanCreateModalPlace(null)
+    }
     sendSelectedLocationToChat({ lat: place.lat, lng: place.lng })
   }
+
+  const handlePlanCreateModalConfirm = () => {
+    if (!planCreateModalPlace) return
+    setPlanDraftPlace(planCreateModalPlace)
+    setPlanCreateModalPlace(null)
+    navigate('/my-plan/new')
+  }
+
+  useEffect(() => {
+    if (!planCreateModalPlace) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPlanCreateModalPlace(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [planCreateModalPlace])
 
   const handleMapIdle = (
     center: { lat: number; lng: number },
@@ -209,6 +255,53 @@ const Main = () => {
 
       {/* 오른쪽: 지도 (주변 맛집 목록은 /search) */}
       <main className="relative min-h-0 min-w-0 flex-1">
+        {planCreateModalPlace && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-plan-create-title"
+            className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setPlanCreateModalPlace(null)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2
+                id="ai-plan-create-title"
+                className="text-lg font-bold text-slate-900 dark:text-slate-100"
+              >
+                플랜 생성
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                이 가게로 약속 플랜을 생성하시겠습니까?
+              </p>
+              <p className="mt-2 truncate text-sm font-semibold text-primary">
+                {planCreateModalPlace.name}
+              </p>
+              {planCreateModalPlace.address ? (
+                <p className="mt-1 line-clamp-2 text-xs text-slate-500">{planCreateModalPlace.address}</p>
+              ) : null}
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPlanCreateModalPlace(null)}
+                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePlanCreateModalConfirm}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-primary/90"
+                >
+                  플랜 생성하기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <KakaoMap
           className="h-full w-full"
           lat={mapCenter.lat}
