@@ -64,7 +64,7 @@ class RecommendRepository:
         """
         query = """
             SELECT usage_type, age_group, gender
-            FROM user_preference
+            FROM user_preferences
             WHERE user_id = %s
             ORDER BY created_at DESC LIMIT 1
         """

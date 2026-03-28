@@ -58,10 +58,7 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
             parsed_state[k] = short_term.get(k)
 
         preference_summary = getattr(request, "preferenceSummary", None)
-        response_text = "좋아요! 추천 장소를 불러왔어요."
-        print("parsed_state =", parsed_state)
-        print("preference_summary =", preference_summary)
-        print("response_text =", response_text)
+        _logger.debug("parsed_state=%s preference_summary=%s", parsed_state, preference_summary)
 
         results = recommend_service.recommend(
             user_id=request.userId,
@@ -130,6 +127,22 @@ async def get_place_candidates(request: AiPlaceCandidatesRequest):
                     tags=[str(details.get("category"))] if details.get("category") else [],
                 )
             )
+
+        if not places:
+            response_text = (
+                "조건에 맞는 추천 장소를 찾지 못했어요. "
+                "지도를 움직이거나 대화로 조건을 조정한 뒤 다시 시도해 주세요."
+            )
+        else:
+            intro = (
+                "지도에 추천 장소를 표시했어요.\n"
+                "플랜으로 만들 가게는 지도에서 핀을 눌러 선택해 주세요.\n\n"
+            )
+            lines: list[str] = []
+            for i, p in enumerate(places, start=1):
+                reason = (p.recommendReason or "").strip() or "대화에서 정리된 조건에 맞는 곳이에요."
+                lines.append(f"{i}. {p.name} — {reason}")
+            response_text = intro + "\n".join(lines)
 
         response = ChatMessageResponse(
             threadId=request.threadId,

@@ -139,13 +139,15 @@ public class AiService {
                 assistantText = "";
             }
             if ("RECOMMENDATION".equals(response.getType()) && response.getPlaces() != null) {
-                String redisKey = "recommend:session:" + sessionId + ":user:" + userId;
                 String placesJson = objectMapper.writeValueAsString(response.getPlaces());
-                redisTemplate.opsForValue().set(redisKey, placesJson, Duration.ofMinutes(10));
-                log.info("[ai] RECOMMENDATION 캐시 저장 sessionId={} userId={} count={}",
+                Duration ttl = Duration.ofMinutes(10);
+                // 세션별 키(디버깅·추후 확장용)
+                redisTemplate.opsForValue().set(
+                        "recommend:session:" + sessionId + ":user:" + userId, placesJson, ttl);
+                // GET /api/v1/places/recommend 가 읽는 키와 동일해야 지도에 추천 핀이 뜸
+                redisTemplate.opsForValue().set("recommend:user:" + userId, placesJson, ttl);
+                log.info("[ai] RECOMMENDATION Redis 캐시 저장 완료 sessionId={} userId={} count={}",
                         sessionId, userId, response.getPlaces().size());
-                assistantText = assistantText + "||" + placesJson;
-                log.info("[ai] RECOMMENDATION 데이터 결합 완료: sessionId={}", sessionId);
             }
 
             long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), assistantText);
