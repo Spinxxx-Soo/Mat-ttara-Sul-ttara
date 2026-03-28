@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
 import KakaoMap from '@/components/map/KakaoMap'
+import { placeApi } from '@/api/placeApi'
 import { useNearbyPlaces, useSyncPlace } from '@/hooks/queries/place/usePlaces'
 import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
 import { usePendingDelay } from '@/hooks/usePendingDelay'
@@ -20,6 +21,7 @@ import {
   getPlanMutationErrorMessage,
 } from '@/lib/planUi'
 import { useAuthStore } from '@/stores/authStore'
+import { usePlanCreateDraftStore } from '@/stores/planCreateDraftStore'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 import { FALLBACK_LOCATION, useLocationStore } from '@/stores/locationStore'
 import type { Place } from '@/types/api'
@@ -89,6 +91,54 @@ const MyPlanCreate = () => {
       setTitle(`${user.name}님의 맛집 모임`)
     }
   }, [title, user?.name])
+
+  /** 메인(AI 추천)에서 넘어온 장소: 백엔드 상세로 보강 후 폼·지도에 반영 */
+  useLayoutEffect(() => {
+    const place = usePlanCreateDraftStore.getState().draftPlace
+    if (!place) return
+
+    let cancelled = false
+    void (async () => {
+      const id = getInternalPlaceId(place)
+      let merged: Place = { ...place }
+      if (id != null) {
+        try {
+          const detail = await placeApi.getPlaceDetail(id)
+          if (!cancelled) {
+            merged = {
+              ...place,
+              ...detail,
+              placeId: place.placeId,
+              externalPlaceId: place.externalPlaceId ?? detail.externalPlaceId ?? null,
+              internalPlaceId: id,
+            }
+          }
+        } catch {
+          /* 상세 실패 시 전달받은 place만 사용 */
+        }
+      }
+      if (cancelled) return
+
+      usePlanCreateDraftStore.getState().setDraftPlace(null)
+
+      setSelectedPlaces([merged])
+      setMapCenter({ lat: merged.lat, lng: merged.lng })
+
+      const memoParts: string[] = []
+      if (merged.recommendReason?.trim()) memoParts.push(merged.recommendReason.trim())
+      if (merged.tags?.length) memoParts.push(`태그: ${merged.tags.join(', ')}`)
+      if (merged.description?.trim()) memoParts.push(merged.description.trim())
+      if (memoParts.length) setMemo(memoParts.join('\n\n'))
+
+      const u = useAuthStore.getState().user
+      const userPrefix = u?.name ? `${u.name}님의 ` : ''
+      setTitle(`${userPrefix}${merged.name} 모임`)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleIdle = useCallback((newCenter: { lat: number; lng: number }, newZoom: number) => {
     setMapCenter(newCenter)
