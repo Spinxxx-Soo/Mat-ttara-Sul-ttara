@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
@@ -26,7 +26,9 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   const toSessionId = (value: string | number) => String(value)
 
   const setActiveSessionId = useChatSessionStore((s) => s.setActiveSessionId)
-  useEffect(() => {
+  const markUserMessageSent = useChatSessionStore((s) => s.markUserMessageSent)
+  /** Main(지도)과 쿼리 키가 같은 틱에 맞도록 — useEffect보다 먼저 스토어 반영 */
+  useLayoutEffect(() => {
     setActiveSessionId(sessionId)
   }, [sessionId, setActiveSessionId])
 
@@ -44,16 +46,20 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
     createSessionMutation.mutate(
       { title: '새 대화' },
       {
-        onSuccess: (data) => {
-          setSessionId(toSessionId(data.sessionId))
-          setIsSessionListOpen(false)
-        },
+      onSuccess: (data) => {
+        const id = toSessionId(data.sessionId)
+        setSessionId(id)
+        useChatSessionStore.getState().setActiveSessionId(id)
+        setIsSessionListOpen(false)
+      },
       }
     )
   }
 
   const handleSelectSession = (id: string) => {
-    setSessionId(toSessionId(id))
+    const sid = toSessionId(id)
+    setSessionId(sid)
+    useChatSessionStore.getState().setActiveSessionId(sid)
     setIsSessionListOpen(false)
   }
 
@@ -73,6 +79,7 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
         if (isCurrentSession) {
           const nextSessionId = nextSession ? toSessionId(nextSession.sessionId) : ''
           setSessionId(nextSessionId)
+          useChatSessionStore.getState().setActiveSessionId(nextSessionId)
           setMessages([])
         }
       },
@@ -101,6 +108,7 @@ useEffect(() => {
 
   const latest = toSessionId(sessions[0].sessionId)
   setSessionId(latest)
+  useChatSessionStore.getState().setActiveSessionId(latest)
 }, [isOpen, sessionId, sessions])
 
 /**
@@ -120,7 +128,9 @@ useEffect(() => {
     { title: '새 대화' },
     {
       onSuccess: (data) => {
-        setSessionId(toSessionId(data.sessionId))
+        const id = toSessionId(data.sessionId)
+        setSessionId(id)
+        useChatSessionStore.getState().setActiveSessionId(id)
       },
       onError: (error) => {
         hasInitializedSessionRef.current = false
@@ -158,6 +168,15 @@ useEffect(() => {
     })
   }, [sessionId, messagesData])
 
+  /** 서버에 이미 USER 메시지가 있으면(새로고침·세션 전환) 지도 위치 허용 플래그 동기화 */
+  useEffect(() => {
+    if (!sessionId || !messagesData?.content?.length) return
+    const hasUser = messagesData.content.some(
+      (m) => String(m.role).toUpperCase() === 'USER'
+    )
+    if (hasUser) markUserMessageSent(sessionId)
+  }, [sessionId, messagesData?.content, markUserMessageSent])
+
   const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
   const prevSessionIdRef = useRef<string | null>(null)
 
@@ -179,6 +198,7 @@ useEffect(() => {
     if (sessions.length > 0) {
       const restored = toSessionId(sessions[0].sessionId)
       setSessionId(restored)
+      useChatSessionStore.getState().setActiveSessionId(restored)
       return restored
     }
 
@@ -186,6 +206,7 @@ useEffect(() => {
       const created = await createSessionMutation.mutateAsync({ title: '새 대화' })
       const createdSessionId = toSessionId(created.sessionId)
       setSessionId(createdSessionId)
+      useChatSessionStore.getState().setActiveSessionId(createdSessionId)
       return createdSessionId
     } catch (error) {
       console.error('메시지 전송 전 세션 생성 실패:', error)
@@ -226,6 +247,7 @@ useEffect(() => {
         sessionId: targetSessionId,
         content,
       })
+      markUserMessageSent(targetSessionId)
       setInput('')
     } catch (error) {
       console.error('메시지 전송 실패:', error)
