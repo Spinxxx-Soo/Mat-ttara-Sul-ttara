@@ -204,9 +204,10 @@ const Login = () => {
           <Button
             onClick={handleNaverLogin}
             disabled={isLoading}
+            variant="naver"
             size="lg"
             fullWidth
-            className="h-14 rounded-xl text-white bg-[#03C75A] hover:bg-[#02b351] border-none shadow-none relative flex justify-center items-center"
+            className="h-14 rounded-xl relative flex justify-center items-center shadow-md hover:shadow-lg transition-shadow"
           >
             <div className="w-5 h-5 flex items-center justify-center font-bold text-lg text-[#03C75A] bg-white rounded absolute left-5">
               N
