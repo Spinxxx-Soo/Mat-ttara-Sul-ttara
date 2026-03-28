@@ -1,7 +1,7 @@
 from typing import Any
 
-from AI.apps.repositories.place_repository import PlaceRepository
-from AI.apps.services.place_sync_service import PlaceSyncService
+from apps.repositories.place_repository import PlaceRepository
+from apps.services.place.place_sync_service import PlaceSyncService
 
 TARGET_QUERIES = [
 	"강남 술집",

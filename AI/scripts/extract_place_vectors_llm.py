@@ -11,8 +11,8 @@ from typing import List, Dict, Any, Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from apps.config import settings
-from apps.domain.chat.client import OpenAIClient
-from apps.domain.recommend.memory_keys import ORDERED_KEY_NAMES
+from apps.services.chat.openai_client import OpenAIClient
+from apps.services.place.memory_keys import ORDERED_KEY_NAMES
 
 DB_CONFIG = {
     "host": settings.db_host,
