@@ -12,14 +12,18 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
 
+  # LangGraph 체크포인터(RediSearch 인덱스)는 Redis Stack 필요. 일반 redis:latest 는 모듈 없음.
+  # 기존 redis-data 볼륨에 Redis 8 등이 쓴 RDB v13 이 있으면 Stack(7.x)이 AOF 로딩 실패 → 컨테이너 종료.
+  # 볼륨명을 redis-stack-data 로 바꿔 새 데이터 디렉터리 사용(구 볼륨은 docker volume rm 으로 정리 가능).
   redis:
-    image: redis:latest
+    image: redis/redis-stack-server:latest
     container_name: sulddara-redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes # 비밀번호는 개발 편의상 뺐습니다.
+    environment:
+      REDIS_ARGS: "--appendonly yes"
     volumes:
-      - redis-data:/data
+      - redis-stack-data:/data
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
@@ -41,5 +45,5 @@ services:
 
 volumes:
   mysql-data:
-  redis-data:
+  redis-stack-data:
   es-data:
