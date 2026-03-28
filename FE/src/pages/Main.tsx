@@ -50,6 +50,7 @@ const Main = () => {
   const { mutateAsync: syncPlace } = useSyncPlace()
 
   const activeSessionId = useChatSessionStore((s) => s.activeSessionId)
+  const userMessagedSessionIds = useChatSessionStore((s) => s.userMessagedSessionIds)
   const { mutate: setMapLocation, isPending: isMapLocationPending } = useSetMapLocation()
 
   /** ChatWidget과 동일 파라미터 → React Query 캐시 공유 */
@@ -58,10 +59,14 @@ const Main = () => {
     page: 1,
     size: 50,
   })
-  const hasUserMessageInChat = useMemo(
-    () => (sessionMessagesData?.content ?? []).some((m) => m.role === 'USER'),
-    [sessionMessagesData]
-  )
+  const hasUserMessageInChat = useMemo(() => {
+    const fromServer = (sessionMessagesData?.content ?? []).some(
+      (m) => String(m.role).toUpperCase() === 'USER'
+    )
+    const fromClient =
+      !!activeSessionId && userMessagedSessionIds[activeSessionId] === true
+    return fromServer || fromClient
+  }, [sessionMessagesData, activeSessionId, userMessagedSessionIds])
 
   const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
   const mapPlaces = useMemo(() => {
