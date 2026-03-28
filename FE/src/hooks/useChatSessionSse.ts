@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatMapStore } from '@/stores/chatMapStore';
@@ -40,7 +40,8 @@ const toChatMessage = (
 export function useChatSessionSse(
   sessionId: string | null,
   enabled: boolean,
-  onMessage?: (message: ChatMessage) => void
+  onMessage?: (message: ChatMessage) => void,
+  onRecommendation?: () => void
 ) {
   const queryClient = useQueryClient();
   const setAiRecommendedPlaces = useChatMapStore((s) => s.setAiRecommendedPlaces);
@@ -48,11 +49,11 @@ export function useChatSessionSse(
   const { lat, lng } = useLocationStore();
   const abortRef = useRef<AbortController | null>(null);
   const shouldDebug = import.meta.env.DEV;
-  const debugLog = (...args: unknown[]) => {
+  const debugLog = useCallback((...args: unknown[]) => {
     if (shouldDebug) {
       console.log('[chat-sse]', ...args);
     }
-  };
+  }, [shouldDebug]);
 
   useEffect(() => {
     if (!enabled || !sessionId || !accessToken) return;
@@ -150,6 +151,10 @@ export function useChatSessionSse(
                   placeIds: mapped.map((p) => p.placeId),
                 });
                 setAiRecommendedPlaces(mapped);
+
+                if (payloadType === 'RECOMMENDATION' && mapped.length > 0) {
+                  onRecommendation?.();
+                }
               } catch (e) {
                 console.warn('[chat-sse] getRecommendedPlaces failed', e);
               }
@@ -174,5 +179,5 @@ export function useChatSessionSse(
       ac.abort();
       abortRef.current = null;
     };
-  }, [sessionId, enabled, accessToken, queryClient, setAiRecommendedPlaces, onMessage]);
+  }, [sessionId, enabled, accessToken, queryClient, setAiRecommendedPlaces, onMessage, onRecommendation, lat, lng, debugLog]);
 }

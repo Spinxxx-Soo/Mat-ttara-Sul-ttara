@@ -1,9 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatMapStore } from '@/stores/chatMapStore'
 import { useChatSessionStore } from '@/stores/chatSessionStore'
 import { useChatSessionSse } from '@/hooks/useChatSessionSse'
-import { useChatMessages, useSendMessage, useCreateSession, useChatSessions } from '@/hooks/queries/chat/useChat'
+import { useChatMessages, useSendMessage, useCreateSession, useChatSessions, useDeleteSession } from '@/hooks/queries/chat/useChat'
+import { extractApiErrorMessage } from '@/lib/apiUtils'
 import type { ChatMessage, ChatSession } from '@/types/api'
 
 interface ChatWidgetProps {
@@ -11,6 +14,7 @@ interface ChatWidgetProps {
 }
 
 const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
+  const navigate = useNavigate()
   const { user } = useAuthStore()
   const [isOpen, setIsOpen] = useState(embedded)
   const [sessionId, setSessionId] = useState<string>('')
@@ -25,6 +29,14 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
   useEffect(() => {
     setActiveSessionId(sessionId)
   }, [sessionId, setActiveSessionId])
+
+  // 세션 목록 조회
+  const { data: sessionsData } = useChatSessions({ size: 20 })
+  const sessions: ChatSession[] = useMemo(() => sessionsData?.content ?? [], [sessionsData?.content])
+
+  // 세션 생성/삭제
+  const createSessionMutation = useCreateSession()
+  const deleteSessionMutation = useDeleteSession()
 
   const handleNewSession = () => {
     if (createSessionMutation.isPending) return
@@ -44,12 +56,31 @@ const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
     setSessionId(toSessionId(id))
     setIsSessionListOpen(false)
   }
-// 세션 목록 조회
-const { data: sessionsData } = useChatSessions({ size: 20 })
-const sessions: ChatSession[] = sessionsData?.content || []
 
-// 세션 생성
-const createSessionMutation = useCreateSession()
+  const handleDeleteSession = (id: string) => {
+    if (deleteSessionMutation.isPending) return
+    if (!window.confirm('이 대화를 삭제하시겠습니까?')) return
+
+    const targetSessionId = toSessionId(id)
+    const isCurrentSession = sessionId === targetSessionId
+    const nextSession = sessions.find((session) => toSessionId(session.sessionId) !== targetSessionId)
+
+    deleteSessionMutation.mutate(targetSessionId, {
+      onSuccess: () => {
+        toast.success('대화를 삭제했습니다.')
+        setIsSessionListOpen(false)
+
+        if (isCurrentSession) {
+          const nextSessionId = nextSession ? toSessionId(nextSession.sessionId) : ''
+          setSessionId(nextSessionId)
+          setMessages([])
+        }
+      },
+      onError: (error) => {
+        toast.error(extractApiErrorMessage(error, '대화 삭제에 실패했습니다.'))
+      },
+    })
+  }
 
 /**
  * 1. embedded면 항상 열림 유지
@@ -106,11 +137,12 @@ useEffect(() => {
   })
 
   useEffect(() => {
-    if (!sessionId) {
-      setMessages([])
-      return
-    }
-    if (!messagesData?.content) return
+    setMessages([])
+  }, [sessionId])
+
+  useEffect(() => {
+    if (!sessionId || !messagesData?.content) return
+
     setMessages((prev) => {
       const map = new Map<number, ChatMessage>()
 
@@ -173,10 +205,14 @@ useEffect(() => {
     })
   }, [sessionId])
 
+  const handleRecommendation = useCallback(() => {
+    navigate('/my-plan/new')
+  }, [navigate])
+
   // AI 응답(SSE) 구독:
   // - `chat_message`, `ai_response` 이벤트 수신 시 로컬 messages 누적
   // - 추천 장소도 같이 동기화
-  useChatSessionSse(sessionId, isOpen, handleIncomingMessage)
+  useChatSessionSse(sessionId, isOpen, handleIncomingMessage, handleRecommendation)
 
   const handleSend = async () => {
     const content = input.trim()
@@ -199,11 +235,15 @@ useEffect(() => {
   useEffect(() => {
     if (!isOpen) return
 
-    const container = messagesEndRef.current?.parentElement
-    if (container) {
-      container.scrollTop = container.scrollHeight
-    }
-  }, [messages, isOpen])
+    const frame = requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({
+        block: 'end',
+        behavior: 'auto',
+      })
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [messages, isOpen, sendMessageMutation.isPending])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -263,18 +303,32 @@ useEffect(() => {
                         </div>
                       )}
                       {sessions.map((session) => (
-                        <button
+                        <div
                           key={session.sessionId}
-                          type="button"
-                          onClick={() => handleSelectSession(session.sessionId)}
-                          className={`w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
+                          className={`flex items-center gap-1 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
                             session.sessionId === sessionId ? 'bg-primary/5 dark:bg-primary/15' : ''
                           }`}
                         >
-                          <div className="font-medium text-slate-700 dark:text-slate-100 truncate">
-                            {session.title || '제목 없는 대화'}
-                          </div>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectSession(session.sessionId)}
+                            disabled={deleteSessionMutation.isPending}
+                            className="flex-1 min-w-0 text-left px-1 py-1"
+                          >
+                            <div className="font-medium text-slate-700 dark:text-slate-100 truncate">
+                              {session.title || '제목 없는 대화'}
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSession(session.sessionId)}
+                            disabled={deleteSessionMutation.isPending}
+                            aria-label={`${session.title || '제목 없는 대화'} 삭제`}
+                            className="p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -332,6 +386,7 @@ useEffect(() => {
                 </div>
               </div>
             )}
+            <div ref={messagesEndRef} aria-hidden="true" className="h-px w-full" />
           </div>
 
           {/* Input Area */}
