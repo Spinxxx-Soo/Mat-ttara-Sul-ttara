@@ -142,7 +142,7 @@ useEffect(() => {
 
   const { data: messagesData, isLoading: isLoadingMessages } = useChatMessages({
     sessionId,
-    page: 1,
+    page: 0,
     size: 50,
   })
 
@@ -300,7 +300,7 @@ useEffect(() => {
             </div>
             
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+              <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsSessionListOpen((prev) => !prev)}
@@ -313,46 +313,44 @@ useEffect(() => {
                   </span>
                 </button>
                 {isSessionListOpen && (
-                  <div className="relative">
-                    <div className="absolute left-0 mt-2 w-64 max-h-64 overflow-y-auto rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700 z-50">
-                      <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">이전 대화</span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500">총 {sessions.length}개</span>
-                      </div>
-                      {sessions.length === 0 && (
-                        <div className="px-3 py-4 text-xs text-slate-400 dark:text-slate-500 text-center">
-                          저장된 대화가 없습니다.
-                        </div>
-                      )}
-                      {sessions.map((session) => (
-                        <div
-                          key={session.sessionId}
-                          className={`flex items-center gap-1 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
-                            session.sessionId === sessionId ? 'bg-primary/5 dark:bg-primary/15' : ''
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleSelectSession(session.sessionId)}
-                            disabled={deleteSessionMutation.isPending}
-                            className="flex-1 min-w-0 text-left px-1 py-1"
-                          >
-                            <div className="font-medium text-slate-700 dark:text-slate-100 truncate">
-                              {session.title || '제목 없는 대화'}
-                            </div>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSession(session.sessionId)}
-                            disabled={deleteSessionMutation.isPending}
-                            aria-label={`${session.title || '제목 없는 대화'} 삭제`}
-                            className="p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <span className="material-symbols-outlined text-sm">delete</span>
-                          </button>
-                        </div>
-                      ))}
+                  <div className="absolute left-0 top-full z-50 mt-2 w-64 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">이전 대화</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">총 {sessions.length}개</span>
                     </div>
+                    {sessions.length === 0 && (
+                      <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-slate-500">
+                        저장된 대화가 없습니다.
+                      </div>
+                    )}
+                    {sessions.map((session) => (
+                      <div
+                        key={session.sessionId}
+                        className={`flex items-center gap-1 px-2 py-1.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 ${
+                          session.sessionId === sessionId ? 'bg-primary/5 dark:bg-primary/15' : ''
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleSelectSession(session.sessionId)}
+                          disabled={deleteSessionMutation.isPending}
+                          className="min-w-0 flex-1 px-1 py-1 text-left"
+                        >
+                          <div className="truncate font-medium text-slate-700 dark:text-slate-100">
+                            {session.title || '제목 없는 대화'}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSession(session.sessionId)}
+                          disabled={deleteSessionMutation.isPending}
+                          aria-label={`${session.title || '제목 없는 대화'} 삭제`}
+                          className="rounded-full p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-red-950/40"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
