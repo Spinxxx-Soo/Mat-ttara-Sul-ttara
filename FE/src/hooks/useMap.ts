@@ -20,6 +20,8 @@ interface UseMapOptions {
 interface UseMapReturn {
   mapRef: React.RefObject<HTMLDivElement>;
   mapInstance: React.MutableRefObject<KakaoMapInstance | null>;
+  /** 지도 인스턴스가 붙을 때마다 증가 — ref(mapInstance)만으로는 effect가 재실행되지 않아 이벤트 등록용 */
+  mapAttachVersion: number;
   viewport: MapViewport;
   sdkLoaded: boolean;
   sdkError: string | null;
@@ -38,6 +40,7 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
 
   const [sdkLoaded, setSdkLoaded] = useState<boolean>(isKakaoMapLoaded());
   const [sdkError, setSdkError] = useState<string | null>(null);
+  const [mapAttachVersion, setMapAttachVersion] = useState(0);
   const [viewport, setViewport] = useState<MapViewport>({
     center: defaultCenter,
     zoom: defaultZoom,
@@ -64,6 +67,7 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
 
     const createdMap = new kakao.maps.Map(mapRef.current, options);
     mapInstance.current = createdMap;
+    setMapAttachVersion((v) => v + 1);
 
     return () => {
       // Kakao Maps는 별도의 destroy 메서드 대신 DOM 초기화를 권장
@@ -95,6 +99,7 @@ export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
   return {
     mapRef,
     mapInstance,
+    mapAttachVersion,
     viewport,
     sdkLoaded,
     sdkError,
