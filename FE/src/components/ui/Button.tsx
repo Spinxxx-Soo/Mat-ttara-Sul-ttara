@@ -1,7 +1,7 @@
 import { ButtonHTMLAttributes } from 'react';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
+    variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success' | 'naver';
     size?: 'sm' | 'md' | 'lg';
     fullWidth?: boolean;
 }
@@ -24,6 +24,8 @@ export default function Button({
         ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
         danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm',
         success: 'bg-green-100 text-green-800 hover:bg-green-200 focus:ring-green-500 shadow-sm',
+        /** 네이버 브랜드 컬러(공식 초록 #03C75A) */
+        naver: 'bg-[#03C75A] text-white hover:bg-[#02b351] active:bg-[#029e49] focus:ring-[#03C75A] shadow-sm border-0',
     };
 
     const sizes = {
