@@ -25,10 +25,11 @@ const Settings = () => {
     age: '' as '20s' | '30s' | '40s+' | '',
     gender: '' as 'male' | 'female' | '',
   })
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [isEditingPreference, setIsEditingPreference] = useState(false)
 
   useEffect(() => {
-    if (!user || isEditing) {
+    if (!user || isEditingProfile) {
       return
     }
 
@@ -38,10 +39,10 @@ const Settings = () => {
       email: user.email,
       bio: user.bio ?? '',
     }))
-  }, [isEditing, user])
+  }, [isEditingProfile, user])
 
   useEffect(() => {
-    if (!preference || isEditing) {
+    if (!preference || isEditingPreference) {
       return
     }
 
@@ -66,27 +67,83 @@ const Settings = () => {
             ? 'female'
             : '',
     }))
-  }, [isEditing, preference])
+  }, [isEditingPreference, preference])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const resetProfileFromUser = () => {
+    if (!user) return
+    setFormData((prev) => ({
+      ...prev,
+      nickname: user.name,
+      email: user.email,
+      bio: user.bio ?? '',
+    }))
+    setIsEditingProfile(false)
+  }
 
+  const resetPreferenceFromSaved = () => {
+    if (!preference) {
+      setFormData((prev) => ({
+        ...prev,
+        purpose: '',
+        age: '',
+        gender: '',
+      }))
+      setIsEditingPreference(false)
+      return
+    }
+    setFormData((prev) => ({
+      ...prev,
+      purpose:
+        preference.usageType === '사적'
+          ? 'personal'
+          : preference.usageType === '공적'
+            ? 'professional'
+            : '',
+      age:
+        preference.ageGroup === '20s' ||
+        preference.ageGroup === '30s' ||
+        preference.ageGroup === '40s+'
+          ? preference.ageGroup
+          : '',
+      gender:
+        preference.gender === '남성'
+          ? 'male'
+          : preference.gender === '여성'
+            ? 'female'
+            : '',
+    }))
+    setIsEditingPreference(false)
+  }
+
+  const handleSaveProfile = () => {
     void (async () => {
       try {
         await updateUserProfile({
           name: formData.nickname,
           bio: formData.bio,
         })
-
-        if (isUserPreferenceFormComplete(formData)) {
-          await updatePreference(toUserPreferenceRequest(formData))
-        }
-
-        toast.success('변경사항이 저장되었습니다.')
-        setIsEditing(false)
+        toast.success('사용자 정보가 저장되었습니다.')
+        setIsEditingProfile(false)
       } catch (error) {
-        console.error('환경설정 저장 실패:', error)
-        toast.error('변경사항 저장 중 오류가 발생했습니다.')
+        console.error('사용자 정보 저장 실패:', error)
+        toast.error('사용자 정보 저장 중 오류가 발생했습니다.')
+      }
+    })()
+  }
+
+  const handleSavePreference = () => {
+    if (!isUserPreferenceFormComplete(formData)) {
+      toast.error('이용 목적, 나이대, 성별을 모두 선택해 주세요.')
+      return
+    }
+    void (async () => {
+      try {
+        await updatePreference(toUserPreferenceRequest(formData))
+        toast.success('취향 정보가 저장되었습니다.')
+        setIsEditingPreference(false)
+      } catch (error) {
+        console.error('취향 정보 저장 실패:', error)
+        toast.error('취향 정보 저장 중 오류가 발생했습니다.')
       }
     })()
   }
@@ -128,7 +185,7 @@ const Settings = () => {
           <section className="bg-white dark:bg-slate-900/50 rounded-xl p-8 shadow-sm border border-primary/5">
             <div className="flex items-center gap-2 mb-8 border-b border-primary/5 pb-4">
               <span className="material-symbols-outlined text-primary">person</span>
-              <h3 className="text-xl font-bold">사용자 정보 수정</h3>
+              <h3 className="text-xl font-bold">사용자 정보</h3>
             </div>
             <div className="flex flex-col md:flex-row gap-10 items-start">
               <div className="relative group">
@@ -149,7 +206,7 @@ const Settings = () => {
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                       닉네임
                     </label>
-                    {isEditing ? (
+                    {isEditingProfile ? (
                       <input
                         type="text"
                         value={formData.nickname}
@@ -180,7 +237,7 @@ const Settings = () => {
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                     한 줄 소개
                   </label>
-                  {isEditing ? (
+                  {isEditingProfile ? (
                     <textarea
                       value={formData.bio}
                       onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
@@ -196,18 +253,35 @@ const Settings = () => {
                 </div>
               </div>
             </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsEditing((prev) => !prev)}
-                className={`px-5 py-2 rounded-xl text-sm font-bold border transition-colors ${
-                  isEditing
-                    ? 'bg-primary text-white border-primary hover:bg-primary/90'
-                    : 'bg-white dark:bg-slate-900 text-primary border-primary/40 hover:border-primary'
-                }`}
-              >
-                {isEditing ? '수정 모드 종료' : '수정하기'}
-              </button>
+            <div className="mt-6 flex justify-end gap-3">
+              {isEditingProfile ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={resetProfileFromUser}
+                    disabled={isUpdatingProfile}
+                    className="px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={isUpdatingProfile}
+                    className="px-5 py-2 rounded-xl text-sm font-bold bg-primary text-white border border-primary hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {isUpdatingProfile ? '저장 중...' : '저장하기'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(true)}
+                  className="inline-flex min-w-[160px] justify-center px-8 py-3 rounded-xl text-sm font-bold border transition-colors bg-white dark:bg-slate-900 text-primary border-primary/40 hover:border-primary"
+                >
+                  수정하기
+                </button>
+              )}
             </div>
           </section>
 
@@ -216,13 +290,13 @@ const Settings = () => {
             <div className="flex items-center gap-2 mb-8 border-b border-primary/5 pb-4">
               <span className="material-symbols-outlined text-primary">tune</span>
               <div>
-                <h3 className="text-xl font-bold">취향 및 온보딩 정보 수정</h3>
+                <h3 className="text-xl font-bold">취향 및 온보딩 정보</h3>
                 <p className="mt-1 text-xs text-slate-500">
                   저장된 취향 정보를 불러와 보여주며, 없으면 빈 값으로 시작합니다.
                 </p>
               </div>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-8">
               {/* Usage Purpose */}
               <div className="space-y-4">
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -231,29 +305,31 @@ const Settings = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <button
                     type="button"
-                    disabled={!isEditing}
+                    disabled={!isEditingPreference}
                     onClick={() =>
-                      isEditing && setFormData({ ...formData, purpose: 'professional' })
+                      isEditingPreference &&
+                      setFormData({ ...formData, purpose: 'professional' })
                     }
                     className={`px-4 py-3 rounded-xl border-2 font-bold transition-all ${
                       formData.purpose === 'professional'
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-primary/10 text-slate-600 dark:text-slate-400'
-                    } ${!isEditing ? 'cursor-not-allowed opacity-70' : 'hover:border-primary/30'}`}
+                    } ${!isEditingPreference ? 'cursor-not-allowed opacity-70' : 'hover:border-primary/30'}`}
                   >
                     비즈니스/공적
                   </button>
                   <button
                     type="button"
-                    disabled={!isEditing}
+                    disabled={!isEditingPreference}
                     onClick={() =>
-                      isEditing && setFormData({ ...formData, purpose: 'personal' })
+                      isEditingPreference &&
+                      setFormData({ ...formData, purpose: 'personal' })
                     }
                     className={`px-4 py-3 rounded-xl border-2 font-bold transition-all ${
                       formData.purpose === 'personal'
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-primary/10 text-slate-600 dark:text-slate-400'
-                    } ${!isEditing ? 'cursor-not-allowed opacity-70' : 'hover:border-primary/30'}`}
+                    } ${!isEditingPreference ? 'cursor-not-allowed opacity-70' : 'hover:border-primary/30'}`}
                   >
                     친목/사적
                   </button>
@@ -268,7 +344,7 @@ const Settings = () => {
                   </p>
                   <select
                     value={formData.age}
-                    disabled={!isEditing}
+                    disabled={!isEditingPreference}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
@@ -276,7 +352,7 @@ const Settings = () => {
                       })
                     }
                     className={`w-full px-4 py-3 rounded-lg border outline-none appearance-none transition-all ${
-                      isEditing
+                      isEditingPreference
                         ? 'border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 focus:border-primary'
                         : 'border-primary/5 bg-slate-100 dark:bg-slate-900 text-slate-500 cursor-not-allowed'
                     }`}
@@ -294,25 +370,29 @@ const Settings = () => {
                   <div className="flex bg-background-light dark:bg-slate-800 rounded-lg p-1 border border-primary/20">
                     <button
                       type="button"
-                      disabled={!isEditing}
-                      onClick={() => isEditing && setFormData({ ...formData, gender: 'male' })}
+                      disabled={!isEditingPreference}
+                      onClick={() =>
+                        isEditingPreference && setFormData({ ...formData, gender: 'male' })
+                      }
                       className={`flex-1 py-2 rounded-md font-bold transition-all ${
                         formData.gender === 'male'
                           ? 'bg-white dark:bg-slate-700 shadow-sm text-primary'
                           : 'text-slate-500'
-                      } ${!isEditing ? 'cursor-not-allowed opacity-70' : ''}`}
+                      } ${!isEditingPreference ? 'cursor-not-allowed opacity-70' : ''}`}
                     >
                       남성
                     </button>
                     <button
                       type="button"
-                      disabled={!isEditing}
-                      onClick={() => isEditing && setFormData({ ...formData, gender: 'female' })}
+                      disabled={!isEditingPreference}
+                      onClick={() =>
+                        isEditingPreference && setFormData({ ...formData, gender: 'female' })
+                      }
                       className={`flex-1 py-2 rounded-md font-bold transition-all ${
                         formData.gender === 'female'
                           ? 'bg-white dark:bg-slate-700 shadow-sm text-primary'
                           : 'text-slate-500'
-                      } ${!isEditing ? 'cursor-not-allowed opacity-70' : ''}`}
+                      } ${!isEditingPreference ? 'cursor-not-allowed opacity-70' : ''}`}
                     >
                       여성
                     </button>
@@ -322,24 +402,36 @@ const Settings = () => {
 
               {/* Bottom Actions */}
               <div className="flex justify-end gap-4 pt-4">
-                <button
-                  type="button"
-                  disabled={!isEditing}
-                  className="px-8 py-4 rounded-xl font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={!isEditing || isUpdatingProfile || isUpdatingPreference}
-                  className="px-10 py-4 rounded-xl bg-primary text-white font-black shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
-                >
-                  {isUpdatingProfile || isUpdatingPreference
-                    ? '저장 중...'
-                    : '변경사항 저장하기'}
-                </button>
+                {isEditingPreference ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={resetPreferenceFromSaved}
+                      disabled={isUpdatingPreference}
+                      className="px-8 py-4 rounded-xl font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSavePreference}
+                      disabled={isUpdatingPreference}
+                      className="px-10 py-4 rounded-xl bg-primary text-white font-black shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                      {isUpdatingPreference ? '저장 중...' : '저장하기'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingPreference(true)}
+                    className="inline-flex min-w-[160px] justify-center px-8 py-3 rounded-xl text-sm font-bold border transition-colors bg-white dark:bg-slate-900 text-primary border-primary/40 hover:border-primary"
+                  >
+                    수정하기
+                  </button>
+                )}
               </div>
-            </form>
+            </div>
           </section>
         </div>
       </main>
