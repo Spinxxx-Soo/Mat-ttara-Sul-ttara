@@ -3,8 +3,7 @@ import toast from 'react-hot-toast'
 
 import LoadingState from '@/components/ui/LoadingState'
 import { useUpdateUserProfileMutation, useUpdateUserPreferenceMutation } from '@/hooks/queries/user/useUserMutations'
-import { useUser } from '@/hooks/queries/user/useUser'
-import { useUserPreference } from '@/hooks/queries/user/useUserPreference'
+import { useUser, useUserPreference } from '@/hooks/queries/user/useUser'
 import {
   fromUserPreferenceResponse,
   isUserPreferenceFormComplete,
@@ -14,7 +13,7 @@ import Sidebar from '../components/Sidebar'
 
 const Settings = () => {
   const { user } = useUser({ enabled: true })
-  const { data: preference } = useUserPreference({ enabled: !!user })
+  const { preference } = useUserPreference({ enabled: !!user })
   const { mutateAsync: updateUserProfile, isPending: isUpdatingProfile } =
     useUpdateUserProfileMutation()
   const { mutateAsync: updatePreference, isPending: isUpdatingPreference } =
