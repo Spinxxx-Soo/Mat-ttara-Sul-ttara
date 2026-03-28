@@ -56,7 +56,7 @@ const Main = () => {
   /** ChatWidget과 동일 파라미터 → React Query 캐시 공유 */
   const { data: sessionMessagesData } = useChatMessages({
     sessionId: activeSessionId,
-    page: 1,
+    page: 0,
     size: 50,
   })
   const hasUserMessageInChat = useMemo(() => {
