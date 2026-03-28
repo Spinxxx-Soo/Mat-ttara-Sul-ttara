@@ -12,6 +12,7 @@ import type {
   GetMessagesRequest,
   SendMessageRequest,
   UpdateMessageRequest,
+  MapLocationRequest,
 } from '@/types/api';
 
 /**
@@ -53,6 +54,26 @@ export const useCreateSession = () => {
     mutationFn: (params: { title: string }) => chatApi.createSession(params),
     onSuccess: () => {
       // 챗봇 관련 모든 쿼리 캐시 무효화 (세션 목록 등)
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chat.all,
+      });
+    },
+    meta: {
+      errorMessage: extractApiErrorMessage,
+    },
+  });
+};
+
+/**
+ * 지도 클릭 위치 → 채팅 세션 반영 훅
+ */
+export const useSetMapLocation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: { sessionId: string } & MapLocationRequest) =>
+      chatApi.setMapLocation(params.sessionId, { lat: params.lat, lng: params.lng }),
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.chat.all,
       });
