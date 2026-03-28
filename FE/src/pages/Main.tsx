@@ -12,7 +12,7 @@ import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
 import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 import { useChatSessionStore } from '@/stores/chatSessionStore'
-import { useSetMapLocation } from '@/hooks/queries/chat/useChat'
+import { useChatMessages, useSetMapLocation } from '@/hooks/queries/chat/useChat'
 import type { Coordinates } from '@/types/map'
 import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey, isSamePlace } from '@/lib/placeIdentity'
 import { usePlanCreateDraftStore } from '@/stores/planCreateDraftStore'
@@ -51,6 +51,17 @@ const Main = () => {
 
   const activeSessionId = useChatSessionStore((s) => s.activeSessionId)
   const { mutate: setMapLocation, isPending: isMapLocationPending } = useSetMapLocation()
+
+  /** ChatWidget과 동일 파라미터 → React Query 캐시 공유 */
+  const { data: sessionMessagesData } = useChatMessages({
+    sessionId: activeSessionId,
+    page: 1,
+    size: 50,
+  })
+  const hasUserMessageInChat = useMemo(
+    () => (sessionMessagesData?.content ?? []).some((m) => m.role === 'USER'),
+    [sessionMessagesData]
+  )
 
   const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
   const mapPlaces = useMemo(() => {
@@ -128,6 +139,8 @@ const Main = () => {
       toast.error('채팅 세션이 준비될 때까지 잠시만 기다려 주세요.')
       return
     }
+    // 사용자가 채팅으로 한 번이라도 말을 건 뒤에만 AI(세션)에 지도 위치를 넘긴다.
+    if (!hasUserMessageInChat) return
     if (isMapLocationPending) return
 
     setMapLocation(
