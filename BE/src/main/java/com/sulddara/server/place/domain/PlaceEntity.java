@@ -23,6 +23,7 @@ public class PlaceEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "place_id")
     private Long id;
 
     @Column(nullable = false)
