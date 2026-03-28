@@ -166,8 +166,8 @@ public class PlaceServiceImpl implements PlaceService {
 
 
     @Override
-    public List<RecommendedPlace> getRecommendedFromRedis(Long userId, Double lat, Double lng) {
-        String redisKey = "recommend:user:" + userId;
+    public List<RecommendedPlace> getRecommendedFromRedis(Long userId, Long sessionId, Double lat, Double lng) {
+        String redisKey = "recommend:session:" + sessionId + ":user:" + userId;
         String cachedData = redisTemplate.opsForValue().get(redisKey);
 
         if (cachedData == null || cachedData.isBlank()) {
@@ -197,12 +197,12 @@ public class PlaceServiceImpl implements PlaceService {
         PlaceEntity place = placeRepository.findByIdWithReviews(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
 
-        if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
-            String s3Url = s3Service.uploadFromExternalUrl(place.getOriginImgUrl());
-            if (s3Url != null) {
-                updatePlaceImageUrl(placeId, s3Url);
-            }
-        }
+//        if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
+//            String s3Url = s3Service.uploadFromExternalUrl(place.getOriginImgUrl());
+//            if (s3Url != null) {
+//                updatePlaceImageUrl(placeId, s3Url);
+//            }
+//        }
 
         if (isMissingData(place)) {
             fetchAndEnrichData(place);

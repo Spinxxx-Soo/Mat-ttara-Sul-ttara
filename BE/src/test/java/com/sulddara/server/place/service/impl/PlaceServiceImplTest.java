@@ -134,6 +134,7 @@ class PlaceServiceImplTest {
     void getRecommendedFromRedis_FilteringTest() throws JsonProcessingException {
         // given
         Long userId = 1L;
+        Long sessionId = 2L;
         Double userLat = 37.5000; // 기준점
         Double userLng = 127.0000;
 
@@ -150,7 +151,7 @@ class PlaceServiceImplTest {
         when(valueOperations.get(redisKey)).thenReturn(jsonList);
 
         // when
-        List<RecommendedPlace> result = placeService.getRecommendedFromRedis(userId, userLat, userLng);
+        List<RecommendedPlace> result = placeService.getRecommendedFromRedis(userId, sessionId, userLat, userLng);
 
         // then
         assertThat(result).hasSize(1);
