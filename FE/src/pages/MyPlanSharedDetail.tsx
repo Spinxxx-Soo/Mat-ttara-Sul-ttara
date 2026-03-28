@@ -27,23 +27,7 @@ const MyPlanSharedDetail = () => {
               <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">공유 플랜 보기</h2>
               <p className="text-slate-500 text-sm mt-1">토큰 기반으로 공유된 플랜 정보를 확인합니다.</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {plan && (
-                <>
-                  <button
-                    onClick={() => navigate(`/my-plan/${plan.planId}`)}
-                    className="px-4 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-primary/10"
-                  >
-                    상세보기
-                  </button>
-                  <button
-                    onClick={() => navigate(`/my-plan/${plan.planId}/edit`)}
-                    className="px-4 py-2 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-                  >
-                    수정하기
-                  </button>
-                </>
-              )}
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate(-1)}
                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-primary/10"
