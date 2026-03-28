@@ -47,6 +47,11 @@ const Sidebar = ({ className = '' }: SidebarProps) => {
     return location.pathname.startsWith(path)
   }
 
+  const profileImageUrl = user?.profileImage?.trim()
+  const avatarSrc =
+    profileImageUrl ||
+    `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.email || user?.name || 'user')}`
+
   return (
     <aside className={`w-20 h-full flex flex-col justify-between items-center py-6 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0 z-50 shadow-sm ${className}`}>
       <div className="flex flex-col gap-8 items-center w-full">
@@ -116,10 +121,17 @@ const Sidebar = ({ className = '' }: SidebarProps) => {
         >
           <img
             className="w-full h-full object-cover"
-            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.email || user?.name || 'user')}`}
-            alt={user?.name ? `${user.name} profile` : 'User profile'}
+            src={avatarSrc}
+            alt={user?.name ? `${user.name} 프로필` : '프로필'}
+            referrerPolicy={profileImageUrl ? 'no-referrer' : undefined}
             onError={(e) => {
               const target = e.target as HTMLImageElement
+              if (profileImageUrl && !target.dataset.fallbackFromProfile) {
+                target.dataset.fallbackFromProfile = '1'
+                target.removeAttribute('referrerpolicy')
+                target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.email || user?.name || 'user')}`
+                return
+              }
               target.src = 'https://via.placeholder.com/48'
             }}
           />
