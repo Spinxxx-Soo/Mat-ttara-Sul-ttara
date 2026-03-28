@@ -39,11 +39,12 @@ public class PlaceController {
     @GetMapping("/recommend")
     public ResponseEntity<List<RecommendedPlace>> getRecommendedPlaces(
             @AuthenticationPrincipal CustomOAuth2User user,
+            @RequestParam Long sessionId,
             @RequestParam Double lat,
             @RequestParam Double lng
     ) {
         Long userId = user.getUserId();
-        var response = placeService.getRecommendedFromRedis(userId, lat, lng);
+        var response = placeService.getRecommendedFromRedis(userId, sessionId ,lat, lng);
         return ResponseEntity.ok(response);
     }
 
