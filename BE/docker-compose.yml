@@ -5,21 +5,28 @@ services:
     image: mysql:8.0
     container_name: sulddara-mysql
     environment:
+      # matsul: 공식 이미지가 첫 기동 시 자동 생성. meal_reco: ./mysql-init/01-create-meal-reco.sql (같은 컨테이너, 스키마만 추가)
       MYSQL_DATABASE: matsul
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD} # .env 파일이나 환경변수에서 가져옴
     ports:
-      - "3307:3306"
+      - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      # docker-entrypoint-initdb.d → 최초 기동(빈 볼륨)에만 실행. 기존 mysql-data 볼륨이면 meal_reco 는 수동 CREATE 또는 볼륨 초기화.
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
 
+  # LangGraph 체크포인터(RediSearch 인덱스)는 Redis Stack 필요. 일반 redis:latest 는 모듈 없음.
+  # 기존 redis-data 볼륨에 Redis 8 등이 쓴 RDB v13 이 있으면 Stack(7.x)이 AOF 로딩 실패 → 컨테이너 종료.
+  # 볼륨명을 redis-stack-data 로 바꿔 새 데이터 디렉터리 사용(구 볼륨은 docker volume rm 으로 정리 가능).
   redis:
-    image: redis:latest
+    image: redis/redis-stack-server:latest
     container_name: sulddara-redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes # 비밀번호는 개발 편의상 뺐습니다.
+    environment:
+      REDIS_ARGS: "--appendonly yes"
     volumes:
-      - redis-data:/data
+      - redis-stack-data:/data
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
@@ -41,5 +48,5 @@ services:
 
 volumes:
   mysql-data:
-  redis-data:
+  redis-stack-data:
   es-data:

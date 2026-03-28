@@ -4,7 +4,7 @@ import sys
 
 import mysql.connector
 
-from apps.services.save_review_service import SaveReviewService
+from apps.services.review.save_review_service import SaveReviewService
 
 PLACES_INPUT_PATH = "places_data.json"
 

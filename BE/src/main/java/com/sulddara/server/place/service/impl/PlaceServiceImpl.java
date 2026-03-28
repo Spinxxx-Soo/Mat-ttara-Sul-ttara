@@ -21,7 +21,6 @@ import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
 import com.sulddara.server.place.service.PlaceService;
-import com.sulddara.server.s3.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -59,7 +58,6 @@ public class PlaceServiceImpl implements PlaceService {
     private final ObjectMapper objectMapper;
     private final RedisTemplate<String, String> redisTemplate;
     private final WebClient webClient;
-    private final S3Service s3Service;
     private final ElasticsearchOperations elasticsearchOperations;
 
 
@@ -177,20 +175,13 @@ public class PlaceServiceImpl implements PlaceService {
             List<RecommendedPlace> allRecommended = objectMapper.readValue(cachedData,
                     new TypeReference<List<RecommendedPlace>>() {});
 
-            return allRecommended.stream()
-                    .filter(place -> isWithinRadius(lat, lng, place.getLat(), place.getLng()))
-                    .collect(Collectors.toList());
+            // AI가 이미 후보·랭킹으로 좁힌 목록. FE 위치 스토어/지도 중심과 1km 필터가 어긋나면
+            // 추천이 전부 사라지는 문제가 있어 거리 필터는 적용하지 않는다. (lat,lng는 API 호환용)
+            return allRecommended;
 
         } catch (Exception e) {
             throw new BaseException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
-    }
-
-    private boolean isWithinRadius(double userLat, double userLng, double placeLat, double placeLng) {
-//        double distance = calculateDistance(userLat, userLng, placeLat, placeLng);
-//        log.info("[DISTANCE_CHECK] 거리: {} km", distance);
-//        return distance <= 1.0;
-        return true;
     }
 
     @Override
@@ -198,13 +189,6 @@ public class PlaceServiceImpl implements PlaceService {
     public PlaceDetailResponse getPlaceDetail(Long placeId) {
         PlaceEntity place = placeRepository.findByIdWithReviews(placeId)
                 .orElseThrow(() -> new BaseException(ErrorCode.ENTITY_NOT_FOUND));
-
-//        if (place.getImageUrl() == null && place.getOriginImgUrl() != null) {
-//            String s3Url = s3Service.uploadFromExternalUrl(place.getOriginImgUrl());
-//            if (s3Url != null) {
-//                updatePlaceImageUrl(placeId, s3Url);
-//            }
-//        }
 
         if (isMissingData(place)) {
             fetchAndEnrichData(place);

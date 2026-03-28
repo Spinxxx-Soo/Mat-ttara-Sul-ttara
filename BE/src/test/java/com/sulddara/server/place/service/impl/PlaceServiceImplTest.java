@@ -11,7 +11,6 @@ import com.sulddara.server.place.dto.PlaceSearchResponseDto;
 import com.sulddara.server.place.repository.PlaceRepository;
 import com.sulddara.server.place.repository.PlaceSearchRepository;
 import com.sulddara.server.place.service.ExternalPlaceSearchService;
-import com.sulddara.server.s3.service.S3Service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,9 +54,6 @@ class PlaceServiceImplTest {
 
     @Mock
     private ValueOperations<String, String> valueOperations;
-
-    @Mock
-    private S3Service s3Service;
 
     @Mock
     private WebClient webClient;
@@ -130,17 +126,14 @@ class PlaceServiceImplTest {
     }
 
     @Test
-    @DisplayName("Redis에서 추천 장소를 가져와 1km 이내인 장소만 필터링한다")
-    void getRecommendedFromRedis_FilteringTest() throws JsonProcessingException {
+    @DisplayName("Redis에 저장된 추천 장소는 거리와 관계없이 모두 반환한다")
+    void getRecommendedFromRedis_ReturnsAllCached() throws JsonProcessingException {
         // given
         Long userId = 1L;
-        Long sessionId = 2L;
-        Double userLat = 37.5000; // 기준점
+        Double userLat = 37.5000;
         Double userLng = 127.0000;
 
-        // 1. 500m 거리 장소 (포함되어야 함)
         RecommendedPlace nearPlace = new RecommendedPlace(101L, "가까운 곳", 37.5040, 127.0000, "주소1");
-        // 2. 1.5km 거리 장소 (제외되어야 함)
         RecommendedPlace farPlace = new RecommendedPlace(102L, "먼 곳", 37.5150, 127.0000, "주소2");
 
         List<RecommendedPlace> mockList = List.of(nearPlace, farPlace);
@@ -154,8 +147,8 @@ class PlaceServiceImplTest {
         List<RecommendedPlace> result = placeService.getRecommendedFromRedis(userId, sessionId, userLat, userLng);
 
         // then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getName()).isEqualTo("가까운 곳");
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(RecommendedPlace::getName).containsExactly("가까운 곳", "먼 곳");
     }
 
     @Test
@@ -197,38 +190,6 @@ class PlaceServiceImplTest {
         // when & then
         assertThatThrownBy(() -> placeService.getPlaceDetail(placeId))
                 .isInstanceOf(BaseException.class);
-    }
-
-    @Test
-    @DisplayName("이미지가 없고 원본 URL이 있을 때 S3 업로드가 실행되어야 한다")
-    void shouldUploadToS3WhenImageIsNull() {
-        // Given
-        Long placeId = 1L;
-        PlaceEntity place = createMockPlace(placeId, "맛술집", null);
-        ReflectionTestUtils.setField(place, "imageUrl", null); // 이미지 없음
-        ReflectionTestUtils.setField(place, "originImgUrl", "http://google.com/photo.jpg");
-
-        // AI 통신 안 타게 설정 (MissingData가 아니도록)
-        ReflectionTestUtils.setField(place, "phone", "02-123-4567");
-        ReflectionTestUtils.setField(place, "url", "http://test.com");
-        ReflectionTestUtils.setField(place, "description", "설명");
-
-        // [수정] 서비스 로직 내에서 두 종류의 조회가 일어나므로 둘 다 Mocking 필요
-        given(placeRepository.findByIdWithReviews(placeId)).willReturn(Optional.of(place));
-        // updatePlaceImageUrl 메서드 내부에서 findById(placeId)를 호출함
-        given(placeRepository.findById(placeId)).willReturn(Optional.of(place));
-
-        given(s3Service.uploadFromExternalUrl(anyString())).willReturn("http://my-s3.com/saved.jpg");
-
-        // When
-        placeService.getPlaceDetail(placeId);
-
-        // Then
-        // 1. S3 서비스가 올바른 URL로 호출되었는지 확인
-        verify(s3Service, times(1)).uploadFromExternalUrl(eq("http://google.com/photo.jpg"));
-
-        // 2. 엔티티의 이미지가 S3 URL로 업데이트 되었는지 확인
-        assertThat(place.getImageUrl()).isEqualTo("http://my-s3.com/saved.jpg");
     }
 
     private PlaceEntity createMockPlace(Long id, String name, String openingHours) {

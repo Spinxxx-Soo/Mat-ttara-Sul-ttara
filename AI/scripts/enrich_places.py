@@ -1,7 +1,7 @@
 import os
 import sys
 
-from apps.services.enrich_place_service import EnrichPlaceService
+from apps.services.place.enrich_place_service import EnrichPlaceService
 
 def load_env(path: str = ".env") -> None:
     if not os.path.exists(path):
