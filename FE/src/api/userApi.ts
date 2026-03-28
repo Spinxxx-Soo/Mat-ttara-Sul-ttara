@@ -13,9 +13,7 @@ export const userApi = {
   },
 
   getMyPreference: async (): Promise<UserPreference> => {
-    const response = await apiClient.get<UserPreference>(
-      '/api/v1/users/me/preference'
-    );
+    const response = await apiClient.get<UserPreference>('/api/v1/users/me/preference');
     return response.data;
   },
 

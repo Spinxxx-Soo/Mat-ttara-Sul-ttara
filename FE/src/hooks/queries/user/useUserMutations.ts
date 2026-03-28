@@ -24,6 +24,7 @@ export const useCreateUserPreferenceMutation = () => {
       userApi.createMyPreference(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.user.preference() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
     },
   });
 };
@@ -36,6 +37,7 @@ export const useUpdateUserPreferenceMutation = () => {
       userApi.updateMyPreference(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.user.preference() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
     },
   });
 };

@@ -267,7 +267,10 @@ export default function KakaoMap({
           markerObj.onOverlayClickCleanup();
         }
         if (markerObj.onKakaoClick) {
-          kakao.maps.event.removeListener(markerObj.marker, 'click', markerObj.onKakaoClick);
+          if (markerObj.marker) {
+            kakao.maps.event.removeListener(markerObj.marker, 'click', markerObj.onKakaoClick);
+            markerObj.marker.setMap(null);
+          }
           kakao.maps.event.removeListener(markerObj.overlay, 'click', markerObj.onKakaoClick);
         }
         markerObj.overlay.setMap(null);
@@ -338,14 +341,7 @@ export default function KakaoMap({
           clickable: true,
         });
 
-        const marker = new kakao.maps.Marker({
-          position: new kakao.maps.LatLng(place.lat, place.lng),
-          map: currentMap,
-          opacity: 0,
-        });
-
         const onKakaoClick = () => onPlaceClickRef.current?.(place);
-        kakao.maps.event.addListener(marker, 'click', onKakaoClick);
         // 보이는 오버레이 자체에도 클릭 리스너를 건다(가장 확실)
         kakao.maps.event.addListener(overlay, 'click', onKakaoClick);
 
@@ -358,7 +354,6 @@ export default function KakaoMap({
 
         placesMarkersRef.current.set(pk, {
           overlay,
-          marker,
           onOverlayClickCleanup: () => cleanup(),
           onKakaoClick,
         });
