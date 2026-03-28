@@ -7,8 +7,8 @@ Redis로부터 수신한 추천 요청을 처리하는 메인 비즈니스 로�
 """
 from typing import Dict, List, Tuple
 
-from apps.domain.recommend.memory_keys import ORDERED_KEY_NAMES, VECTOR_DIM
-from apps.domain.recommend.vector_utils import (
+from apps.services.place.memory_keys import ORDERED_KEY_NAMES, VECTOR_DIM
+from apps.services.place.vector_utils import (
     dict_to_vector,
     merge_vectors,
     rank_places,

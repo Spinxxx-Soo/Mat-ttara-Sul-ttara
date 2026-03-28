@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-from apps.domain.review.review_processor import is_quota_error, parse_publish_time
+from apps.services.review.review_processor import is_quota_error, parse_publish_time
 from apps.repositories.place_repository import PlaceRepository
 from apps.repositories.review_repository import ReviewRepository
 from apps.schemas.review_schema import ReviewRecord

@@ -4,7 +4,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from AI.apps.services.naver_local_service import NaverLocalService
+from apps.services.place.naver_local_service import NaverLocalService
 
 _TAG_RE = re.compile(r"<[^>]+>")
 

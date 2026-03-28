@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-from apps.services.google_collect_place_service import CollectPlaceService
+from apps.services.place.google_collect_place_service import CollectPlaceService
 
 
 def load_env(path: str = ".env") -> None:

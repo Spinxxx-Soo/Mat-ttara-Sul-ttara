@@ -6,7 +6,7 @@
 import math
 from typing import Dict, List, Tuple, Optional
 
-from apps.domain.recommend.memory_keys import ORDERED_KEY_NAMES
+from apps.services.place.memory_keys import ORDERED_KEY_NAMES
 
 
 # ────────────────────────────────────────
