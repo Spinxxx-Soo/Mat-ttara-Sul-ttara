@@ -4,14 +4,17 @@ import toast from 'react-hot-toast'
 import LoadingState from '@/components/ui/LoadingState'
 import { useUpdateUserProfileMutation, useUpdateUserPreferenceMutation } from '@/hooks/queries/user/useUserMutations'
 import { useUser } from '@/hooks/queries/user/useUser'
+import { useUserPreference } from '@/hooks/queries/user/useUserPreference'
 import {
+  fromUserPreferenceResponse,
   isUserPreferenceFormComplete,
   toUserPreferenceRequest,
 } from '@/lib/userPreference'
 import Sidebar from '../components/Sidebar'
 
 const Settings = () => {
-  const { user } = useUser({ enabled: false })
+  const { user } = useUser({ enabled: true })
+  const { data: preference } = useUserPreference({ enabled: !!user })
   const { mutateAsync: updateUserProfile, isPending: isUpdatingProfile } =
     useUpdateUserProfileMutation()
   const { mutateAsync: updatePreference, isPending: isUpdatingPreference } =
@@ -27,7 +30,7 @@ const Settings = () => {
   const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
-    if (user && formData.email !== user.email && !isEditing) {
+    if (user && !isEditing) {
       setFormData((prev) => ({
         ...prev,
         nickname: user.name,
@@ -35,7 +38,17 @@ const Settings = () => {
         bio: user.bio ?? '',
       }))
     }
-  }, [formData.email, isEditing, user])
+  }, [isEditing, user])
+
+  useEffect(() => {
+    if (preference && !isEditing) {
+      const mappedPreference = fromUserPreferenceResponse(preference)
+      setFormData((prev) => ({
+        ...prev,
+        ...mappedPreference,
+      }))
+    }
+  }, [isEditing, preference])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -187,7 +200,7 @@ const Settings = () => {
               <div>
                 <h3 className="text-xl font-bold">취향 및 온보딩 정보 수정</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  현재 저장된 취향 정보 조회 API가 없어, 변경할 값만 다시 선택해 저장합니다.
+                  선호하는 분위기와 나이대 등 맞춤형 추천을 위한 정보를 설정하세요.
                 </p>
               </div>
             </div>

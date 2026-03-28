@@ -21,7 +21,12 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <GoogleOAuthProvider clientId={envConfig.googleClientId}>
           <Toaster position="top-center" reverseOrder={false} />
-          <RouterProvider router={router} />
+          <RouterProvider
+            router={router}
+            future={{
+              v7_startTransition: true,
+            }}
+          />
           {envConfig.isDev && <ReactQueryDevtools initialIsOpen={false} />}
         </GoogleOAuthProvider>
       </QueryClientProvider>
