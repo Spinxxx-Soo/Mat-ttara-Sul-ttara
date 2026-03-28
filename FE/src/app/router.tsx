@@ -88,4 +88,10 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+], {
+  // @ts-expect-error - Future flags are supported by the runtime but may be missing in the current version's types
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+  },
+});

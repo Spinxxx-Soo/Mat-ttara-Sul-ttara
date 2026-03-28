@@ -12,6 +12,13 @@ export const userApi = {
     return response.data;
   },
 
+  getMyPreference: async (): Promise<UserPreference> => {
+    const response = await apiClient.get<UserPreference>(
+      '/api/v1/users/me/preference'
+    );
+    return response.data;
+  },
+
   updateMyProfile: async (payload: UpdateUserRequest): Promise<UserInfo> => {
     const response = await apiClient.patch<UserInfo>('/api/v1/users/me', payload);
     return response.data;
