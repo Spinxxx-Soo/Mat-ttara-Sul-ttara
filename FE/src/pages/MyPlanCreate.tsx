@@ -20,6 +20,7 @@ import {
   getPlanMutationErrorMessage,
 } from '@/lib/planUi'
 import { useAuthStore } from '@/stores/authStore'
+import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
 import { FALLBACK_LOCATION, useLocationStore } from '@/stores/locationStore'
 import type { Place } from '@/types/api'
 
@@ -33,7 +34,11 @@ const MyPlanCreate = () => {
   // 지도 관련 상태
   const [mapCenter, setMapCenter] = useState({ lat: userLat || FALLBACK_LOCATION.lat, lng: userLng || FALLBACK_LOCATION.lng })
   const [zoom, setZoom] = useState(15)
-  const [selectedPlaces, setSelectedPlaces] = useState<Place[]>([])
+  const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
+  const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
+  const [selectedPlaces, setSelectedPlaces] = useState<Place[]>(
+    () => useChatMapStore.getState().aiRecommendedPlaces
+  )
 
   // 데이터 쿼리 (S14P21B205-129 연동)
   const { data: places = [], isLoading: isPlacesLoading } = useNearbyPlaces(
@@ -103,6 +108,15 @@ const MyPlanCreate = () => {
   const removePlace = (placeToRemove: Place) => {
     setSelectedPlaces((prev) => prev.filter((place) => !isSamePlace(place, placeToRemove)))
   }
+
+  useEffect(() => {
+    if (aiRecommendedPlaces.length === 0) {
+      return
+    }
+
+    setSelectedPlaces((prev) => mergeByPlaceId(prev, aiRecommendedPlaces))
+    clearAiRecommendedPlaces()
+  }, [aiRecommendedPlaces, clearAiRecommendedPlaces])
 
   const syncSelectedPlaces = async () => {
     const syncedPlaces = await Promise.all(

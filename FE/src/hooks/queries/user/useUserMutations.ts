@@ -17,15 +17,25 @@ export const useUpdateUserProfileMutation = () => {
 };
 
 export const useCreateUserPreferenceMutation = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (payload: OnboardingRequest) =>
       userApi.createMyPreference(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+    },
   });
 };
 
 export const useUpdateUserPreferenceMutation = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (payload: OnboardingRequest) =>
       userApi.updateMyPreference(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+    },
   });
 };

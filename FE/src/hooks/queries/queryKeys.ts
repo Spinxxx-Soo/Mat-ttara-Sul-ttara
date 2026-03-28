@@ -37,6 +37,7 @@ export const queryKeys = {
     user: {
         all: ['user'] as const,
         me: () => [...queryKeys.user.all, 'me'] as const,
+        preference: () => [...queryKeys.user.all, 'preference'] as const,
     },
 
     // --- 챗봇 (Chat) ---
