@@ -1,4 +1,4 @@
-import { Plan, PlanDetail, ApiCursorPaginationResponse } from '@/types/api';
+import { ApiCursorPaginationResponse, Plan, PlanDetail, PlanPlace } from '@/types/api';
 import { PlanUIModel, PlanListUIModel } from '@/types/plan';
 import dayjs from 'dayjs';
 
@@ -22,15 +22,17 @@ export const mapPlanToUI = (plan: Plan | PlanDetail): PlanUIModel => {
   const thumbnailUrl = plan.thumbnailUrl || defaultImages[plan.planId % defaultImages.length];
 
   // 상세 장소 정보가 있는 경우 (PlanDetail) 매핑
-  const places = 'details' in plan ? plan.details.map(d => ({
+  const rawPlaces = (plan as PlanDetail & { details?: PlanPlace[] }).places
+    ?? (plan as { details?: PlanPlace[] }).details;
+  const places = rawPlaces?.map((d) => ({
     placeId: d.placeId,
     name: d.place?.name || '알 수 없는 장소',
     address: d.place?.address || '',
     category: d.place?.category ?? undefined,
     lat: d.place?.lat || 0,
     lng: d.place?.lng || 0,
-    seqNo: d.seqNo
-  })) : undefined;
+    seqNo: d.seqNo,
+  }));
 
   return {
     ...plan,

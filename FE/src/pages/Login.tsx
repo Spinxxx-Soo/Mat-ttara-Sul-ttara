@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useGoogleLogin } from '@react-oauth/google'
 import { useQueryClient } from '@tanstack/react-query'
 import { socialLogin } from '@/api/authApi'
@@ -17,19 +17,11 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const resetAuthQueries = () => {
+  const resetAuthQueries = useCallback(() => {
     queryClient.removeQueries({ queryKey: queryKeys.user.all })
     queryClient.removeQueries({ queryKey: queryKeys.plan.all })
     queryClient.removeQueries({ queryKey: queryKeys.chat.all })
-  }
-
-  // URL에서 네이버 인증 코드 확인
-  useEffect(() => {
-    const naverCode = getNaverCodeFromUrl()
-    if (naverCode) {
-      handleNaverCallback(naverCode)
-    }
-  }, [])
+  }, [queryClient])
 
   // 구글 로그인 성공 핸들러
   const handleGoogleSuccess = async (response: { code: string }) => {
@@ -49,15 +41,14 @@ const Login = () => {
 
       // 신규 유저 여부에 따라 리다이렉트
       if (loginResponse.isNewUser) {
-        navigate('/onboarding') // 신규 유저 -> 온보딩
+        navigate('/onboarding', { replace: true }) // 신규 유저 -> 온보딩
       } else {
-        navigate('/') // 기존 유저 -> 메인
+        navigate('/', { replace: true }) // 기존 유저 -> 메인
       }
     } catch (err: any) {
       console.error('구글 로그인 실패:', err)
-      setError(err.response?.data?.message || '로그인에 실패했습니다. 다시 시도해주세요.')
-    } finally {
       setIsLoading(false)
+      setError(err.response?.data?.message || '로그인에 실패했습니다. 다시 시도해주세요.')
     }
   }
 
@@ -88,7 +79,7 @@ const Login = () => {
   }
 
   // 네이버 콜백 처리
-  const handleNaverCallback = async (code: string) => {
+  const handleNaverCallback = useCallback(async (code: string) => {
     try {
       setIsLoading(true)
       setError(null)
@@ -108,17 +99,24 @@ const Login = () => {
 
       // 신규 유저 여부에 따라 리다이렉트
       if (loginResponse.isNewUser) {
-        navigate('/onboarding') // 신규 유저 -> 온보딩
+        navigate('/onboarding', { replace: true }) // 신규 유저 -> 온보딩
       } else {
-        navigate('/') // 기존 유저 -> 메인
+        navigate('/', { replace: true }) // 기존 유저 -> 메인
       }
     } catch (err: any) {
       console.error('네이버 로그인 실패:', err)
-      setError(err.response?.data?.message || '로그인에 실패했습니다. 다시 시도해주세요.')
-    } finally {
       setIsLoading(false)
+      setError(err.response?.data?.message || '로그인에 실패했습니다. 다시 시도해주세요.')
     }
-  }
+  }, [navigate, resetAuthQueries, setAuth])
+
+  // URL에서 네이버 인증 코드 확인
+  useEffect(() => {
+    const naverCode = getNaverCodeFromUrl()
+    if (naverCode) {
+      void handleNaverCallback(naverCode)
+    }
+  }, [handleNaverCallback])
 
   return (
     <div className="relative h-screen w-full overflow-y-auto">
@@ -206,9 +204,10 @@ const Login = () => {
           <Button
             onClick={handleNaverLogin}
             disabled={isLoading}
+            variant="naver"
             size="lg"
             fullWidth
-            className="h-14 rounded-xl text-white bg-[#03C75A] hover:bg-[#02b351] border-none shadow-none relative flex justify-center items-center"
+            className="h-14 rounded-xl relative flex justify-center items-center shadow-md hover:shadow-lg transition-shadow"
           >
             <div className="w-5 h-5 flex items-center justify-center font-bold text-lg text-[#03C75A] bg-white rounded absolute left-5">
               N
