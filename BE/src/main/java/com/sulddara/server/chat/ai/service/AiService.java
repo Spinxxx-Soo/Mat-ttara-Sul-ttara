@@ -81,9 +81,21 @@ public class AiService {
                 .build();
 
         if (isSync){
+            SessionState currentState = getSessionState(sessionId);
+            PreferenceSummary preference = getPreferenceSummary(userId);
+
+            boolean isLocationTrigger = Boolean.TRUE.equals(redisTemplate.hasKey("ai:flag:" + sessionId));
+
+            if (!isLocationTrigger) {
+                currentState = new SessionState(
+                        null, null,
+                        currentState.time(), currentState.title(),
+                        currentState.meetingDate(), null, currentState.extraData()
+                );
+            }
             aiChatRequest = aiChatRequest.toBuilder()
-                    .sessionState(getSessionState(sessionId))
-                    .preferenceSummary(getPreferenceSummary(userId))
+                    .sessionState(currentState)
+                    .preferenceSummary(preference)
                     .build();
         }
 
@@ -138,6 +150,7 @@ public class AiService {
                 log.warn("[ai] chatResponse 가 null — 빈 문자열로 저장 sessionId={}", sessionId);
                 assistantText = "";
             }
+            SessionState finalState = response.getParsedState();
             if ("RECOMMENDATION".equals(response.getType()) && response.getPlaces() != null) {
                 String redisKey = "recommend:session:" + sessionId + ":user:" + userId;
                 String placesJson = objectMapper.writeValueAsString(response.getPlaces());
@@ -146,19 +159,31 @@ public class AiService {
                         sessionId, userId, response.getPlaces().size());
                 assistantText = assistantText + "||" + placesJson;
                 log.info("[ai] RECOMMENDATION 데이터 결합 완료: sessionId={}", sessionId);
+                if (finalState != null) {
+                    finalState = new SessionState(
+                            finalState.lat(),
+                            finalState.lng(),
+                            finalState.time(),
+                            finalState.title(),
+                            finalState.meetingDate(),
+                            null,
+                            finalState.extraData()
+                    );
+                }
             }
 
             long messageId = saveMessage(sessionId, userId, RoleType.ASSISTANT.toString(), assistantText);
 
+            SessionState finalState1 = finalState;
             chatSessionRepository.findById(sessionId).ifPresent(session -> {
                 session.touch();
 
                 if (response.getTitle() != null && !response.getTitle().isBlank()) {
                     session.updateTitle(response.getTitle());
                 }
-                if (response.getParsedState() != null) {
+                if (finalState1 != null) {
                     try {
-                        String parsedJson = objectMapper.writeValueAsString(response.getParsedState());
+                        String parsedJson = objectMapper.writeValueAsString(finalState1);
                         session.updateState(parsedJson);
                         redisTemplate.opsForValue().set("ai:sync:" + sessionId, parsedJson, Duration.ofHours(24));
                     } catch (JsonProcessingException e) {
@@ -180,7 +205,7 @@ public class AiService {
                     RoleType.ASSISTANT.toString(),
                     assistantText,
                     response.getType(),
-                    response.getParsedState(),
+                    finalState1,
                     response.getTitle(),
                     Instant.now().toEpochMilli()
             ));
@@ -214,7 +239,7 @@ public class AiService {
     public PreferenceSummary getPreferenceSummary(long userId){
         return userPreferenceRepository.findByUserIdWithUser(userId)
                 .map(up -> new PreferenceSummary(up.getUsageType(), up.getAgeGroup(), up.getGender()))
-                .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
+                .orElseGet(() -> new PreferenceSummary("NOT_SPECIFIED", "UNKNOWN", "UNKNOWN"));
     }
 
     public void sendCandidatesToAi(long sessionId, long userId, SessionState updatedState) {

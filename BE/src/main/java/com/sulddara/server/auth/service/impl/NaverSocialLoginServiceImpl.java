@@ -11,6 +11,7 @@ import com.sulddara.server.auth.service.SocialLoginService;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -28,6 +29,7 @@ import java.util.Map;
 
 @Service("naverSocialLoginService")
 @RequiredArgsConstructor
+@Slf4j
 public class NaverSocialLoginServiceImpl implements SocialLoginService {
     private final UserService userService;
     private final JwtUtil jwtUtil;
@@ -93,6 +95,7 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
             }
             return (String) body.get("access_token");
         } catch (Exception e) {
+            log.error("[Naver OAuth] 로그인 처리 중 상세 에러: ", e);
             throw new BaseException(ErrorCode.SOCIAL_LOGIN_ERROR);
         }
     }
