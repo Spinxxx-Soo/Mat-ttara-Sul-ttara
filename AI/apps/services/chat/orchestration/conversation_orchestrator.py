@@ -128,6 +128,12 @@ class ConversationOrchestrator:
         await self.state_store.save_user_message(ctx.thread_id, ctx.user_message)
 
         loaded = self._load_state_after_user_message(request)
+        preference_profile: dict[str, Any] | None = None
+        if request.preferenceSummary is not None:
+            preference_profile = request.preferenceSummary.model_dump(
+                mode="json", exclude_none=True
+            )
+
         artifacts = await self._parse_and_save_state(
             thread_id=ctx.thread_id,
             user_id=ctx.user_id,
@@ -136,6 +142,7 @@ class ConversationOrchestrator:
             previous_parsed_state=loaded.previous_parsed_state,
             previous_preference_state=loaded.previous_preference_state,
             target_slot_hint=loaded.target_slot_hint,
+            preference_profile=preference_profile,
         )
 
         response_meta = await self._prepare_response_meta(
@@ -244,6 +251,7 @@ class ConversationOrchestrator:
         previous_parsed_state: dict[str, Any],
         previous_preference_state: dict[str, Any],
         target_slot_hint: Optional[str],
+        preference_profile: Optional[dict[str, Any]] = None,
     ) -> _TurnArtifacts:
         rec = await self.recommendation_parser.parse_turn(
             user_message=user_message,
@@ -252,6 +260,7 @@ class ConversationOrchestrator:
             previous_preference_state=previous_preference_state,
             thread_id=thread_id,
             user_id=user_id,
+            preference_profile=preference_profile,
         )
         dialogue = self.conversation_parser.parse_turn(
             user_message=user_message,
