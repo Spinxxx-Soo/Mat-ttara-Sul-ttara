@@ -339,8 +339,8 @@ const Search = () => {
                 <div className="p-4 text-center text-slate-500">검색 중...</div>
               )}
               {error && (
-                <div className="p-4 text-center text-red-500">
-                  검색 중 오류가 발생했습니다.
+                <div className="p-4 text-center text-sm leading-relaxed text-red-600 dark:text-red-400">
+                  {extractApiErrorMessage(error, '검색 중 오류가 발생했습니다.')}
                 </div>
               )}
               {!isLoading && !error && places.length === 0 && committedKeyword && (

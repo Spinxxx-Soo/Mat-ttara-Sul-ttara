@@ -14,6 +14,9 @@ interface ChatMapState {
   setAiRecommendedPlaces: SetPlaces;
   mergeAiRecommendedPlaces: (places: Place[]) => void;
   clearAiRecommendedPlaces: () => void;
+  /** 채팅 카드·지도 핀 공통: 말풍선에 표시할 장소의 placeId(또는 internalPlaceId) */
+  mapSelectedPlaceId: number | null;
+  setMapSelectedPlaceId: (id: number | null) => void;
 }
 
 /** 동일 placeId는 incoming이 기존 필드를 덮어씀 */
@@ -30,6 +33,8 @@ export function mergeByPlaceId(existing: Place[], incoming: Place[]): Place[] {
 
 export const useChatMapStore = create<ChatMapState>((set, get) => ({
   aiRecommendedPlaces: [],
+  mapSelectedPlaceId: null,
+  setMapSelectedPlaceId: (id) => set({ mapSelectedPlaceId: id }),
   setAiRecommendedPlaces: (places) =>
     set((s) => ({
       aiRecommendedPlaces:
@@ -41,5 +46,5 @@ export const useChatMapStore = create<ChatMapState>((set, get) => ({
       aiRecommendedPlaces: mergeByPlaceId(get().aiRecommendedPlaces, incoming),
     });
   },
-  clearAiRecommendedPlaces: () => set({ aiRecommendedPlaces: [] }),
+  clearAiRecommendedPlaces: () => set({ aiRecommendedPlaces: [], mapSelectedPlaceId: null }),
 }));
