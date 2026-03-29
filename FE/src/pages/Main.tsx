@@ -295,11 +295,11 @@ const Main = () => {
   }, [mapPlaces, mapSelectedPlaceId, setMapSelectedPlaceId])
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-50 font-sans">
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50">
       <Sidebar />
 
       {/* 왼쪽: ChatWidget 또는 ReviewPanel */}
-      <aside className="flex h-full min-h-0 w-[400px] shrink-0 flex-col border-r border-slate-200 bg-white shadow-xl z-40 dark:border-slate-800">
+      <aside className="z-40 flex h-full min-h-0 w-[400px] shrink-0 flex-col border-r border-primary/10 bg-white shadow-xl dark:border-slate-800 dark:bg-background-dark">
         {reviewPanel ? (
           <PlaceReviewPanel
             placeId={reviewPanel.placeId}
