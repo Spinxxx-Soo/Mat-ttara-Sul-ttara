@@ -72,7 +72,8 @@ public class ReviewService {
                 throw new DuplicateResourceException("해당 장소에 이미 리뷰를 작성했습니다.");
             }
             review.restore(request.rating(), request.content());
-            return ReviewResponseDto.from(review);
+            ReviewEntity restored = reviewRepository.save(review);
+            return ReviewResponseDto.from(restored);
         }
 
         UserEntity user = userRepository.findById(userId)
