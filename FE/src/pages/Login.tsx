@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { socialLogin } from '@/api/authApi'
 import { queryKeys } from '@/hooks/queries/queryKeys'
 import { useAuthStore } from '@/stores/authStore'
-import { getNaverLoginUrl, getNaverCodeFromUrl } from '@/lib/naverLogin'
+import { getNaverLoginUrl, getNaverOAuthParamsFromUrl } from '@/lib/naverLogin'
 import Button from '@/components/ui/Button'
 import loginBackgroundImage from '@/assets/login-bg.jpg'
 import appLogoImage from '@/assets/logo.png'
@@ -78,13 +78,13 @@ const Login = () => {
     }
   }
 
-  // 네이버 콜백 처리
-  const handleNaverCallback = useCallback(async (code: string) => {
+  // 네이버 콜백 처리 (state는 네이버 토큰 교환 시 반드시 동일 값 전달)
+  const handleNaverCallback = useCallback(async (code: string, state?: string) => {
     try {
       setIsLoading(true)
       setError(null)
 
-      const loginResponse = await socialLogin('naver', code)
+      const loginResponse = await socialLogin('naver', code, state)
 
       // 토큰 및 신규 유저 여부 저장
       resetAuthQueries()
@@ -110,11 +110,11 @@ const Login = () => {
     }
   }, [navigate, resetAuthQueries, setAuth])
 
-  // URL에서 네이버 인증 코드 확인
+  // URL에서 네이버 인증 code·state 확인
   useEffect(() => {
-    const naverCode = getNaverCodeFromUrl()
-    if (naverCode) {
-      void handleNaverCallback(naverCode)
+    const naver = getNaverOAuthParamsFromUrl()
+    if (naver) {
+      void handleNaverCallback(naver.code, naver.state ?? undefined)
     }
   }, [handleNaverCallback])
 

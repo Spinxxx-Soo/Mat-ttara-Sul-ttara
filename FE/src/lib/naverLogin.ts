@@ -49,3 +49,13 @@ export const getNaverCodeFromUrl = (): string | null => {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('code');
 };
+
+/**
+ * 네이버 콜백 URL의 code·state (토큰 API에 동일 state 전달 필요)
+ */
+export const getNaverOAuthParamsFromUrl = (): { code: string; state: string | null } | null => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  if (!code) return null;
+  return { code, state: urlParams.get('state') };
+};
