@@ -53,10 +53,12 @@ public class ReviewService {
                 .hasNext(reviewPage.hasNext())
                 .build();
 
+        Double averageRating = placeRepository.getAverageRatingByPlaceId(placeId);
+
         return ReviewListResponseDto.builder()
                 .content(content)
                 .pageInfo(pageInfo)
-                .averageRating(placeRepository.getAverageRatingByPlaceId(placeId))
+                .averageRating(averageRating != null ? averageRating : 0.0)
                 .build();
     }
 
