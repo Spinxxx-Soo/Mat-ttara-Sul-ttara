@@ -2,7 +2,9 @@
 FastAPI 메인 애플리케이션
 """
 from fastapi import FastAPI
-from apps.api.chat import router as chat_router
+
+from apps.api.chat.router import router as chat_router
+from apps.api.place.router import router as place_router
 
 app = FastAPI(
     title="AI Server API",
@@ -10,8 +12,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# 라우터 등록
 app.include_router(chat_router)
+app.include_router(place_router)
 
 
 @app.get("/")

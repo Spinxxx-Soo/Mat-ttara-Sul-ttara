@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { ChatRecommendationCards } from '@/components/chat/ChatRecommendationCards'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatMapStore } from '@/stores/chatMapStore'
@@ -7,14 +7,15 @@ import { useChatSessionStore } from '@/stores/chatSessionStore'
 import { useChatSessionSse } from '@/hooks/useChatSessionSse'
 import { useChatMessages, useSendMessage, useCreateSession, useChatSessions, useDeleteSession } from '@/hooks/queries/chat/useChat'
 import { extractApiErrorMessage } from '@/lib/apiUtils'
-import type { ChatMessage, ChatSession } from '@/types/api'
+import { stripLegacyPlacesJsonSuffix } from '@/lib/chatDisplay'
+import { resolveNumericPlaceId } from '@/lib/placeIdentity'
+import type { ChatMessage, ChatSession, Place } from '@/types/api'
 
 interface ChatWidgetProps {
   embedded?: boolean
 }
 
 const ChatWidget = ({ embedded = true }: ChatWidgetProps) => {
-  const navigate = useNavigate()
   const { user } = useAuthStore()
   const [isOpen, setIsOpen] = useState(embedded)
   const [sessionId, setSessionId] = useState<string>('')
@@ -178,6 +179,9 @@ useEffect(() => {
   }, [sessionId, messagesData?.content, markUserMessageSent])
 
   const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
+  const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
+  const mapSelectedPlaceId = useChatMapStore((s) => s.mapSelectedPlaceId)
+  const setMapSelectedPlaceId = useChatMapStore((s) => s.setMapSelectedPlaceId)
   const prevSessionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -226,14 +230,10 @@ useEffect(() => {
     })
   }, [sessionId])
 
-  const handleRecommendation = useCallback(() => {
-    navigate('/my-plan/new')
-  }, [navigate])
-
   // AI 응답(SSE) 구독:
   // - `chat_message`, `ai_response` 이벤트 수신 시 로컬 messages 누적
-  // - 추천 장소도 같이 동기화
-  useChatSessionSse(sessionId, isOpen, handleIncomingMessage, handleRecommendation)
+  // - 추천 장소는 getRecommendedPlaces로 지도에만 반영 (플랜 생성은 메인 지도에서 핀 선택 시 모달)
+  useChatSessionSse(sessionId, isOpen, handleIncomingMessage)
 
   const handleSend = async () => {
     const content = input.trim()
@@ -273,6 +273,25 @@ useEffect(() => {
       handleSend()
     }
   }
+
+  const lastAssistantIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (String(messages[i].role).toUpperCase() !== 'USER') {
+        return i
+      }
+    }
+    return -1
+  }, [messages])
+
+  const handleRecommendCardPick = useCallback(
+    (place: Place) => {
+      const id = resolveNumericPlaceId(place)
+      if (id != null) {
+        setMapSelectedPlaceId(id)
+      }
+    },
+    [setMapSelectedPlaceId]
+  )
 
   return (
     <div className={embedded ? 'h-full w-full min-h-0' : 'fixed bottom-6 right-6 z-50 flex flex-col items-end'}>
@@ -382,8 +401,12 @@ useEffect(() => {
                 <p className="text-slate-500">대화를 시작해보세요!</p>
               </div>
             )}
-            {messages.map((message) => {
+            {messages.map((message, index) => {
               const isUser = message.role === 'USER'
+              const showRecCards =
+                !isUser &&
+                aiRecommendedPlaces.length > 0 &&
+                index === lastAssistantIndex
               return (
                 <div key={message.messageId} className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} max-w-[85%] ${isUser ? 'ml-auto' : ''}`}>
                   {!isUser && (
@@ -391,10 +414,21 @@ useEffect(() => {
                       <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>robot_2</span>
                     </div>
                   )}
-                  <div className={`rounded-2xl p-3.5 shadow-sm ${!isUser ? 'bg-white dark:bg-slate-800 rounded-tl-none border border-slate-200 dark:border-slate-700' : 'bg-gradient-to-br from-primary to-orange-600 text-white rounded-tr-none shadow-md shadow-primary/20'}`}>
-                    <p className={`leading-relaxed ${!isUser ? 'text-slate-700 dark:text-slate-300' : 'text-white'}`}>
-                      {message.content}
+                  <div
+                    className={`min-w-0 flex-1 rounded-2xl p-3.5 shadow-sm ${!isUser ? 'bg-white dark:bg-slate-800 rounded-tl-none border border-slate-200 dark:border-slate-700' : 'bg-gradient-to-br from-primary to-orange-600 text-white rounded-tr-none shadow-md shadow-primary/20'}`}
+                  >
+                    <p
+                      className={`leading-relaxed whitespace-pre-wrap ${!isUser ? 'text-slate-700 dark:text-slate-300' : 'text-white'}`}
+                    >
+                      {isUser ? message.content : stripLegacyPlacesJsonSuffix(message.content)}
                     </p>
+                    {showRecCards ? (
+                      <ChatRecommendationCards
+                        places={aiRecommendedPlaces}
+                        selectedPlaceId={mapSelectedPlaceId}
+                        onSelectPlace={handleRecommendCardPick}
+                      />
+                    ) : null}
                   </div>
                 </div>
               )

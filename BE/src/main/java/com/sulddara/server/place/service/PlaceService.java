@@ -24,7 +24,7 @@ public interface PlaceService {
      */
     PlaceSearchResponseDto searchPlaces(String keyword, Double lat, Double lng, int page, int size, String sort);
 
-    List<RecommendedPlace> getRecommendedFromRedis(Long id, Double lat, Double lng);
+    List<RecommendedPlace> getRecommendedFromRedis(Long id, Long sessionId, Double lat, Double lng);
 
     PlaceDetailResponse getPlaceDetail(Long placeId);
 

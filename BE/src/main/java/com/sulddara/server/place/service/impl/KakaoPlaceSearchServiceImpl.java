@@ -41,7 +41,8 @@ public class KakaoPlaceSearchServiceImpl implements ExternalPlaceSearchService {
         // Here we keep the interface but map the parameters.
         // Interface: display (size), start (offset)
         // Kakao: size (1-45), page (1-45)
-        int page = (start / display) + 1;
+//        int page = (start / display) + 1;
+        int page = start;
         int size = Math.min(display, 45); // Kakao max size is 45
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(kakaoSearchUrl)
