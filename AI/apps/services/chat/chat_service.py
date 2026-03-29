@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 import os
 from typing import Annotated, NotRequired
+from urllib.parse import urlparse
 from typing_extensions import TypedDict
 
 from langgraph.graph import StateGraph, add_messages
@@ -30,9 +31,22 @@ from apps.schemas.chat_response_factory import ResponseFactory
 logger = logging.getLogger(__name__)
 
 
+def _redis_logical_db_index(redis_url: str) -> int:
+    """redis://host:port/숫자 경로의 논리 DB. 경로 없으면 0."""
+    path = (urlparse(redis_url).path or "").strip("/")
+    if not path:
+        return 0
+    head = path.split("/")[0]
+    try:
+        return int(head)
+    except ValueError:
+        return 0
+
+
 def _create_checkpointer():
     """
     LangGraph RedisSaver는 RediSearch 인덱스(checkpoint_write 등)가 필요하다.
+    RediSearch는 논리 DB가 0이 아니면 인덱스 생성이 거부된다(Cannot create index on db != 0).
     로컬 단순 Redis면 두 번째 턴에서 `No such index` 로 실패할 수 있음.
     그 경우 .env에 LANGGRAPH_CHECKPOINT_IN_MEMORY=1 을 넣어 InMemorySaver 사용.
     """
@@ -43,6 +57,18 @@ def _create_checkpointer():
     redis_url = redis_checkpoint_connection_url()
     if not redis_url:
         return InMemorySaver()
+
+    db_idx = _redis_logical_db_index(redis_url)
+    if db_idx != 0:
+        logger.warning(
+            "REDIS_CHECKPOINT_URL이 논리 DB %s를 가리킵니다. LangGraph RedisSaver(RediSearch)는 "
+            "DB 0에서만 checkpoint 인덱스를 만들 수 있어 연결이 실패합니다. "
+            "URL을 .../0으로 바꾸거나, 체크포인트 전용 Redis를 다른 포트로 두고 그 인스턴스의 /0을 사용하세요. "
+            "지금은 InMemorySaver로 동작합니다.",
+            db_idx,
+        )
+        return InMemorySaver()
+
     try:
         from langgraph.checkpoint.redis import RedisSaver
 

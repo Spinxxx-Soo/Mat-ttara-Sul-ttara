@@ -30,7 +30,6 @@ const Settings = () => {
   const [isEditingPreference, setIsEditingPreference] = useState(false)
 
   useEffect(() => {
-  useEffect(() => {
     if (!user || isEditingProfile) {
       return
     }

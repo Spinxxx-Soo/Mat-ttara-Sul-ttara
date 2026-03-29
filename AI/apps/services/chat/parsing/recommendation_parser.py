@@ -45,12 +45,14 @@ class RecommendationParser:
         previous_preference_state: dict[str, Any],
         thread_id: str,
         user_id: int,
+        preference_profile: dict[str, Any] | None = None,
     ) -> RecommendationTurnResult:
         logger.info(
-            "[recommendation-parser] user_text=%s thread_id=%s user_id=%s",
+            "[recommendation-parser] user_text=%s thread_id=%s user_id=%s profile_keys=%s",
             user_message,
             thread_id,
             user_id,
+            list((preference_profile or {}).keys()),
         )
 
         conv_rule = self._time.parse_rules(user_message)
@@ -79,6 +81,7 @@ class RecommendationParser:
             user_message=user_message,
             summary=summary,
             previous_parsed_state=previous_parsed_state,
+            preference_profile=preference_profile,
         )
 
         parsed_update = self._merge_slot_dicts(conv_delta, vector_delta)

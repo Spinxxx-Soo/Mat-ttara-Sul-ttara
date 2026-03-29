@@ -5,15 +5,29 @@ Redis로부터 수신한 추천 요청을 처리하는 메인 비즈니스 로�
 입력: user_id, place_ids, short_term (0~1 값)
 출력: Top 3 추천 식당 (place_id, score)
 """
-from typing import Dict, List, Tuple
+from __future__ import annotations
 
-from apps.services.place.memory_keys import ORDERED_KEY_NAMES, VECTOR_DIM
-from apps.services.place.vector_utils import (
-    dict_to_vector,
-    merge_vectors,
-    rank_places,
-)
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
+from apps.config import settings
 from apps.repositories.recommend_repository import RecommendRepository
+from apps.services.place.memory_keys import ORDERED_KEY_NAMES, VECTOR_DIM
+from apps.services.place.vector_pipeline_reporter import log_vector_pipeline_report
+from apps.services.place.vector_utils import merge_vectors, rank_places
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RecommendationRun:
+    """추천 1회 실행 결과 (순위 + 벡터 — 장소별 이유 문구 생성용)."""
+
+    ranked: List[Tuple[int, float]]
+    user_vector: List[Optional[float]]
+    place_vectors: Dict[int, List[float]]
+    vector_parse_errors: Dict[int, Optional[str]]
 
 
 class RecommendService:
@@ -30,6 +44,47 @@ class RecommendService:
     # ──────────────────────────────────────
     # 메인 추천 파이프라인
     # ──────────────────────────────────────
+    def run_recommendation(
+        self,
+        user_id: int,
+        place_ids: List[int],
+        short_term: Dict[str, float],
+        top_k: int = 3,
+        alpha: float = 0.7,
+        beta: float = 0.3,
+    ) -> RecommendationRun:
+        long_term = self._load_user_memory(user_id)
+        user_vector = merge_vectors(
+            short_term=short_term,
+            long_term=long_term,
+            alpha=alpha,
+            beta=beta,
+        )
+        place_vectors, vector_parse_errors = self._load_place_vectors(place_ids)
+        results = rank_places(user_vector, place_vectors, top_k=top_k)
+
+        if settings.debug_vector_pipeline:
+            try:
+                log_vector_pipeline_report(
+                    user_id=user_id,
+                    requested_place_ids=list(place_ids),
+                    short_term_raw=dict(short_term),
+                    long_term=dict(long_term),
+                    user_vector=user_vector,
+                    place_vectors=place_vectors,
+                    vector_parse_errors=vector_parse_errors,
+                    ranked_results=results,
+                )
+            except Exception as e:
+                logger.warning("[recommend] vector pipeline report failed: %s", e)
+
+        return RecommendationRun(
+            ranked=results,
+            user_vector=user_vector,
+            place_vectors=place_vectors,
+            vector_parse_errors=vector_parse_errors,
+        )
+
     def recommend(
         self,
         user_id: int,
@@ -53,24 +108,9 @@ class RecommendService:
         Returns:
             [(place_id, similarity_score), ...] 유사도 내림차순 Top K
         """
-        # 1단계: 장기기억(USER_MEMORY) 로드
-        long_term = self._load_user_memory(user_id)
-
-        # 2단계: 단기 + 장기 벡터 결합 → 최종 유저 벡터
-        user_vector = merge_vectors(
-            short_term=short_term,
-            long_term=long_term,
-            alpha=alpha,
-            beta=beta,
-        )
-
-        # 3단계: 후보 식당 벡터(PLACE_MEMORY_VECTOR) 로드
-        place_vectors = self._load_place_vectors(place_ids)
-
-        # 4단계: 코사인 유사도 계산 → Top K 추출
-        results = rank_places(user_vector, place_vectors, top_k=top_k)
-
-        return results
+        return self.run_recommendation(
+            user_id, place_ids, short_term, top_k, alpha, beta
+        ).ranked
 
     # ──────────────────────────────────────
     # 데이터 로드 및 Cold Start
@@ -113,7 +153,9 @@ class RecommendService:
             
         return initial
 
-    def _load_place_vectors(self, place_ids: List[int]) -> Dict[int, List[float]]:
+    def _load_place_vectors(
+        self, place_ids: List[int]
+    ) -> Tuple[Dict[int, List[float]], Dict[int, str | None]]:
         """
         DB PLACE_MEMORY_VECTOR 테이블에서 식당 벡터를 로드합니다.
         """

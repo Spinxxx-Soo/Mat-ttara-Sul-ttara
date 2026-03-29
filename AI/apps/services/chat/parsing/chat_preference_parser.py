@@ -76,6 +76,9 @@ class PreferenceParser:
         prompt = (
             "아래 사용자 발화에서 '추상 선호'만 JSON으로 추출하세요.\n"
             "반드시 JSON만 출력하세요.\n\n"
+            "한 가지(음식·시간·동행 등)만 직접 말해도, 요약·이전 선호와 맞물려 **타당하면** "
+            "연관 필드를 추론해 채우세요. (예: '회식' 뉘앙스 → social이나 intent 추론)\n"
+            "확신이 없으면 null을 유지합니다.\n\n"
             "허용 필드 (해당 없으면 null):\n"
             '- mood: "quiet"|"lively"|"modern"|"traditional"|null\n'
             '- social: "friends"|"date"|"business"|"family"|"solo"|null\n'
