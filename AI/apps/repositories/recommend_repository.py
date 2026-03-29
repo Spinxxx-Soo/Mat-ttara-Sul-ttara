@@ -78,42 +78,71 @@ class RecommendRepository:
             print(f"[-] get_user_preference Error (user_id={user_id}): {e}")
             return None
 
-    def get_place_vectors(self, place_ids: List[int]) -> Dict[int, List[float]]:
+    def get_place_vectors(
+        self, place_ids: List[int]
+    ) -> tuple[Dict[int, List[float]], Dict[int, str | None]]:
         """
         PLACE_MEMORY_VECTOR 테이블에서 후보 식당들의 24차원 벡터를 조회합니다.
+
+        Returns:
+            (vectors, parse_errors): parse_errors[place_id] 는 None 이면 정상,
+            문자열이면 JSON 파싱 실패·길이 불일치 등 사유.
         """
         if not place_ids:
-            return {}
+            return {}, {}
 
-        # place_ids 개수만큼 %s 플레이스홀더 동적 생성
-        format_strings = ','.join(['%s'] * len(place_ids))
+        format_strings = ",".join(["%s"] * len(place_ids))
         query = f"""
             SELECT place_id, vector_data
             FROM place_memory_vector
             WHERE place_id IN ({format_strings})
         """
-        vectors = {}
+        vectors: Dict[int, List[float]] = {}
+        parse_errors: Dict[int, str | None] = {pid: None for pid in place_ids}
+
         try:
             with self.get_connection() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(query, tuple(place_ids))
                     rows = cursor.fetchall()
+                    seen: set[int] = set()
                     for row in rows:
-                        pid = row["place_id"]
+                        pid = int(row["place_id"])
+                        seen.add(pid)
                         data_str = row["vector_data"]
                         try:
-                            # DB에 저장된 json문자열을 파싱
-                            # extract_place_vectors_llm.py에서 JSON string으로 넣었으므로 json 파싱 필요
                             if isinstance(data_str, str):
-                                vectors[pid] = json.loads(data_str)
+                                parsed = json.loads(data_str)
                             else:
-                                vectors[pid] = data_str
-                        except Exception:
+                                parsed = data_str
+                            if not isinstance(parsed, list):
+                                parse_errors[pid] = "vector_data_not_a_list"
+                                vectors[pid] = [0.0] * 24
+                                continue
+                            if len(parsed) != 24:
+                                parse_errors[pid] = f"vector_bad_length_{len(parsed)}"
+                                vectors[pid] = [0.0] * 24
+                                continue
+
+                            def _cell(v: object) -> float:
+                                if v is None:
+                                    return 0.0
+                                return float(v)
+
+                            vectors[pid] = [_cell(x) for x in parsed]
+                        except json.JSONDecodeError as e:
+                            parse_errors[pid] = f"json_decode_error:{e}"
                             vectors[pid] = [0.0] * 24
+                        except (TypeError, ValueError) as e:
+                            parse_errors[pid] = f"vector_coerce_error:{e}"
+                            vectors[pid] = [0.0] * 24
+                    for pid in place_ids:
+                        if pid not in seen:
+                            parse_errors[pid] = "missing_row_in_place_memory_vector"
         except Exception as e:
             print(f"[-] get_place_vectors Error: {e}")
 
-        return vectors
+        return vectors, parse_errors
 
     def get_places_details(self, place_ids: List[int]) -> Dict[int, Dict[str, object]]:
         """
