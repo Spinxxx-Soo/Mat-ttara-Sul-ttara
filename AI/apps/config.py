@@ -29,6 +29,9 @@ class Settings(BaseSettings):
 
     kakao_rest_api_key: str | None = None
 
+    # True면 /place_candidates 추천 시 단기·장기·장소 벡터 파싱·유사도 요약을 INFO 로그로 남김
+    debug_vector_pipeline: bool = False
+
     # Redis (역할 분리)
     # - redis_checkpoint_url: LangGraph 체크포인터 (DB는 BE KV와 분리 권장, 예: /1)
     # - redis_be_bridge_url: BE와 통신 (Pub/Sub ai:reply, BE와 동일 인스턴스·DB 권장, 예: /0)
