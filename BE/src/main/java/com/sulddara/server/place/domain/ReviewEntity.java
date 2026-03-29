@@ -75,6 +75,13 @@ public class ReviewEntity {
         this.deletedAt = LocalDateTime.now();
     }
 
+    public void restore(Integer rating, String content) {
+        validateRating(rating);
+        this.rating = rating;
+        this.content = content;
+        this.deletedAt = null;
+    }
+
     private void validatePlace(PlaceEntity place) {
         if (place == null) {
             throw new InvalidRequestException("place must not be null");
