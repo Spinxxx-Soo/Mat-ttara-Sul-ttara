@@ -77,7 +77,6 @@ public class ChatSessionServiceImpl implements ChatSessionService {
     }
 
     @Override
-    @Transactional
     public void validateSessionOwnership(Long userId, Long sessionId) {
         ChatSessions session = chatSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BaseException(ErrorCode.SESSION_NOT_FOUND));
