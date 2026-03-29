@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { socialLogin } from '@/api/authApi'
 import { queryKeys } from '@/hooks/queries/queryKeys'
 import { useAuthStore } from '@/stores/authStore'
+import { useRef } from 'react';
 import { getNaverLoginUrl, getNaverOAuthParamsFromUrl } from '@/lib/naverLogin'
 import Button from '@/components/ui/Button'
 import loginBackgroundImage from '@/assets/login-bg.jpg'
@@ -77,9 +78,12 @@ const Login = () => {
       setError('네이버 로그인 설정이 올바르지 않습니다.')
     }
   }
+  const isProcessing = useRef(false);
 
   // 네이버 콜백 처리 (state는 네이버 토큰 교환 시 반드시 동일 값 전달)
   const handleNaverCallback = useCallback(async (code: string, state?: string) => {
+    if (isProcessing.current) return; // 이미 처리 중이면 중단
+    isProcessing.current = true;
     try {
       setIsLoading(true)
       setError(null)
@@ -104,6 +108,7 @@ const Login = () => {
         navigate('/', { replace: true }) // 기존 유저 -> 메인
       }
     } catch (err: any) {
+      isProcessing.current = false;
       console.error('네이버 로그인 실패:', err)
       setIsLoading(false)
       setError(err.response?.data?.message || '로그인에 실패했습니다. 다시 시도해주세요.')

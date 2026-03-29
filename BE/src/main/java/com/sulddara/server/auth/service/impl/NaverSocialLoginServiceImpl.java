@@ -11,6 +11,7 @@ import com.sulddara.server.auth.service.SocialLoginService;
 import com.sulddara.server.user.dto.UserAuthResultDto;
 import com.sulddara.server.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -28,6 +29,7 @@ import java.util.Map;
 
 @Service("naverSocialLoginService")
 @RequiredArgsConstructor
+@Slf4j
 public class NaverSocialLoginServiceImpl implements SocialLoginService {
     private final UserService userService;
     private final JwtUtil jwtUtil;
@@ -39,6 +41,9 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
 
     @Value("${spring.security.oauth2.client.registration.naver.client-secret}")
     private String clientSecret;
+
+    @Value("${spring.security.oauth2.client.registration.naver.redirect-uri}")
+    private String redirectUri;
 
     @Override
     public LoginResponse login(String provider, String code, String state) {
@@ -74,6 +79,7 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
+        log.info("Sending to Naver -> code: {}, state: {}", code, state);
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("grant_type", "authorization_code");
@@ -81,6 +87,7 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
         params.add("client_secret", clientSecret);
         params.add("code", code);
         params.add("state", state);
+        params.add("redirect_uri", redirectUri);
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
 
@@ -89,6 +96,7 @@ public class NaverSocialLoginServiceImpl implements SocialLoginService {
                     url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>() {});
             Map<String, Object> body = response.getBody();
             if (body == null || body.get("access_token") == null) {
+                log.info("[NAVER_TOKEN_REQ] code: {}, state: {}, redirect: {}", code, state, redirectUri);
                 throw new UnauthorizedException(ErrorCode.INVALID_SOCIAL_CODE);
             }
             return (String) body.get("access_token");
