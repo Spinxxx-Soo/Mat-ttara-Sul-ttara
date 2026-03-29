@@ -22,4 +22,10 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     Optional<ReviewEntity> findByIdWithUser(@Param("id") Long id);
     
     boolean existsByPlaceIdAndUserId(Long placeId, Long userId);
+
+    Optional<ReviewEntity> findByPlaceIdAndUserId(Long placeId, Long userId);
+
+    @Query(value = "SELECT * FROM reviews WHERE place_id = :placeId AND user_id = :userId LIMIT 1", nativeQuery = true)
+    Optional<ReviewEntity> findByPlaceIdAndUserIdIncludeDeleted(@Param("placeId") Long placeId, @Param("userId") Long userId);
 }
+
