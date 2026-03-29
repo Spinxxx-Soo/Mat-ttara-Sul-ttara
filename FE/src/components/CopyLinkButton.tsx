@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Button from '@/components/ui/Button';
+import { copyText } from '@/lib/copyText';
 
 interface CopyLinkButtonProps {
     linkUrl: string;
@@ -10,7 +11,7 @@ export default function CopyLinkButton({ linkUrl }: CopyLinkButtonProps) {
 
     const handleCopy = async () => {
         try {
-            await navigator.clipboard.writeText(linkUrl);
+            await copyText(linkUrl);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
