@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -61,8 +62,15 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponseDto createReview(Long userId, Long placeId, ReviewCreateRequestDto request) {
-        if (reviewRepository.existsByPlaceIdAndUserId(placeId, userId)) {
-            throw new DuplicateResourceException("해당 장소에 이미 리뷰를 작성했습니다.");
+        Optional<ReviewEntity> deletedReview = reviewRepository.findByPlaceIdAndUserIdIncludeDeleted(placeId, userId);
+
+        if (deletedReview.isPresent()) {
+            ReviewEntity review = deletedReview.get();
+            if (review.getDeletedAt() == null) {
+                throw new DuplicateResourceException("해당 장소에 이미 리뷰를 작성했습니다.");
+            }
+            review.restore(request.rating(), request.content());
+            return ReviewResponseDto.from(review);
         }
 
         UserEntity user = userRepository.findById(userId)
