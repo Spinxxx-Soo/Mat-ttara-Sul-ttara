@@ -32,8 +32,12 @@ class Settings(BaseSettings):
     # True면 /place_candidates 추천 시 단기·장기·장소 벡터 파싱·유사도 요약을 INFO 로그로 남김
     debug_vector_pipeline: bool = False
 
+    # True면 recommendReason을 LLM으로 짧고 부드럽게 재작성 (실패 시 원문 유지)
+    rewrite_recommend_reason_llm: bool = True
+
     # Redis (역할 분리)
-    # - redis_checkpoint_url: LangGraph 체크포인터 (DB는 BE KV와 분리 권장, 예: /1)
+    # - redis_checkpoint_url: LangGraph RedisSaver (RediSearch). 인덱스 생성은 Redis 논리 DB 0만 허용됨.
+    #   BE와 키를 나누려면 /1 이 아니라 별도 Redis 인스턴스(예: 포트 6380)의 .../0 을 쓰거나, 동일 /0 에서 키 네임스페이스가 겹치지 않게 운영.
     # - redis_be_bridge_url: BE와 통신 (Pub/Sub ai:reply, BE와 동일 인스턴스·DB 권장, 예: /0)
     # - redis_url: 선택. 단일 URL만 쓸 때(레거시). 미설정 시 위 둘 필수.
     redis_url: str | None = None
