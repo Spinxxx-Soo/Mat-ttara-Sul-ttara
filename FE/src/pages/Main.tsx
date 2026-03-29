@@ -1,6 +1,6 @@
 // FE/src/pages/Main.tsx
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import ChatWidget from '@/components/chat/ChatWidget'
@@ -10,11 +10,17 @@ import { useEnrichPlace, useNearbyPlaces, usePlaceDetail, useSyncPlace } from '@
 import { useLocationStore } from '@/stores/locationStore'
 import toast from 'react-hot-toast'
 import type { Place } from '@/types/api'
-import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
+import { useChatMapStore } from '@/stores/chatMapStore'
 import { useChatSessionStore } from '@/stores/chatSessionStore'
 import { useChatMessages, useSetMapLocation } from '@/hooks/queries/chat/useChat'
 import type { Coordinates } from '@/types/map'
-import { buildPlaceSyncRequest, getInternalPlaceId, getPlaceKey, isSamePlace } from '@/lib/placeIdentity'
+import {
+  buildPlaceSyncRequest,
+  getInternalPlaceId,
+  getPlaceKey,
+  isSamePlace,
+  resolveNumericPlaceId,
+} from '@/lib/placeIdentity'
 import { usePlanCreateDraftStore } from '@/stores/planCreateDraftStore'
 import { hasNullFields } from '@/lib/placeUtils'
 import { extractApiErrorMessage } from '@/lib/apiUtils'
@@ -23,7 +29,8 @@ const Main = () => {
   const navigate = useNavigate()
   const setPlanDraftPlace = usePlanCreateDraftStore((s) => s.setDraftPlace)
   const [planCreateModalPlace, setPlanCreateModalPlace] = useState<Place | null>(null)
-  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null)
+  const mapSelectedPlaceId = useChatMapStore((s) => s.mapSelectedPlaceId)
+  const setMapSelectedPlaceId = useChatMapStore((s) => s.setMapSelectedPlaceId)
   const [reviewPanel, setReviewPanel] = useState<{
     placeId: number
     placeName: string
@@ -70,7 +77,10 @@ const Main = () => {
 
   const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
   const mapPlaces = useMemo(() => {
-    return mergeByPlaceId(restaurants, aiRecommendedPlaces)
+    if (aiRecommendedPlaces.length > 0) {
+      return aiRecommendedPlaces
+    }
+    return restaurants
   }, [restaurants, aiRecommendedPlaces])
 
   const isAiRecommendedPlace = useCallback(
@@ -81,11 +91,30 @@ const Main = () => {
   )
 
   const selectedPlace = useMemo(() => {
-    if (selectedPlaceId == null) return null
-    return mapPlaces.find((p) => p.placeId === selectedPlaceId) ?? null
-  }, [mapPlaces, selectedPlaceId])
+    if (mapSelectedPlaceId == null) return null
+    return (
+      mapPlaces.find(
+        (p) => resolveNumericPlaceId(p) === mapSelectedPlaceId
+      ) ?? null
+    )
+  }, [mapPlaces, mapSelectedPlaceId])
 
   const selectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
+
+  const lastPannedForSelectionRef = useRef<number | null>(null)
+  const prevAiRecLenRef = useRef(0)
+  useEffect(() => {
+    const n = aiRecommendedPlaces.length
+    if (n > 0 && prevAiRecLenRef.current === 0) {
+      const first = aiRecommendedPlaces[0]
+      const autoId = resolveNumericPlaceId(first)
+      if (autoId != null) {
+        lastPannedForSelectionRef.current = null
+        setMapSelectedPlaceId(autoId)
+      }
+    }
+    prevAiRecLenRef.current = n
+  }, [aiRecommendedPlaces, setMapSelectedPlaceId])
   const selectedInternalPlaceId = selectedPlace
     ? getInternalPlaceId(selectedPlace) ?? (selectedPlaceKey ? resolvedPlaceIds[selectedPlaceKey] ?? null : null)
     : null
@@ -169,7 +198,8 @@ const Main = () => {
     // 리뷰 패널(왼쪽)이 열린 상태에서 다른 핀을 선택하면,
     // 자동으로 리뷰 패널을 닫아(돌아가기) 지도 상세 카드가 보이도록 한다.
     if (reviewPanel) setReviewPanel(null)
-    setSelectedPlaceId(place.placeId)
+    const id = resolveNumericPlaceId(place)
+    setMapSelectedPlaceId(id)
     if (isAiRecommendedPlace(place)) {
       setPlanCreateModalPlace(place)
     } else {
@@ -177,6 +207,27 @@ const Main = () => {
     }
     sendSelectedLocationToChat({ lat: place.lat, lng: place.lng })
   }
+
+  useEffect(() => {
+    if (mapSelectedPlaceId == null) {
+      lastPannedForSelectionRef.current = null
+      return
+    }
+    const p = mapPlaces.find(
+      (x) => resolveNumericPlaceId(x) === mapSelectedPlaceId
+    )
+    if (
+      !p ||
+      !Number.isFinite(p.lat) ||
+      !Number.isFinite(p.lng) ||
+      (p.lat === 0 && p.lng === 0)
+    ) {
+      return
+    }
+    if (lastPannedForSelectionRef.current === mapSelectedPlaceId) return
+    lastPannedForSelectionRef.current = mapSelectedPlaceId
+    setMapCenter({ lat: p.lat, lng: p.lng })
+  }, [mapSelectedPlaceId, mapPlaces])
 
   const handlePlanCreateModalConfirm = () => {
     if (!planCreateModalPlace) return
@@ -235,11 +286,13 @@ const Main = () => {
     })
   }
   useEffect(() => {
-    if (selectedPlaceId == null) return
-    if (!mapPlaces.some((p) => p.placeId === selectedPlaceId)) {
-      setSelectedPlaceId(null)
+    if (mapSelectedPlaceId == null) return
+    if (
+      !mapPlaces.some((p) => resolveNumericPlaceId(p) === mapSelectedPlaceId)
+    ) {
+      setMapSelectedPlaceId(null)
     }
-  }, [mapPlaces, selectedPlaceId])
+  }, [mapPlaces, mapSelectedPlaceId, setMapSelectedPlaceId])
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-slate-50">
@@ -312,11 +365,11 @@ const Main = () => {
           lat={mapCenter.lat}
           lng={mapCenter.lng}
           places={mapPlaces}
-          selectedPlaceId={selectedPlaceId}
+          selectedPlaceId={selectedPlaceKey ?? mapSelectedPlaceId}
           detailPlace={
             selectedPlace && !reviewPanel ? (selectedPlaceForDisplay ?? selectedPlace) : null
           }
-          onDetailClose={() => setSelectedPlaceId(null)}
+          onDetailClose={() => setMapSelectedPlaceId(null)}
           onDetailReviewClick={openReviewFromDetail}
           onPlaceClick={handlePlaceClick}
           onIdle={handleMapIdle}

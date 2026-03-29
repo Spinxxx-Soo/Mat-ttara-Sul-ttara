@@ -28,6 +28,13 @@ export const getInternalPlaceId = (place: Place): number | null => {
   return null;
 };
 
+/** 지도·채팅 카드 선택에 쓰는 단일 숫자 id (placeId 우선, 없으면 internalPlaceId) */
+export const resolveNumericPlaceId = (place: Place): number | null => {
+  if (place.placeId != null) return place.placeId;
+  if (place.internalPlaceId != null) return place.internalPlaceId;
+  return null;
+};
+
 export const isSamePlace = (left: Place, right: Place): boolean => {
   if (left.externalPlaceId && right.externalPlaceId) {
     return left.externalPlaceId === right.externalPlaceId;
