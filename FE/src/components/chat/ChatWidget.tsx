@@ -304,18 +304,21 @@ useEffect(() => {
           }
         >
           {/* Header */}
-          <div className="p-5 border-b border-primary/10 bg-white dark:bg-slate-900 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h1 className="text-lg font-bold flex items-center gap-2">
+          <div className="flex-shrink-0 border-b border-primary/5 bg-white p-6 dark:bg-slate-900 flex flex-col gap-3">
+            <div className={`flex items-center gap-2 ${embedded ? '' : 'justify-between'}`}>
+              <h1 className="text-xl font-bold flex flex-wrap items-center gap-2">
                 <span className="text-primary">맛따라 술따라</span>
                 <span className="text-sm font-normal text-slate-500">AI 플래너</span>
               </h1>
-              <button 
-                onClick={() => setIsOpen(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+              {!embedded && (
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="ml-auto shrink-0 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              )}
             </div>
             
             <div className="flex items-center justify-between gap-3">
