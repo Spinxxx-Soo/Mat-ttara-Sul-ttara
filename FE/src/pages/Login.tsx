@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { socialLogin } from '@/api/authApi'
 import { queryKeys } from '@/hooks/queries/queryKeys'
 import { useAuthStore } from '@/stores/authStore'
+import { useRef } from 'react';
 import { getNaverLoginUrl, getNaverOAuthParamsFromUrl } from '@/lib/naverLogin'
 import Button from '@/components/ui/Button'
 import loginBackgroundImage from '@/assets/login-bg.jpg'
@@ -77,9 +78,12 @@ const Login = () => {
       setError('네이버 로그인 설정이 올바르지 않습니다.')
     }
   }
+  const isProcessing = useRef(false);
 
   // 네이버 콜백 처리 (state는 네이버 토큰 교환 시 반드시 동일 값 전달)
   const handleNaverCallback = useCallback(async (code: string, state?: string) => {
+    if (isProcessing.current) return; // 이미 처리 중이면 중단
+    isProcessing.current = true;
     try {
       setIsLoading(true)
       setError(null)
@@ -104,6 +108,7 @@ const Login = () => {
         navigate('/', { replace: true }) // 기존 유저 -> 메인
       }
     } catch (err: any) {
+      isProcessing.current = false;
       console.error('네이버 로그인 실패:', err)
       setIsLoading(false)
       setError(err.response?.data?.message || '로그인에 실패했습니다. 다시 시도해주세요.')
@@ -119,7 +124,7 @@ const Login = () => {
   }, [handleNaverCallback])
 
   return (
-    <div className="relative h-screen w-full overflow-y-auto">
+    <div className="relative min-h-screen w-full overflow-y-auto">
       <style>{`
         @keyframes landingFadeUp {
           0% { opacity: 0; transform: translate3d(0, 14px, 0); filter: blur(8px); }
@@ -149,7 +154,7 @@ const Login = () => {
       <div className="absolute inset-0 bg-black/40" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/70" />
 
-      <div className="relative z-10 flex h-full flex-col items-center px-6 pt-1 pb-10 sm:pt-2">
+      <div className="relative z-10 flex min-h-screen flex-col items-center px-6 pt-1 pb-10 sm:pt-2">
         {/* 상단 로고 */}
         <div className="flex w-full max-w-[520px] items-center justify-center">
           <img

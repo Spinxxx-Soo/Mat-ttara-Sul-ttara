@@ -505,29 +505,19 @@ const Search = () => {
                         if (e.key === 'Enter' || e.key === ' ') handleListPlaceClick(place)
                       }}
                     >
-                      <div className="mb-3 flex items-start justify-between">
-                        <div>
-                          <h3
-                            className={`font-black tracking-tight transition-colors ${
-                              selectedPlaceKey === pk
-                                ? 'text-primary'
-                                : 'text-slate-800 group-hover:text-primary dark:text-slate-100'
-                            }`}
-                          >
-                            {place.name}
-                          </h3>
-                          <p className="mt-0.5 text-[11px] text-slate-400">
-                            {place.category || '음식점'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 dark:bg-amber-900/30">
-                          <span className="material-symbols-outlined fill-amber-400 text-[16px] text-amber-400">
-                            star
-                          </span>
-                          <span className="text-xs font-black text-amber-700 dark:text-amber-400">
-                            {place.rating ?? 0.0}
-                          </span>
-                        </div>
+                      <div className="mb-3">
+                        <h3
+                          className={`font-black tracking-tight transition-colors ${
+                            selectedPlaceKey === pk
+                              ? 'text-primary'
+                              : 'text-slate-800 group-hover:text-primary dark:text-slate-100'
+                          }`}
+                        >
+                          {place.name}
+                        </h3>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {place.category || '음식점'}
+                        </p>
                       </div>
 
                       <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-slate-500 line-clamp-1">

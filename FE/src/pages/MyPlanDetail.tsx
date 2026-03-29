@@ -14,6 +14,7 @@ import {
   getPlanMutationErrorMessage,
   getPlanPageErrorState,
 } from '@/lib/planUi'
+import { copyText } from '@/lib/copyText'
 
 import Sidebar from '../components/Sidebar'
 
@@ -30,10 +31,15 @@ const MyPlanDetail = () => {
   const shareToken = plan?.shareToken || (plan as { shareId?: string }).shareId
   const shareUrl = shareToken ? `${window.location.origin}/plan/share/${shareToken}` : ''
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     if (!shareUrl) return;
-    navigator.clipboard.writeText(shareUrl)
-    toast.success(PLAN_MESSAGES.copySuccess)
+    try {
+      await copyText(shareUrl)
+      toast.success(PLAN_MESSAGES.copySuccess)
+    } catch (error) {
+      console.error('링크 복사 실패:', error)
+      toast.error('링크 복사에 실패했습니다.')
+    }
   }
 
   const handleDelete = () => {
