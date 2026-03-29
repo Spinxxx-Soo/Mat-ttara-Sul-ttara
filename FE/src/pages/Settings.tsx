@@ -5,14 +5,15 @@ import LoadingState from '@/components/ui/LoadingState'
 import { useUpdateUserProfileMutation, useUpdateUserPreferenceMutation } from '@/hooks/queries/user/useUserMutations'
 import { useUser, useUserPreference } from '@/hooks/queries/user/useUser'
 import {
+  fromUserPreferenceResponse,
   isUserPreferenceFormComplete,
   toUserPreferenceRequest,
 } from '@/lib/userPreference'
 import Sidebar from '../components/Sidebar'
 
 const Settings = () => {
-  const { user } = useUser()
-  const { preference } = useUserPreference()
+  const { user } = useUser({ enabled: true })
+  const { preference } = useUserPreference({ enabled: !!user })
   const { mutateAsync: updateUserProfile, isPending: isUpdatingProfile } =
     useUpdateUserProfileMutation()
   const { mutateAsync: updatePreference, isPending: isUpdatingPreference } =
@@ -28,44 +29,24 @@ const Settings = () => {
   const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
-    if (!user || isEditing) {
-      return
+    if (user && !isEditing) {
+      setFormData((prev) => ({
+        ...prev,
+        nickname: user.name,
+        email: user.email,
+        bio: user.bio ?? '',
+      }))
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      nickname: user.name,
-      email: user.email,
-      bio: user.bio ?? '',
-    }))
   }, [isEditing, user])
 
   useEffect(() => {
-    if (!preference || isEditing) {
-      return
+    if (preference && !isEditing) {
+      const mappedPreference = fromUserPreferenceResponse(preference)
+      setFormData((prev) => ({
+        ...prev,
+        ...mappedPreference,
+      }))
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      purpose:
-        preference.usageType === '사적'
-          ? 'personal'
-          : preference.usageType === '공적'
-            ? 'professional'
-            : '',
-      age:
-        preference.ageGroup === '20s' ||
-        preference.ageGroup === '30s' ||
-        preference.ageGroup === '40s+'
-          ? preference.ageGroup
-          : '',
-      gender:
-        preference.gender === '남성'
-          ? 'male'
-          : preference.gender === '여성'
-            ? 'female'
-            : '',
-    }))
   }, [isEditing, preference])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -218,7 +199,7 @@ const Settings = () => {
               <div>
                 <h3 className="text-xl font-bold">취향 및 온보딩 정보 수정</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  저장된 취향 정보를 불러와 보여주며, 없으면 빈 값으로 시작합니다.
+                  선호하는 분위기와 나이대 등 맞춤형 추천을 위한 정보를 설정하세요.
                 </p>
               </div>
             </div>
