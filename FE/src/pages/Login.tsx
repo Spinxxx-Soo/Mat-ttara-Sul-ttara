@@ -119,7 +119,7 @@ const Login = () => {
   }, [handleNaverCallback])
 
   return (
-    <div className="relative h-screen w-full overflow-y-auto">
+    <div className="relative min-h-screen w-full overflow-y-auto">
       <style>{`
         @keyframes landingFadeUp {
           0% { opacity: 0; transform: translate3d(0, 14px, 0); filter: blur(8px); }
@@ -149,7 +149,7 @@ const Login = () => {
       <div className="absolute inset-0 bg-black/40" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/70" />
 
-      <div className="relative z-10 flex h-full flex-col items-center px-6 pt-1 pb-10 sm:pt-2">
+      <div className="relative z-10 flex min-h-screen flex-col items-center px-6 pt-1 pb-10 sm:pt-2">
         {/* 상단 로고 */}
         <div className="flex w-full max-w-[520px] items-center justify-center">
           <img
