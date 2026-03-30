@@ -35,7 +35,7 @@ export const initNaverLogin = () => {
 export const getNaverLoginUrl = (): string => {
   const clientId = import.meta.env.VITE_NAVER_CLIENT_ID;
   const callbackUrl = encodeURIComponent(
-    import.meta.env.VITE_NAVER_CALLBACK_URL || window.location.origin + '/login'
+    import.meta.env.VITE_NAVER_CALLBACK_URL
   );
   const state = Math.random().toString(36).substring(2, 15);
 
