@@ -20,3 +20,7 @@ FE/PLAN_FLOW_RESOLUTION_REPORT_2026-03-25.md
 .cursor/*.swp
 nohup.out
 dump_*.sql
+BE/.env.swp
+BE/Task
+package-lock.json
+*.swp
