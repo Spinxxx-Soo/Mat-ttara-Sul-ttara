@@ -1,80 +1,228 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
 
-interface Place {
-  id: string
-  name: string
-  lat: number
-  lng: number
-  address: string
-  hours: string
-}
+import KakaoMap from '@/components/map/KakaoMap'
+import { placeApi } from '@/api/placeApi'
+import { useNearbyPlaces, useSyncPlace } from '@/hooks/queries/place/usePlaces'
+import { useCreatePlanMutation } from '@/hooks/queries/plan/usePlanQueries'
+import { usePendingDelay } from '@/hooks/usePendingDelay'
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning'
+import {
+  buildPlaceSyncRequest,
+  getInternalPlaceId,
+  getPlaceKey,
+  isSamePlace,
+  withInternalPlaceId,
+} from '@/lib/placeIdentity'
+import {
+  PLAN_MESSAGES,
+  confirmDiscardPlanChanges,
+  getPlanMutationErrorMessage,
+} from '@/lib/planUi'
+import { useAuthStore } from '@/stores/authStore'
+import { usePlanCreateDraftStore } from '@/stores/planCreateDraftStore'
+import { mergeByPlaceId, useChatMapStore } from '@/stores/chatMapStore'
+import { FALLBACK_LOCATION, useLocationStore } from '@/stores/locationStore'
+import type { Place } from '@/types/api'
+
+import Sidebar from '../components/Sidebar'
 
 const MyPlanCreate = () => {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const { lat: userLat, lng: userLng } = useLocationStore()
+  
+  // 지도 관련 상태
+  const [mapCenter, setMapCenter] = useState({ lat: userLat || FALLBACK_LOCATION.lat, lng: userLng || FALLBACK_LOCATION.lng })
+  const [zoom, setZoom] = useState(15)
+  const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
+  const clearAiRecommendedPlaces = useChatMapStore((s) => s.clearAiRecommendedPlaces)
+  const [selectedPlaces, setSelectedPlaces] = useState<Place[]>(
+    () => useChatMapStore.getState().aiRecommendedPlaces
+  )
 
-  // 임시 추천 장소 (나중에 백엔드/지도 API 연동)
-  const places: Place[] = [
-    {
-      id: '1',
-      name: '정통집 강남역점',
-      lat: 37.498,
-      lng: 127.0276,
-      address: '서울 강남구 강남대로 102길 12',
-      hours: '오늘 17:00 - 01:00',
+  // 데이터 쿼리 (S14P21B205-129 연동)
+  const { data: places = [], isLoading: isPlacesLoading } = useNearbyPlaces(
+    { 
+      lat: mapCenter.lat, 
+      lng: mapCenter.lng, 
+      radius: zoom >= 16 ? 500 : zoom >= 14 ? 1500 : 3000 
     },
-    {
-      id: '2',
-      name: '을지로 골뱅이포차',
-      lat: 37.5665,
-      lng: 126.9928,
-      address: '서울 중구 을지로13길 32',
-      hours: '오늘 18:00 - 02:00',
-    },
-  ]
+    true
+  )
+  const { mutate: createPlan, isPending: isCreating } = useCreatePlanMutation()
+  const { mutateAsync: syncPlace } = useSyncPlace()
 
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null)
-  const [planName, setPlanName] = useState('') // 플랜명
-  const [date, setDate] = useState('') // 약속 날짜
-  const [time, setTime] = useState('') // 약속 시간
-  const [people, setPeople] = useState('') // 인원 수 (문자열로 관리 후 제출 시 숫자로 변환)
-  const [budget, setBudget] = useState('') // 1인당 예산 (문자열로 관리)
-  const [type, setType] = useState<'' | 'date' | 'hangout' | 'business'>('') // 모임 유형
-  const [memo, setMemo] = useState('') // 메모
-  const [ratings, setRatings] = useState<Record<string, number>>({})
+  // 폼 상태
+  const [title, setTitle] = useState('')
+  const [meetingAt, setMeetingAt] = useState('')
+  const [participantCount, setParticipantCount] = useState('2')
+  const [totalBudget, setTotalBudget] = useState('50000')
+  const [planType, setPlanType] = useState('친목/회식')
+  const [memo, setMemo] = useState('')
+  const initialTitle = user?.name ? `${user.name}님의 맛집 모임` : ''
+  const isDirty = useMemo(
+    () =>
+      title !== initialTitle ||
+      Boolean(meetingAt) ||
+      participantCount !== '2' ||
+      totalBudget !== '50000' ||
+      planType !== '친목/회식' ||
+      Boolean(memo.trim()) ||
+      selectedPlaces.length > 0,
+    [
+      initialTitle,
+      meetingAt,
+      memo,
+      participantCount,
+      planType,
+      selectedPlaces.length,
+      title,
+      totalBudget,
+    ]
+  )
+  const showDelayedPending = usePendingDelay(isCreating)
 
-  const selectedPlace = places.find((p) => p.id === selectedPlaceId) || null
+  useUnsavedChangesWarning(isDirty && !isCreating, PLAN_MESSAGES.leaveWarning)
 
-  const handleRatingChange = (id: string, value: number) => {
-    setRatings((prev) => ({ ...prev, [id]: value }))
+  useEffect(() => {
+    if (user?.name && !title) {
+      setTitle(`${user.name}님의 맛집 모임`)
+    }
+  }, [title, user?.name])
+
+  /** 메인(AI 추천)에서 넘어온 장소: 백엔드 상세로 보강 후 폼·지도에 반영 */
+  useLayoutEffect(() => {
+    const place = usePlanCreateDraftStore.getState().draftPlace
+    if (!place) return
+
+    let cancelled = false
+    void (async () => {
+      const id = getInternalPlaceId(place)
+      let merged: Place = { ...place }
+      if (id != null) {
+        try {
+          const detail = await placeApi.getPlaceDetail(id)
+          if (!cancelled) {
+            merged = {
+              ...place,
+              ...detail,
+              placeId: place.placeId,
+              externalPlaceId: place.externalPlaceId ?? detail.externalPlaceId ?? null,
+              internalPlaceId: id,
+            }
+          }
+        } catch {
+          /* 상세 실패 시 전달받은 place만 사용 */
+        }
+      }
+      if (cancelled) return
+
+      usePlanCreateDraftStore.getState().setDraftPlace(null)
+
+      setSelectedPlaces([merged])
+      setMapCenter({ lat: merged.lat, lng: merged.lng })
+
+      const memoParts: string[] = []
+      if (merged.recommendReason?.trim()) memoParts.push(merged.recommendReason.trim())
+      if (merged.tags?.length) memoParts.push(`태그: ${merged.tags.join(', ')}`)
+      if (merged.description?.trim()) memoParts.push(merged.description.trim())
+      if (memoParts.length) setMemo(memoParts.join('\n\n'))
+
+      const u = useAuthStore.getState().user
+      const userPrefix = u?.name ? `${u.name}님의 ` : ''
+      setTitle(`${userPrefix}${merged.name} 모임`)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleIdle = useCallback((newCenter: { lat: number; lng: number }, newZoom: number) => {
+    setMapCenter(newCenter)
+    setZoom(newZoom)
+  }, [])
+
+  const handlePlaceClick = (place: Place) => {
+    setSelectedPlaces(prev => {
+      const exists = prev.find((selectedPlace) => isSamePlace(selectedPlace, place))
+      if (exists) {
+        return prev.filter((selectedPlace) => !isSamePlace(selectedPlace, place))
+      }
+      return [...prev, place]
+    })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const removePlace = (placeToRemove: Place) => {
+    setSelectedPlaces((prev) => prev.filter((place) => !isSamePlace(place, placeToRemove)))
+  }
+
+  useEffect(() => {
+    if (aiRecommendedPlaces.length === 0) {
+      return
+    }
+
+    setSelectedPlaces((prev) => mergeByPlaceId(prev, aiRecommendedPlaces))
+    clearAiRecommendedPlaces()
+  }, [aiRecommendedPlaces, clearAiRecommendedPlaces])
+
+  const syncSelectedPlaces = async () => {
+    const syncedPlaces = await Promise.all(
+      selectedPlaces.map(async (place) => {
+        const internalPlaceId = getInternalPlaceId(place)
+        if (internalPlaceId != null) {
+          return withInternalPlaceId(place, internalPlaceId)
+        }
+
+        const response = await syncPlace(buildPlaceSyncRequest(place))
+        if (!response) {
+          throw new Error('장소 동기화에 실패했습니다.')
+        }
+
+        return withInternalPlaceId(place, response.placeId)
+      }),
+    )
+
+    setSelectedPlaces(syncedPlaces)
+    return syncedPlaces
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-     // 숫자 변환
-    const peopleNumber = Number(people)
-    const budgetNumber = Number(budget)
+    if (selectedPlaces.length === 0) {
+      toast.error('최소 하나 이상의 장소를 선택해주세요.')
+      return
+    }
 
-    // TODO: 실제 플랜 생성 API 연동
-    console.log('새 플랜 생성', {
-      planName,
-      date,
-      time,
-      people: peopleNumber,
-      budget: budgetNumber,
-      type,
-      place: selectedPlace,
-      memo,
-    })
+    try {
+      const syncedPlaces = await syncSelectedPlaces()
 
-    // 임시: 생성 후 목록으로 이동
-    navigate('/my-plan')
-  }
-
-  const handlePlaceClick = (placeId: string) => {
-    setSelectedPlaceId(placeId)
+      createPlan({
+        title,
+        meetingAt: meetingAt ? new Date(meetingAt).toISOString() : new Date().toISOString(),
+        participantCount: Number(participantCount),
+        totalBudget: Number(totalBudget),
+        planType,
+        memo,
+        details: syncedPlaces.map((place, index) => ({
+          placeId: getInternalPlaceId(place)!,
+          seqNo: index + 1,
+        })),
+      }, {
+        onSuccess: () => {
+          toast.success(PLAN_MESSAGES.createSuccess)
+          navigate('/my-plan')
+        },
+        onError: (error: unknown) => {
+          toast.error(getPlanMutationErrorMessage(error, 'create'))
+        }
+      })
+    } catch (error) {
+      toast.error(getPlanMutationErrorMessage(error, 'create'))
+    }
   }
 
   return (
@@ -86,7 +234,9 @@ const MyPlanCreate = () => {
           <header className="mb-6">
             <h1 className="text-2xl font-black tracking-tight mb-1">플랜 새로 만들기</h1>
             <p className="text-slate-500 text-sm">
-              모임 정보를 입력하고, 오른쪽 지도에서 장소를 선택하세요.
+              {user?.name
+                ? `${user.name}님, 모임 정보를 입력하고 오른쪽 지도에서 장소를 선택하세요.`
+                : '모임 정보를 입력하고, 오른쪽 지도에서 장소를 선택하세요.'}
             </p>
           </header>
 
@@ -97,35 +247,23 @@ const MyPlanCreate = () => {
               </label>
               <input
                 type="text"
-                value={planName}
-                onChange={(e) => setPlanName(e.target.value)}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 placeholder="예: 강남역 불금 미식회"
                 className="w-full px-4 py-3 rounded-lg border border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none text-sm"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  날짜
+                  약속 일시
                 </label>
                 <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none text-sm"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  시간
-                </label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
+                  type="datetime-local"
+                  value={meetingAt}
+                  onChange={(e) => setMeetingAt(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none text-sm"
                   required
                 />
@@ -140,22 +278,22 @@ const MyPlanCreate = () => {
                 <input
                   type="number"
                   min={1}
-                  value={people}
-                  onChange={(e) => setPeople(e.target.value)}
+                  value={participantCount}
+                  onChange={(e) => setParticipantCount(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none text-sm"
                   required
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  1인당 예산 (원)
+                  예상 예산 (원)
                 </label>
                 <input
                   type="number"
                   min={0}
                   step={1000}
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
+                  value={totalBudget}
+                  onChange={(e) => setTotalBudget(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none text-sm"
                   required
                 />
@@ -167,63 +305,57 @@ const MyPlanCreate = () => {
                 모임 유형
               </label>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setType('hangout')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border ${
-                    type === 'hangout'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  친목/회식
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setType('date')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border ${
-                    type === 'date'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  데이트
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setType('business')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border ${
-                    type === 'business'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  비즈니스
-                </button>
+                {['친목/회식', '데이트', '비즈니스'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setPlanType(t)}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border ${
+                      planType === t
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                선택한 장소
+                선택한 장소 ({selectedPlaces.length})
               </label>
-              <div className="px-4 py-3 rounded-lg border border-dashed border-primary/30 bg-background-light dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300">
-                {selectedPlace ? (
-                  <>
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">
-                      {selectedPlace.name}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {selectedPlace.address}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {selectedPlace.hours}
-                    </p>
-                  </>
+              <div className="space-y-2">
+                {selectedPlaces.length > 0 ? (
+                  selectedPlaces.map((place, idx) => (
+                    <div key={getPlaceKey(place)} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/10 bg-background-light dark:bg-slate-800 group animate-in slide-in-from-left-2 duration-200">
+                      <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm truncate">
+                          {place.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 truncate">
+                          {place.category}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removePlace(place)}
+                        className="p-1 hover:text-red-500 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <span className="material-symbols-outlined text-lg">close</span>
+                      </button>
+                    </div>
+                  ))
                 ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    오른쪽 지도에서 장소를 클릭해 선택하세요.
-                  </p>
+                  <div className="px-4 py-8 rounded-xl border border-dashed border-primary/30 bg-background-light dark:bg-slate-800 text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {PLAN_MESSAGES.emptyPlaces}
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -244,129 +376,52 @@ const MyPlanCreate = () => {
             <div className="pt-4 flex gap-3 justify-end">
               <button
                 type="button"
-                onClick={() => navigate('/my-plan')}
+                onClick={() => {
+                  if (!isDirty || confirmDiscardPlanChanges(PLAN_MESSAGES.createCancel)) {
+                    navigate('/my-plan')
+                  }
+                }}
                 className="px-5 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 취소
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25 hover:brightness-110 active:scale-95 transition-all"
+                disabled={isCreating}
+                className="px-6 py-2 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                플랜 생성하기
+                {isCreating ? PLAN_MESSAGES.createPending : '플랜 생성하기'}
               </button>
             </div>
+            {showDelayedPending && (
+              <p className="text-right text-xs text-slate-500">
+                {PLAN_MESSAGES.delayedPending}
+              </p>
+            )}
           </form>
         </section>
 
         {/* 오른쪽: 지도 영역 */}
-        <section className="flex-1 relative bg-slate-200">
-          {/* TODO: 실제 지도 API 연동 */}
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: "url('/mock-map.png')",
-            }}
-          >
-            <div className="absolute inset-0 bg-slate-400/10 pointer-events-none" />
-          </div>
-
-          {/* 핀 + 카드 */}
-          {places.map((place, index) => {
-            const currentRating = ratings[place.id] || 0
-            const isSelected = selectedPlaceId === place.id
-
-            return (
-              <div
-                key={place.id}
-                className={`absolute cursor-pointer transition-transform ${
-                  isSelected ? 'scale-110 z-20' : 'z-10'
-                }`}
-                style={{
-                  left: `${30 + index * 30}%`,
-                  top: `${40 + index * 20}%`,
-                }}
-              >
-                <div className="relative flex flex-col items-center">
-                  {/* 선택된 식당 카드: 핀 위에 표시 */}
-                  {isSelected && (
-                    <div className="mb-3 min-w-[260px] max-w-xs rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                            {place.name}
-                          </h3>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                            {place.hours}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPlaceId(null)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-base">close</span>
-                        </button>
-                      </div>
-
-                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-2">
-                        {place.address}
-                      </p>
-
-                      {/* 별점 선택 */}
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => handleRatingChange(place.id, star)}
-                            className="p-0.5"
-                          >
-                            <span
-                              className="material-symbols-outlined text-sm"
-                              style={{
-                                fontVariationSettings:
-                                  star <= currentRating ? "'FILL' 1" : "'FILL' 0",
-                                color: star <= currentRating ? '#f59e0b' : '#e5e7eb',
-                              }}
-                            >
-                              star
-                            </span>
-                          </button>
-                        ))}
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-1">
-                          {currentRating > 0 ? `${currentRating}.0 / 5` : '별점을 선택해 주세요'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 핀 아이콘 */}
-                  <button
-                    type="button"
-                    onClick={() => handlePlaceClick(place.id)}
-                    className="relative flex flex-col items-center group"
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xl border-2 border-white transition-transform ${
-                        isSelected ? 'bg-primary scale-110' : 'bg-primary group-hover:scale-110'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-xl text-white">
-                        restaurant
-                      </span>
-                    </div>
-                    {/* 꼬리: 검색 화면과 동일한 스타일 */}
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rotate-45 border-r-2 border-b-2 border-white" />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+        <section className="flex-1 relative">
+           <KakaoMap 
+            places={places}
+            selectedPlaceId={selectedPlaces[selectedPlaces.length - 1]?.externalPlaceId ?? selectedPlaces[selectedPlaces.length - 1]?.placeId}
+            onPlaceClick={handlePlaceClick}
+            onIdle={handleIdle}
+            lat={mapCenter.lat}
+            lng={mapCenter.lng}
+            className="w-full h-full"
+           />
+           {isPlacesLoading && (
+             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur px-4 py-2 rounded-full shadow-lg text-xs font-bold text-primary flex items-center gap-2">
+                <div className="size-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                장소 탐색 중...
+             </div>
+           )}
         </section>
       </main>
     </div>
   )
 }
 
-export default MyPlanCreate
+export default MyPlanCreate;

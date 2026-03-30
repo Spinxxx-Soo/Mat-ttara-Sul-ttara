@@ -1,0 +1,51 @@
+// ==========================================
+// Query Key 팩토리 (S14P21B205-152 + 151 지원)
+// ==========================================
+// 모든 React Query의 queryKey는 이 파일에서 중앙 관리합니다.
+// 도메인별로 구조화된 팩토리 함수를 사용하세요.
+
+import type { NearbyPlacesParams } from '@/types/map';
+import type { GetSessionsRequest, GetMessagesRequest } from '@/types/api';
+import type { PlaceSearchRequest } from '@/types/api';
+
+export const queryKeys = {
+    // --- 장소 (Place) ---
+    place: {
+        all: ['place'] as const,
+        nearby: (params: NearbyPlacesParams) =>
+            [...queryKeys.place.all, 'nearby', params] as const,
+        detail: (placeId: number) =>
+            [...queryKeys.place.all, 'detail', placeId] as const,
+        search: (params: PlaceSearchRequest) =>
+            [...queryKeys.place.all, 'search', params] as const,
+        /** placeId 기준으로 prefix invalidate 시 사용 */
+        reviews: (placeId: number, page: number, size: number) =>
+            [...queryKeys.place.all, 'reviews', placeId, page, size] as const,
+    },
+
+    // --- 플랜 (Plan) ---
+    plan: {
+        all: ['plan'] as const,
+        list: () => [...queryKeys.plan.all, 'list'] as const,
+        detail: (planId: string) =>
+            [...queryKeys.plan.all, 'detail', planId] as const,
+        sharedDetail: (shareToken: string) =>
+            [...queryKeys.plan.all, 'sharedDetail', shareToken] as const,
+    },
+
+    // --- 사용자 (User) ---
+    user: {
+        all: ['user'] as const,
+        me: () => [...queryKeys.user.all, 'me'] as const,
+        preference: () => [...queryKeys.user.all, 'preference'] as const,
+    },
+
+    // --- 챗봇 (Chat) ---
+    chat: {
+        all: ['chat'] as const,
+        sessions: (params?: GetSessionsRequest) =>
+            [...queryKeys.chat.all, 'sessions', params] as const,
+        messages: (params: GetMessagesRequest) =>
+            [...queryKeys.chat.all, 'messages', params] as const,
+    },
+} as const;

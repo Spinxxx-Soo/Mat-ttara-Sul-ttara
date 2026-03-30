@@ -1,0 +1,50 @@
+import { create } from 'zustand';
+import type { Place } from '@/types/api';
+import { getPlaceKey } from '@/lib/placeIdentity';
+
+/**
+ * 메인(챗봇) 화면: AI가 추천한 장소를 지도에 표시하기 위한 상태
+ * - ChatWidget에서 메시지/응답 기반으로 갱신
+ * - Main에서 주변 맛집 목록과 병합해 KakaoMap에 전달
+ */
+type SetPlaces = (places: Place[] | ((prev: Place[]) => Place[])) => void;
+
+interface ChatMapState {
+  aiRecommendedPlaces: Place[];
+  setAiRecommendedPlaces: SetPlaces;
+  mergeAiRecommendedPlaces: (places: Place[]) => void;
+  clearAiRecommendedPlaces: () => void;
+  /** 채팅 카드·지도 핀 공통: 말풍선에 표시할 장소의 placeId(또는 internalPlaceId) */
+  mapSelectedPlaceId: number | null;
+  setMapSelectedPlaceId: (id: number | null) => void;
+}
+
+/** 동일 placeId는 incoming이 기존 필드를 덮어씀 */
+export function mergeByPlaceId(existing: Place[], incoming: Place[]): Place[] {
+  const m = new Map<string, Place>();
+  existing.forEach((p) => m.set(getPlaceKey(p), p));
+  incoming.forEach((p) => {
+    const key = getPlaceKey(p);
+    const prev = m.get(key);
+    m.set(key, prev ? { ...prev, ...p } : p);
+  });
+  return Array.from(m.values());
+}
+
+export const useChatMapStore = create<ChatMapState>((set, get) => ({
+  aiRecommendedPlaces: [],
+  mapSelectedPlaceId: null,
+  setMapSelectedPlaceId: (id) => set({ mapSelectedPlaceId: id }),
+  setAiRecommendedPlaces: (places) =>
+    set((s) => ({
+      aiRecommendedPlaces:
+        typeof places === 'function' ? places(s.aiRecommendedPlaces) : places,
+    })),
+  mergeAiRecommendedPlaces: (incoming) => {
+    if (!incoming.length) return;
+    set({
+      aiRecommendedPlaces: mergeByPlaceId(get().aiRecommendedPlaces, incoming),
+    });
+  },
+  clearAiRecommendedPlaces: () => set({ aiRecommendedPlaces: [], mapSelectedPlaceId: null }),
+}));
