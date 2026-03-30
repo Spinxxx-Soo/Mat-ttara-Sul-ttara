@@ -1,41 +1,109 @@
-/**
- * 지도 관련 커스텀 훅
- * 
- * 프론트엔드에서 지도 API를 사용하기 위한 훅입니다.
- * 백엔드 API와 연동하여 장소 데이터를 받아와 지도에 표시합니다.
- */
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { loadKakaoMapScript, isKakaoMapLoaded } from '@/lib/kakaoMap';
+import { envConfig } from '@/config/env';
+import type { Coordinates, MapViewport } from '@/types/map';
+import type { KakaoMapInstance } from '@/types/kakao.d';
 
+// ==========================================
+// S14P21B205-188: 지도 SDK 로더 연동 훅 (Kakao Maps 버전)
+// ==========================================
+
+/**
+ * @param defaultCenter 초기 지도 생성 시점에만 참조되는 중심 좌표입니다. 이후 Prop이 변경되어도 자동으로 지도가 이동하지 않습니다.
+ * @param defaultZoom 초기 지도 생성 시점에만 참조되는 줌 레벨입니다.
+ */
 interface UseMapOptions {
-  apiKey?: string // 지도 API 키 (환경 변수에서 가져옴)
-  defaultCenter?: { lat: number; lng: number }
-  defaultZoom?: number
+  defaultCenter?: Coordinates;
+  defaultZoom?: number;
 }
 
-export const useMap = (options: UseMapOptions = {}) => {
+interface UseMapReturn {
+  mapRef: React.RefObject<HTMLDivElement>;
+  mapInstance: React.MutableRefObject<KakaoMapInstance | null>;
+  /** 지도 인스턴스가 붙을 때마다 증가 — ref(mapInstance)만으로는 effect가 재실행되지 않아 이벤트 등록용 */
+  mapAttachVersion: number;
+  viewport: MapViewport;
+  sdkLoaded: boolean;
+  sdkError: string | null;
+  setCenter: (center: Coordinates) => void;
+  setZoom: (zoom: number) => void;
+}
+
+export const useMap = (options: UseMapOptions = {}): UseMapReturn => {
   const {
-    apiKey = import.meta.env.VITE_MAP_API_KEY || '',
-    defaultCenter = { lat: 37.5665, lng: 126.9780 },
-    defaultZoom = 15,
-  } = options
+    defaultCenter = { lat: 37.5665, lng: 126.978 }, // 서울 시청 (fallback)
+    defaultZoom = 3, // Kakao Maps 줌 레벨은 숫자가 작을수록 확대, 3이 기본 적절값
+  } = options;
 
-  // TODO: 실제 지도 API 초기화 로직
-  // 네이버 지도 또는 카카오맵 API 사용
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<KakaoMapInstance | null>(null);
 
-  return {
-    mapInstance: null,
+  const [sdkLoaded, setSdkLoaded] = useState<boolean>(isKakaoMapLoaded());
+  const [sdkError, setSdkError] = useState<string | null>(null);
+  const [mapAttachVersion, setMapAttachVersion] = useState(0);
+  const [viewport, setViewport] = useState<MapViewport>({
     center: defaultCenter,
     zoom: defaultZoom,
-    setCenter: (center: { lat: number; lng: number }) => {
-      console.log('지도 중심 이동:', center)
-    },
-    setZoom: (zoom: number) => {
-      console.log('지도 줌:', zoom)
-    },
-    addMarker: (place: any) => {
-      console.log('마커 추가:', place)
-    },
-    removeMarker: (markerId: string) => {
-      console.log('마커 제거:', markerId)
-    },
-  }
-}
+  });
+
+  // SDK 로드
+  useEffect(() => {
+    if (sdkLoaded) return;
+
+    loadKakaoMapScript(envConfig.kakaoMapJsKey)
+      .then(() => setSdkLoaded(true))
+      .catch((err: Error) => setSdkError(err.message));
+  }, [sdkLoaded]);
+
+  // Kakao Maps SDK 로드 완료 후 지도 인스턴스 생성/해제 lifecycle 처리
+  useEffect(() => {
+    if (!sdkLoaded || !mapRef.current || mapInstance.current) return;
+
+    const kakao = window.kakao;
+    const options = {
+      center: new kakao.maps.LatLng(defaultCenter.lat, defaultCenter.lng),
+      level: defaultZoom,
+    };
+
+    const createdMap = new kakao.maps.Map(mapRef.current, options);
+    mapInstance.current = createdMap;
+    setMapAttachVersion((v) => v + 1);
+
+    return () => {
+      // Kakao Maps는 별도의 destroy 메서드 대신 DOM 초기화를 권장
+      if (mapInstance.current === createdMap) {
+        mapInstance.current = null;
+      }
+
+      if (mapRef.current) {
+        mapRef.current.innerHTML = '';
+      }
+    };
+  }, [sdkLoaded]);
+
+  const setCenter = useCallback((center: Coordinates) => {
+    setViewport((prev) => ({ ...prev, center }));
+    if (mapInstance.current && sdkLoaded) {
+      const kakao = window.kakao;
+      mapInstance.current.setCenter(new kakao.maps.LatLng(center.lat, center.lng));
+    }
+  }, [sdkLoaded]);
+
+  const setZoom = useCallback((zoom: number) => {
+    setViewport((prev) => ({ ...prev, zoom: zoom }));
+    if (mapInstance.current && sdkLoaded) {
+      mapInstance.current.setLevel(zoom);
+    }
+  }, [sdkLoaded]);
+
+  return {
+    mapRef,
+    mapInstance,
+    mapAttachVersion,
+    viewport,
+    sdkLoaded,
+    sdkError,
+    setCenter,
+    setZoom,
+  };
+};
