@@ -25,12 +25,7 @@ body {
 }
 
 /* Material Icons 폰트 로드 확인 */
-@font-face {
-  font-family: 'Material Symbols Outlined';
-  font-style: normal;
-  font-weight: 100 700;
-  src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v223/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2');
-}
+/* Material Symbols는 index.html에서 로드되므로 중복 선언 제거 */
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;

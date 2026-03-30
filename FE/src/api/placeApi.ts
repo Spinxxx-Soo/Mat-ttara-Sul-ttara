@@ -1,0 +1,248 @@
+// ==========================================
+// 장소 API 순수 호출 함수 (S14P21B205-151 패턴 예시)
+// ==========================================
+// 이 파일은 API 호출만 담당합니다.
+// React Query와의 조합은 src/hooks/queries/place/에서 이루어집니다.
+
+import { apiClient } from '@/api/axios';
+import type {
+  Place,
+  ApiPaginationResponse,
+  PlaceSearchRequest,
+  PlaceSearchResponse,
+  PlaceReviewsResponse,
+  RecommendedPlace,
+  CreateReviewRequest,
+  UpdateReviewRequest,
+  Review,
+  PlaceSyncRequest,
+  PlaceSyncResponse,
+} from '@/types/api';
+import type { NearbyPlacesParams } from '@/types/map';
+
+const mapKakaoPlaceToPlace = (item: any): Place => ({
+    placeId: Number(item.id),
+    externalPlaceId: String(item.id),
+    name: item.place_name,
+    address: item.road_address_name || item.address_name,
+    phone: item.phone || null,
+    lat: Number(item.y),
+    lng: Number(item.x),
+    category: item.category_name.split(' > ').pop() || null,
+    rating: 0,
+    imageUrl: null,
+    isOpen: true,
+    url: item.place_url || null,
+});
+
+/** 카카오 Places.keywordSearch / Local API: 페이지당 최대 15 (초과 시 400) */
+const KAKAO_KEYWORD_SEARCH_MAX_SIZE = 15;
+
+function clampKakaoKeywordPageSize(size?: number): number {
+  const n = size ?? 10;
+  return Math.min(KAKAO_KEYWORD_SEARCH_MAX_SIZE, Math.max(1, n));
+}
+
+export const placeApi = {
+  /**
+   * 주변 장소 목록 조회
+   */
+    getNearbyPlaces: async (params: NearbyPlacesParams): Promise<ApiPaginationResponse<Place>> => {
+        return new Promise((resolve, reject) => {
+            const { kakao } = window as any;
+            if (!kakao || !kakao.maps || !kakao.maps.services) {
+                return reject(new Error('카카오맵 SDK가 로드되지 않았습니다.'));
+            }
+
+            const ps = new kakao.maps.services.Places();
+            const searchKeyword = params.category && params.category !== '전체' ? params.category : '맛집';
+            
+            const options: any = {
+                location: new kakao.maps.LatLng(params.lat, params.lng),
+                radius: params.radius || 1000,
+                size: clampKakaoKeywordPageSize(params.size ?? 15),
+                page: params.page || 1,
+                sort: kakao.maps.services.SortBy.DISTANCE,
+            };
+
+            ps.keywordSearch(searchKeyword, (data: any[], status: any, pagination: any) => {
+                if (status === kakao.maps.services.Status.OK) {
+                    const content: Place[] = data.map(mapKakaoPlaceToPlace);
+
+                    resolve({
+                        content,
+                        pageInfo: {
+                            page: pagination.current,
+                            size: options.size,
+                            totalElements: pagination.totalCount,
+                            totalPages: pagination.last,
+                            hasNext: pagination.hasNext
+                        }
+                    });
+                } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+                    resolve({
+                        content: [],
+                        pageInfo: { page: 1, size: options.size, totalElements: 0, totalPages: 0, hasNext: false }
+                    });
+                } else {
+                    reject(new Error('장소 검색 중 오류가 발생했습니다.'));
+                }
+            }, options);
+        });
+    },
+
+    /**
+     * 장소 상세 정보 조회
+     */
+    getPlaceDetail: async (placeId: number): Promise<Place> => {
+        // 상세 정보 조회를 위한 카카오 로직 (선택사항, 일단 기존 유지)
+        const { data } = await apiClient.get<Place>(`/api/v1/places/${placeId}`);
+        return data;
+    },
+
+    /**
+     * 가게 검색
+     * @param params - 검색 파라미터 (keyword, lat?, lng?, page, size)
+     */
+    searchPlaces: async (params: PlaceSearchRequest): Promise<PlaceSearchResponse> => {
+        const response = await apiClient.get<PlaceSearchResponse>('/api/v1/places/search', {
+            params,
+        });
+        return response.data;
+    },
+
+  /**
+   * 채팅 세션 기준 AI 추천 장소 목록 (SSE 수신 후 갱신용)
+   * GET /api/v1/places/recommend?lat=&lng=
+   */
+  getRecommendedPlaces: async (
+    params: { sessionId: string | number; lat: number; lng: number },
+  ): Promise<RecommendedPlace[]> => {
+    const { data } = await apiClient.get<RecommendedPlace[] | { content: RecommendedPlace[] }>(
+      '/api/v1/places/recommend',
+      {
+        params,
+      },
+    );
+
+    if (Array.isArray(data)) return data;
+    return data.content ?? [];
+  },
+
+  /**
+   * 카카오 SDK로 얻은 장소를 백엔드 내부 placeId로 동기화
+   */
+  syncPlace: async (body: PlaceSyncRequest): Promise<PlaceSyncResponse> => {
+    const { data } = await apiClient.post<PlaceSyncResponse>('/api/v1/places/sync', body);
+    return data;
+  },
+
+  /**
+   * 내부 placeId 기반 장소 AI 보강
+   * POST /api/v1/places/{placeId}/enrich
+   */
+  enrichPlace: async (placeId: number): Promise<Place> => {
+    const { data } = await apiClient.post<Place>(`/api/v1/places/${placeId}/enrich`);
+    return data;
+  },
+
+  /**
+   * 가게별 리뷰 목록 조회
+   * GET /api/v1/places/{placeId}/reviews?page=&size=
+   */
+  getPlaceReviews: async (
+    placeId: number,
+    page: number,
+    size: number
+  ): Promise<PlaceReviewsResponse> => {
+    const { data } = await apiClient.get<PlaceReviewsResponse | Review[]>(
+      `/api/v1/places/${placeId}/reviews`,
+      {
+        params: { page, size },
+      }
+    );
+
+    // BE(현재): ReviewListResponseDto — { content, pageInfo, averageRating }
+    if (
+      data != null &&
+      typeof data === 'object' &&
+      !Array.isArray(data) &&
+      Array.isArray((data as PlaceReviewsResponse).content)
+    ) {
+      const d = data as PlaceReviewsResponse;
+      return {
+        content: d.content ?? [],
+        pageInfo: d.pageInfo,
+        averageRating: d.averageRating,
+      };
+    }
+
+    // Legacy: Review[] 만 내려오는 경우 — FE에서 페이지네이션 형태로 래핑
+    const all = Array.isArray(data) ? data : [];
+    const safeSize = Math.max(1, size || 10);
+    const safePage = Math.max(1, page || 1);
+    const totalElements = all.length;
+    const totalPages = Math.ceil(totalElements / safeSize);
+    const start = (safePage - 1) * safeSize;
+    const end = start + safeSize;
+    const content = all.slice(start, end);
+    const hasNext = safePage < totalPages;
+
+    const avg =
+      totalElements > 0
+        ? all.reduce((acc, r) => acc + (Number(r?.rating) || 0), 0) / totalElements
+        : undefined;
+
+    return {
+      content,
+      pageInfo: {
+        page: safePage,
+        size: safeSize,
+        totalElements,
+        totalPages,
+        hasNext,
+      },
+      averageRating: Number.isFinite(avg) ? avg : undefined,
+    };
+  },
+
+  /**
+   * 리뷰 등록
+   * POST /api/v1/places/{placeId}/reviews
+   */
+  createPlaceReview: async (
+    placeId: number,
+    body: CreateReviewRequest
+  ): Promise<Review> => {
+    const { data } = await apiClient.post<Review>(
+      `/api/v1/places/${placeId}/reviews`,
+      body
+    );
+    return data;
+  },
+
+  /**
+   * 리뷰 수정
+   * PATCH /api/v1/places/{placeId}/reviews/{reviewId}
+   */
+  updatePlaceReview: async (
+    placeId: number,
+    reviewId: number,
+    body: UpdateReviewRequest
+  ): Promise<Review> => {
+    // BE는 PUT 매핑이다. (PATCH로 호출하면 405/404가 날 수 있음)
+    const { data } = await apiClient.put<Review>(
+      `/api/v1/places/${placeId}/reviews/${reviewId}`,
+      body
+    );
+    return data;
+  },
+
+  /**
+   * 리뷰 삭제
+   * DELETE /api/v1/places/{placeId}/reviews/{reviewId}
+   */
+  deletePlaceReview: async (placeId: number, reviewId: number): Promise<void> => {
+    await apiClient.delete(`/api/v1/places/${placeId}/reviews/${reviewId}`);
+  },
+};

@@ -1,0 +1,76 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: sulddara-mysql
+    environment:
+      MYSQL_DATABASE: matsul
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis/redis-stack-server:latest
+    container_name: sulddara-redis
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_ARGS: "--appendonly yes"
+    volumes:
+      - redis-stack-data:/data
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: sulddara-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    command: >
+      sh -c "if ! ./bin/elasticsearch-plugin list | grep -qx analysis-nori; then
+        ./bin/elasticsearch-plugin install --batch analysis-nori;
+      fi;
+      exec /usr/local/bin/docker-entrypoint.sh"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sulddara-backend
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_HOST=mysql
+      - REDIS_HOST=redis
+      - ES_HOST=elasticsearch
+      - AI_BASE_URL=${AI_BASE_URL}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      elasticsearch:
+        condition: service_started
+    volumes:
+      - ./src/main/resources/application.yml:/app/config/application.yml
+    restart: always
+
+volumes:
+  mysql-data:
+  redis-stack-data:
+  es-data:

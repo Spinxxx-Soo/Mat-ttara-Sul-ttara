@@ -1,174 +1,380 @@
-import { useState } from 'react'
-import Sidebar from '../components/Sidebar'
-import ChatWidget from '../components/ChatWidget'
+// FE/src/pages/Main.tsx
 
-interface RestaurantPin {
-  id: string
-  name: string
-  lat: number
-  lng: number
-  isOpen: boolean
-  address: string
-  hours: string
-}
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Sidebar from '@/components/Sidebar'
+import ChatWidget from '@/components/chat/ChatWidget'
+import PlaceReviewPanel from '@/components/reviews/PlaceReviewPanel'
+import KakaoMap from '@/components/map/KakaoMap'
+import { useEnrichPlace, useNearbyPlaces, usePlaceDetail, useSyncPlace } from '@/hooks/queries/place/usePlaces'
+import { useLocationStore } from '@/stores/locationStore'
+import toast from 'react-hot-toast'
+import type { Place } from '@/types/api'
+import { useChatMapStore } from '@/stores/chatMapStore'
+import { useChatSessionStore } from '@/stores/chatSessionStore'
+import { useChatMessages, useSetMapLocation } from '@/hooks/queries/chat/useChat'
+import type { Coordinates } from '@/types/map'
+import {
+  buildPlaceSyncRequest,
+  getInternalPlaceId,
+  getPlaceKey,
+  isSamePlace,
+  resolveNumericPlaceId,
+} from '@/lib/placeIdentity'
+import { usePlanCreateDraftStore } from '@/stores/planCreateDraftStore'
+import { hasNullFields } from '@/lib/placeUtils'
+import { extractApiErrorMessage } from '@/lib/apiUtils'
 
 const Main = () => {
-  const [selectedPin, setSelectedPin] = useState<string | null>(null)
-  const [ratings, setRatings] = useState<Record<string, number>>({})
+  const navigate = useNavigate()
+  const setPlanDraftPlace = usePlanCreateDraftStore((s) => s.setDraftPlace)
+  const [planCreateModalPlace, setPlanCreateModalPlace] = useState<Place | null>(null)
+  const mapSelectedPlaceId = useChatMapStore((s) => s.mapSelectedPlaceId)
+  const setMapSelectedPlaceId = useChatMapStore((s) => s.setMapSelectedPlaceId)
+  const [reviewPanel, setReviewPanel] = useState<{
+    placeId: number
+    placeName: string
+  } | null>(null)
+  const [resolvedPlaceIds, setResolvedPlaceIds] = useState<Record<string, number>>({})
 
-  // TODO: 실제 지도 API 연동 (네이버 지도 또는 카카오맵)
-  const restaurants: RestaurantPin[] = [
-    {
-      id: '1',
-      name: '만선호프',
-      lat: 37.5665,
-      lng: 126.9928,
-      isOpen: true,
-      address: '서울 중구 을지로13길 19',
-      hours: '오늘 17:00 - 24:00',
-    },
-    {
-      id: '2',
-      name: '시선 이자카야',
-      lat: 37.4979,
-      lng: 127.0276,
-      isOpen: true,
-      address: '서울 강남구 테헤란로 222',
-      hours: '오늘 18:00 - 02:00',
-    },
-  ]
+  const { lat: storeLat, lng: storeLng } = useLocationStore()
+  const currentLat = storeLat ?? 37.5665
+  const currentLng = storeLng ?? 126.978
 
-  const handleRatingChange = (id: string, value: number) => {
-    setRatings((prev) => ({ ...prev, [id]: value }))
+  const [mapCenter, setMapCenter] = useState({ lat: currentLat, lng: currentLng })
+  const [zoom, setZoom] = useState(15)
+
+  const { data: restaurants = [] } = useNearbyPlaces(
+    {
+      lat: mapCenter.lat,
+      lng: mapCenter.lng,
+      radius: zoom > 14 ? 1000 : 2000,
+    },
+    true
+  )
+
+  const { mutate: enrichPlace } = useEnrichPlace()
+  const { mutateAsync: syncPlace } = useSyncPlace()
+
+  const activeSessionId = useChatSessionStore((s) => s.activeSessionId)
+  const userMessagedSessionIds = useChatSessionStore((s) => s.userMessagedSessionIds)
+  const { mutate: setMapLocation, isPending: isMapLocationPending } = useSetMapLocation()
+
+  /** ChatWidget과 동일 파라미터 → React Query 캐시 공유 */
+  const { data: sessionMessagesData } = useChatMessages({
+    sessionId: activeSessionId,
+    page: 0,
+    size: 50,
+  })
+  const hasUserMessageInChat = useMemo(() => {
+    const fromServer = (sessionMessagesData?.content ?? []).some(
+      (m) => String(m.role).toUpperCase() === 'USER'
+    )
+    const fromClient =
+      !!activeSessionId && userMessagedSessionIds[activeSessionId] === true
+    return fromServer || fromClient
+  }, [sessionMessagesData, activeSessionId, userMessagedSessionIds])
+
+  const aiRecommendedPlaces = useChatMapStore((s) => s.aiRecommendedPlaces)
+  const mapPlaces = useMemo(() => {
+    if (aiRecommendedPlaces.length > 0) {
+      return aiRecommendedPlaces
+    }
+    return restaurants
+  }, [restaurants, aiRecommendedPlaces])
+
+  const isAiRecommendedPlace = useCallback(
+    (place: Place) =>
+      aiRecommendedPlaces.length > 0 &&
+      aiRecommendedPlaces.some((p) => isSamePlace(p, place)),
+    [aiRecommendedPlaces]
+  )
+
+  const selectedPlace = useMemo(() => {
+    if (mapSelectedPlaceId == null) return null
+    return (
+      mapPlaces.find(
+        (p) => resolveNumericPlaceId(p) === mapSelectedPlaceId
+      ) ?? null
+    )
+  }, [mapPlaces, mapSelectedPlaceId])
+
+  const selectedPlaceKey = selectedPlace ? getPlaceKey(selectedPlace) : null
+
+  const lastPannedForSelectionRef = useRef<number | null>(null)
+  const prevAiRecLenRef = useRef(0)
+  useEffect(() => {
+    const n = aiRecommendedPlaces.length
+    if (n > 0 && prevAiRecLenRef.current === 0) {
+      const first = aiRecommendedPlaces[0]
+      const autoId = resolveNumericPlaceId(first)
+      if (autoId != null) {
+        lastPannedForSelectionRef.current = null
+        setMapSelectedPlaceId(autoId)
+      }
+    }
+    prevAiRecLenRef.current = n
+  }, [aiRecommendedPlaces, setMapSelectedPlaceId])
+  const selectedInternalPlaceId = selectedPlace
+    ? getInternalPlaceId(selectedPlace) ?? (selectedPlaceKey ? resolvedPlaceIds[selectedPlaceKey] ?? null : null)
+    : null
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedPlace || selectedPlaceKey == null) {
+      return
+    }
+
+    if (selectedInternalPlaceId != null) {
+      return
+    }
+
+    const run = async () => {
+      try {
+        const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response || cancelled) return
+
+        setResolvedPlaceIds((prev) => ({
+          ...prev,
+          [selectedPlaceKey]: response.placeId,
+        }))
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to sync selected place:', error)
+        }
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedInternalPlaceId, selectedPlace, selectedPlaceKey, syncPlace])
+
+  const { data: selectedPlaceDetail } = usePlaceDetail(
+    selectedInternalPlaceId ?? 0,
+    selectedInternalPlaceId != null
+  )
+  const selectedPlaceForDisplay = selectedPlaceDetail ?? selectedPlace
+
+  // internal id가 확보된 뒤, 필수 필드가 비어 있으면 backend enrich를 시도한다.
+  useEffect(() => {
+    if (selectedInternalPlaceId == null) return
+    if (!selectedPlaceForDisplay) return
+    if (!hasNullFields(selectedPlaceForDisplay)) return
+
+    enrichPlace(selectedInternalPlaceId)
+  }, [selectedInternalPlaceId, selectedPlaceForDisplay, enrichPlace])
+
+  const sendSelectedLocationToChat = (coord: Coordinates) => {
+    if (!activeSessionId) {
+      toast.error('채팅 세션이 준비될 때까지 잠시만 기다려 주세요.')
+      return
+    }
+    // 사용자가 채팅으로 한 번이라도 말을 건 뒤에만 AI(세션)에 지도 위치를 넘긴다.
+    if (!hasUserMessageInChat) return
+    if (isMapLocationPending) return
+
+    setMapLocation(
+      {
+        sessionId: activeSessionId,
+        lat: coord.lat,
+        lng: coord.lng,
+      },
+      {
+        onSuccess: () => {
+          toast.success('선택한 위치로 주변 맛집을 찾습니다.')
+        },
+        onError: (err) => {
+          toast.error(extractApiErrorMessage(err, '위치 전송에 실패했습니다.'))
+        },
+      }
+    )
   }
 
+  const handlePlaceClick = (place: Place) => {
+    // 리뷰 패널(왼쪽)이 열린 상태에서 다른 핀을 선택하면,
+    // 자동으로 리뷰 패널을 닫아(돌아가기) 지도 상세 카드가 보이도록 한다.
+    if (reviewPanel) setReviewPanel(null)
+    const id = resolveNumericPlaceId(place)
+    setMapSelectedPlaceId(id)
+    if (isAiRecommendedPlace(place)) {
+      setPlanCreateModalPlace(place)
+    } else {
+      setPlanCreateModalPlace(null)
+    }
+    sendSelectedLocationToChat({ lat: place.lat, lng: place.lng })
+  }
+
+  useEffect(() => {
+    if (mapSelectedPlaceId == null) {
+      lastPannedForSelectionRef.current = null
+      return
+    }
+    const p = mapPlaces.find(
+      (x) => resolveNumericPlaceId(x) === mapSelectedPlaceId
+    )
+    if (
+      !p ||
+      !Number.isFinite(p.lat) ||
+      !Number.isFinite(p.lng) ||
+      (p.lat === 0 && p.lng === 0)
+    ) {
+      return
+    }
+    if (lastPannedForSelectionRef.current === mapSelectedPlaceId) return
+    lastPannedForSelectionRef.current = mapSelectedPlaceId
+    setMapCenter({ lat: p.lat, lng: p.lng })
+  }, [mapSelectedPlaceId, mapPlaces])
+
+  const handlePlanCreateModalConfirm = () => {
+    if (!planCreateModalPlace) return
+    setPlanDraftPlace(planCreateModalPlace)
+    setPlanCreateModalPlace(null)
+    navigate('/my-plan/new')
+  }
+
+  useEffect(() => {
+    if (!planCreateModalPlace) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPlanCreateModalPlace(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [planCreateModalPlace])
+
+  const handleMapIdle = (
+    center: { lat: number; lng: number },
+    currentZoom: number
+  ) => {
+    setMapCenter(center)
+    setZoom(currentZoom)
+  }
+
+  const handleMapClick = (coord: Coordinates) => {
+    sendSelectedLocationToChat(coord)
+  }
+
+  const openReviewFromDetail = async () => {
+    if (!selectedPlace) return
+
+    const reviewsEnabled = import.meta.env.VITE_REVIEWS_ENABLED === 'true'
+    if (!reviewsEnabled) {
+      toast.error('리뷰 기능은 준비 중입니다.')
+      return
+    }
+
+    if (selectedInternalPlaceId == null) {
+      try {
+        const response = await syncPlace(buildPlaceSyncRequest(selectedPlace))
+        if (!response) return
+        setReviewPanel({
+          placeId: response.placeId,
+          placeName: selectedPlace.name,
+        })
+      } catch (err) {
+        toast.error(extractApiErrorMessage(err, '장소 동기화에 실패했습니다.'))
+      }
+      return
+    }
+
+    setReviewPanel({
+      placeId: selectedInternalPlaceId,
+      placeName: selectedPlace.name,
+    })
+  }
+  useEffect(() => {
+    if (mapSelectedPlaceId == null) return
+    if (
+      !mapPlaces.some((p) => resolveNumericPlaceId(p) === mapSelectedPlaceId)
+    ) {
+      setMapSelectedPlaceId(null)
+    }
+  }, [mapPlaces, mapSelectedPlaceId, setMapSelectedPlaceId])
+
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50">
       <Sidebar />
-      <ChatWidget />
-      <main className="flex-1 relative bg-slate-100 dark:bg-slate-900">
-        {/* Map Background - TODO: 실제 지도 API로 교체 */}
-        <div
-          className="absolute inset-0 z-0 bg-cover bg-center"
-          style={{
-            backgroundImage: "url('/mock-map.png')",
-            filter: 'brightness(0.98) contrast(1.02)',
-          }}
-        >
-          {/* Map Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-900/5" />
-          
-          {/* Map Pins + Inline Cards */}
-          {restaurants.map((place, index) => {
-            const currentRating = ratings[place.id] || 0
-            const isSelected = selectedPin === place.id
 
-            return (
-              <div
-                key={place.id}
-                className={`absolute cursor-pointer transition-transform ${
-                  isSelected ? 'scale-110 z-20' : 'z-10'
-                }`}
-                style={{
-                  left: `${25 + index * 35}%`,
-                  top: `${35 + index * 25}%`,
-                }}
+      {/* 왼쪽: ChatWidget 또는 ReviewPanel */}
+      <aside className="z-40 flex h-full min-h-0 w-[400px] shrink-0 flex-col border-r border-primary/10 bg-white shadow-xl dark:border-slate-800 dark:bg-background-dark">
+        {reviewPanel ? (
+          <PlaceReviewPanel
+            placeId={reviewPanel.placeId}
+            placeName={reviewPanel.placeName}
+            onBack={() => setReviewPanel(null)}
+          />
+        ) : (
+          <ChatWidget />
+        )}
+      </aside>
+
+      {/* 오른쪽: 지도 (주변 맛집 목록은 /search) */}
+      <main className="relative min-h-0 min-w-0 flex-1">
+        {planCreateModalPlace && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-plan-create-title"
+            className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setPlanCreateModalPlace(null)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2
+                id="ai-plan-create-title"
+                className="text-lg font-bold text-slate-900 dark:text-slate-100"
               >
-                <div className="relative flex flex-col items-center">
-                  {/* 카드: 핀 위에 표시 */}
-                  {isSelected && (
-                    <div className="mb-3 min-w-[260px] max-w-xs rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                            {place.name}
-                          </h3>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                            {place.hours}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPin(null)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-base">close</span>
-                        </button>
-                      </div>
-
-                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-2">
-                        {place.address}
-                      </p>
-
-                      {/* 별점 선택 */}
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => handleRatingChange(place.id, star)}
-                            className="p-0.5"
-                          >
-                            <span
-                              className="material-symbols-outlined text-sm"
-                              style={{
-                                fontVariationSettings:
-                                  star <= currentRating ? "'FILL' 1" : "'FILL' 0",
-                                color: star <= currentRating ? '#f59e0b' : '#e5e7eb',
-                              }}
-                            >
-                              star
-                            </span>
-                          </button>
-                        ))}
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-1">
-                          {currentRating > 0 ? `${currentRating}.0 / 5` : '별점을 선택해 주세요'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 핀 아이콘 (원 + 아래 꼬리) */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPin(place.id)}
-                    className="relative flex flex-col items-center group"
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xl border-2 border-white transition-transform ${
-                        isSelected ? 'bg-primary scale-110' : 'bg-primary group-hover:scale-110'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-xl text-white">
-                        restaurant
-                      </span>
-                    </div>
-                    {/* 꼬리: 검색 화면과 동일한 스타일 */}
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rotate-45 border-r-2 border-b-2 border-white" />
-                  </button>
-                </div>
+                플랜 생성
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                이 가게로 약속 플랜을 생성하시겠습니까?
+              </p>
+              <p className="mt-2 truncate text-sm font-semibold text-primary">
+                {planCreateModalPlace.name}
+              </p>
+              {planCreateModalPlace.address ? (
+                <p className="mt-1 line-clamp-2 text-xs text-slate-500">{planCreateModalPlace.address}</p>
+              ) : null}
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPlanCreateModalPlace(null)}
+                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePlanCreateModalConfirm}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-primary/90"
+                >
+                  플랜 생성하기
+                </button>
               </div>
-            )
-          })}
-        </div>
-
-        {/* Map Controls */}
-        <div className="absolute bottom-8 right-8 flex flex-col gap-3 z-20">
-          <button className="w-14 h-14 bg-white dark:bg-slate-900 rounded-2xl shadow-xl flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-200 border border-slate-200 dark:border-slate-700">
-            <span className="material-symbols-outlined text-2xl">my_location</span>
-          </button>
-          <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700">
-            <button className="w-14 h-14 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-200">
-              <span className="material-symbols-outlined text-xl">add</span>
-            </button>
-            <button className="w-14 h-14 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-200">
-              <span className="material-symbols-outlined text-xl">remove</span>
-            </button>
+            </div>
           </div>
-          <button className="w-14 h-14 bg-white dark:bg-slate-900 rounded-2xl shadow-xl flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-200 border border-slate-200 dark:border-slate-700">
-            <span className="material-symbols-outlined text-xl">layers</span>
-          </button>
-        </div>
+        )}
+
+        <KakaoMap
+          className="h-full w-full"
+          lat={mapCenter.lat}
+          lng={mapCenter.lng}
+          places={mapPlaces}
+          selectedPlaceId={selectedPlaceKey ?? mapSelectedPlaceId}
+          detailPlace={
+            selectedPlace && !reviewPanel ? (selectedPlaceForDisplay ?? selectedPlace) : null
+          }
+          onDetailClose={() => setMapSelectedPlaceId(null)}
+          onDetailReviewClick={openReviewFromDetail}
+          onPlaceClick={handlePlaceClick}
+          onIdle={handleMapIdle}
+          onClick={handleMapClick}
+        />
       </main>
     </div>
   )

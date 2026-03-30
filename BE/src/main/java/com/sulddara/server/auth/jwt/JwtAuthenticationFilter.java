@@ -1,0 +1,121 @@
+package com.sulddara.server.auth.jwt;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sulddara.server.auth.oauth.CustomOAuth2User;
+import com.sulddara.server.global.error.ErrorCode;
+import com.sulddara.server.global.error.ErrorResponse;
+import com.sulddara.server.global.error.exception.BaseException;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtUtil jwtUtil;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
+
+    @Override
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain filterChain) throws ServletException, IOException {
+
+        try{
+            String jwt = jwtUtil.getJwtToken(request);
+
+            if (jwt != null && jwtUtil.validateToken(jwt)){
+                if (redisTemplate.hasKey("blacklist:" + jwt)) {
+                    throw new BaseException(ErrorCode.LOGOUT_TOKEN);
+                }
+
+                Claims claims = jwtUtil.getClaims(jwt);
+
+                // JJWT numeric claim은 Integer/Long 등으로 역직렬화될 수 있어,
+                // Long으로 단정하지 않고 Number로 받아 long으로 변환합니다.
+                Number userIdNumber = claims.get("userId", Number.class);
+                Long userId = userIdNumber != null ? userIdNumber.longValue() : null;
+                String email = claims.getSubject();
+                String role = claims.get("role", String.class);
+
+                Map<String, Object> attributes = new HashMap<>();
+                attributes.put("id", userId);
+                attributes.put("email", email);
+                attributes.put("role", role);
+
+                CustomOAuth2User user = new CustomOAuth2User(
+                        new DefaultOAuth2User(
+                                Collections.singleton(new SimpleGrantedAuthority(role)),
+                                attributes,
+                                "id"
+                        ),
+                        userId,
+                        email,
+                        role
+                );
+
+                Authentication authenticationToken = new UsernamePasswordAuthenticationToken(
+                        user,
+                        null,
+                        user.getAuthorities()
+                );
+
+                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            }
+            filterChain.doFilter(request, response);
+        }catch (BaseException e) {
+            if (response.isCommitted()) {
+                return;
+            }
+            setErrorResponse(response, e.getErrorCode());
+        } catch (Exception e) {
+            if (response.isCommitted()) {
+                return;
+            }
+            setErrorResponse(response, ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+
+    }
+
+    /**
+     * SSE/AsyncContext 재디스패치에서도 JWT 인증 컨텍스트가 유지되도록
+     * async dispatch 시에도 필터를 적용합니다.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
+    private void setErrorResponse(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+        if (response.isCommitted()) {
+            return;
+        }
+        response.setStatus(errorCode.getStatus());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+
+        ErrorResponse errorResponse = ErrorResponse.of(errorCode);
+
+        String result = objectMapper.writeValueAsString(errorResponse);
+        response.getWriter().write(result);
+    }
+}
