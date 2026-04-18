@@ -3,7 +3,7 @@
 <!-- logo -->
 <img src="./assets/맛따라술따라-readme.png" width="320"/>
 
-### 맛따라 술따라 - AI 챗봇 프로젝트 ✅
+### 맛따라 술따라 - AI 챗봇 프로젝트
 
 [<img src="https://img.shields.io/badge/-readme.md-important?style=flat&logo=google-chrome&logoColor=white" />](./README.md)
 [<img src="https://img.shields.io/badge/-project-blue?style=flat&logo=google-chrome&logoColor=white" />]()
@@ -35,8 +35,7 @@ AI 레이어는 **FastAPI**로 노출되고, 대화 흐름은 **LangGraph**(`Sta
 
 ### AI 아키텍처
 
-
-![AI 아키텍처](./assets/ai-architecture.png)
+![AI 아키텍처](./assets/맛따라술따라_ai아키텍처.png)
 
 <br />
 
