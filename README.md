@@ -18,7 +18,7 @@
 
 다음과 같은 내용을 담고 있습니다.
 - 프로젝트 소개
-- 프로젝트 화면 구성
+- 주요 기능 및 화면 구성
 - 프로젝트 API 설계
 - 사용한 기술 스택
 - 프로젝트 아키텍처
@@ -30,12 +30,12 @@
 <br />
 
 ### 화면 구성
-|Screen #1|Screen #2|
-|:---:|:---:|
-|<img src="https://user-images.githubusercontent.com/80824750/208456048-acbf44a8-cd71-4132-b35a-500047adbe1c.gif" width="400"/>|<img src="https://user-images.githubusercontent.com/80824750/208456234-fb5fe434-aa65-4d7a-b955-89098d5bbe0b.gif" width="400"/>|
 
-### 프로토타입
-<img src="https://user-images.githubusercontent.com/80824750/208454673-0449e49c-57c6-4a6b-86cf-66c5b1e623dc.png">
+| 구현 기술 | 동작 화면 | 구현 기술 | 동작 화면 | 구현 기술 | 동작 화면 |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 소셜 로그인 (구글·네이버) | <img src="./assets/맛따라술따라_로그인.gif" alt="소셜 로그인" width="220"/> | 선호 온보딩 | <img src="./assets/맛따라술따라_온보딩.gif" alt="선호 온보딩" width="220"/> | 홈 · AI 추천 챗봇 | <img src="./assets/맛따라술따라_챗봇.gif" alt="AI 추천 챗봇" width="220"/> |
+| 장소 추천 · 지도 마커 | <img src="./assets/맛따라술따라_장소추천.gif" alt="카카오 지도" width="220"/> | 홈 · 장소 리뷰 | <img src="./assets/gif/place-review.gif" alt="장소 리뷰" width="220"/> | 맛집 검색 | <img src="./assets/gif/search.gif" alt="맛집 검색" width="220"/> |
+| 마이플랜 관리·공유 | <img src="./assets/맛따라술따라_플랜생성_공유.gif" alt="마이플랜" width="220"/> |  |  |  |  |
 
 <br />
 
