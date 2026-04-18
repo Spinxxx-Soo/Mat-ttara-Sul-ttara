@@ -31,11 +31,16 @@
 
 ### 화면 구성
 
-| 구현 기술 | 동작 화면 | 구현 기술 | 동작 화면 | 구현 기술 | 동작 화면 |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| 소셜 로그인 (구글·네이버) | <img src="./assets/맛따라술따라_로그인.gif" alt="소셜 로그인" width="220"/> | 선호 온보딩 | <img src="./assets/맛따라술따라_온보딩.gif" alt="선호 온보딩" width="220"/> | 홈 · AI 추천 챗봇 | <img src="./assets/맛따라술따라_챗봇.gif" alt="AI 추천 챗봇" width="220"/> |
-| 장소 추천 · 지도 마커 | <img src="./assets/맛따라술따라_장소추천.gif" alt="카카오 지도" width="220"/> | 홈 · 장소 리뷰 | <img src="./assets/gif/place-review.gif" alt="장소 리뷰" width="220"/> | 맛집 검색 | <img src="./assets/gif/search.gif" alt="맛집 검색" width="220"/> |
-| 마이플랜 관리·공유 | <img src="./assets/맛따라술따라_플랜생성_공유.gif" alt="마이플랜" width="220"/> |  |  |  |  |
+| 화면 구성 | 화면 구성 |
+|:---:|:---:|
+| 로그인 (소셜 로그인) | 선호 온보딩 |
+| <img src="./assets/맛따라술따라_로그인.gif" alt="로그인" width="320"/> | <img src="./assets/맛따라술따라_온보딩.gif" alt="선호 온보딩" width="320"/> |
+| 챗봇 화면 | 장소 추천 · 지도 마커 |
+| <img src="./assets/맛따라술따라_챗봇.gif" alt="챗봇 구현 화면" width="320"/> | <img src="./assets/맛따라술따라_장소추천.gif" alt="장소 추천 지도 마커" width="320"/> |
+| 홈 · 장소 리뷰 | 맛집 검색 |
+| GIF 준비중 | GIF 준비중 |
+| 마이플랜 관리·공유 |  |
+| <img src="./assets/맛따라술따라_플랜생성_공유.gif" alt="마이플랜 관리·공유" width="320"/> |  |
 
 <br />
 
