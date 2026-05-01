@@ -126,9 +126,3 @@ AI 레이어는 **FastAPI**로 노출되고, 대화 흐름은 **LangGraph**(`Sta
     - Rule-based 전처리 + 필요 시 LLM 호출하는 하이브리드 구조 적용
 
 <br />
-
-## 💁‍♂️ 프로젝트 팀원
-|Backend|Frontend|AI|
-|:---:|:---:|:---:|
-| ![](https://github.com/octocat.png?size=120) | ![](https://github.com/octocat.png?size=120) | ![](https://github.com/octocat.png?size=120) |
-|[Backend 팀원](https://github.com/)|[Frontend 팀원](https://github.com/)|[Soomin](https://github.com/)|
