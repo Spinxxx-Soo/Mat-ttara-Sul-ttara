@@ -54,14 +54,6 @@ AI 레이어는 **FastAPI**로 노출되고, 대화 흐름은 **LangGraph**(`Sta
 
 <br />
 
-## 🗂️ APIs
-
-작성한 API는 아래에서 확인할 수 있습니다.
-
-👉🏻 [API 바로보기](./backend/APIs.md)
-
-<br />
-
 ## ⚙ 기술 스택
 
 ### Frontend
